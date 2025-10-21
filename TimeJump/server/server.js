@@ -25,7 +25,8 @@ const server = http.createServer(async (req, res) => {
 
     if(req.url === '/employee' && req.method === 'GET'){
         try{
-            const[rows] = await con.query('SELECT * FROM timejumpdb.employee');
+            const[result] = await con.query('CALL sp_GetAllEmployees()');
+            const rows = result[0];
             res.writeHead(200, {'Content-Type': 'application/json'});
             res.end(JSON.stringify(rows));
         }catch(error){
