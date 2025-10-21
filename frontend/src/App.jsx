@@ -7,7 +7,16 @@ function App() {
   const [count, setCount] = useState(0)
 
   return (
-    <>
+
+    <header>
+      <h1>TimeJump™</h1>
+      <nav>
+        <a href="#">Rides</a>
+        <a href="#">Tickets</a>
+        <a href="#">About Us</a>
+      </nav>
+    </header>
+    /*<>
       <div>
         <a href="https://vite.dev" target="_blank">
           <img src={viteLogo} className="logo" alt="Vite logo" />
@@ -28,7 +37,7 @@ function App() {
       <p className="read-the-docs">
         Click on the Vite and React logos to learn more
       </p>
-    </>
+    </>*/
   )
 }
 
