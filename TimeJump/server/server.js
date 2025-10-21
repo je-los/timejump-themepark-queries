@@ -23,9 +23,9 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
-    if(req.url === '/api/employee' && req.method === 'GET'){
+    if(req.url === '/employee' && req.method === 'GET'){
         try{
-            const[rows] = await con.query('SELECT * FROM employee');
+            const[rows] = await con.query('SELECT * FROM timejumpdb.employee');
             res.writeHead(200, {'Content-Type': 'application/json'});
             res.end(JSON.stringify(rows));
         }catch(error){
