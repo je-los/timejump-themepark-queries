@@ -13,8 +13,6 @@ const getAllAttractions = async (req, res) => {
   }
 };
 
-// Get a single attraction
-// The 'id' will be passed from our router
 const getAttractionById = async (req, res, id) => {
   try {
     const attraction = await attractionModel.getById(id);
@@ -30,7 +28,6 @@ const getAttractionById = async (req, res, id) => {
   }
 };
 
-// Create a new attraction
 const createAttraction = async (req, res) => {
   try {
     const body = await parseBody(req);
@@ -41,7 +38,6 @@ const createAttraction = async (req, res) => {
     sendJSON(res, 201, newAttraction); // 201 means "Created"
   } catch (error) {
     console.error(error);
-    // 400 means "Bad Request" (e.g., malformed JSON)
     sendError(res, 400, 'Invalid attraction data'); 
   }
 };
