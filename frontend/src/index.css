@@ -1,68 +1,25 @@
-:root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+:root{
+  --bg:#0a0a0a; --bg-soft:#121212; --panel:#1b1b1b;
+  --text:#f6f7f9; --muted:#c7cbd4; --brand:#ff5a00; --brand-2:#ffd000;
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
+html,body,#root {height:100%}
+body{ margin:0; background:#0a0a0a; color:var(--text); font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif }
+a{ color:inherit; text-decoration:none }
+.container{ max-width:1200px; margin:0 auto; padding:0 20px }
+.section{ padding:48px 0 }
+.section h2{ font-size:2.2rem; margin:0 0 18px }
+.btn{ display:inline-block; padding:12px 20px; border-radius:6px; font-weight:700 }
+.btn-primary{ background:var(--brand); color:white }
+.btn-ghost{ border:1px solid rgba(255,255,255,.2) }
+.badge{ display:inline-block; padding:4px 10px; border-radius:99px; background:var(--brand-2); color:#111; font-weight:700; font-size:.85rem }
+.card{
+  background:linear-gradient(180deg,#171717, #121212);
+  border:1px solid rgba(255,255,255,.06);
+  border-radius:12px; overflow:hidden
 }
-a:hover {
-  color: #535bf2;
-}
-
-body {
-  margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
-}
-
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
-}
-
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
-}
-
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
-}
+.card:hover{ transform:translateY(-2px); transition:.25s; box-shadow:0 10px 24px rgba(0,0,0,.35) }
+.grid-3{ display:grid; gap:20px; grid-template-columns:repeat(3,1fr) }
+.scroller{ display:flex; gap:16px; overflow-x:auto; padding-bottom:6px }
+.scroller::-webkit-scrollbar{ height:8px }
+.scroller::-webkit-scrollbar-thumb{ background:#333; border-radius:8px }

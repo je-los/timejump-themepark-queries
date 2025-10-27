@@ -1,0 +1,13 @@
+.atx-header{
+  display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:16px
+}
+.atx-controls{ display:flex; gap:10px; align-items:center }
+.atx-input,.atx-select{
+  background:#121212; color:#f6f7f9; border:1px solid rgba(255,255,255,.12);
+  padding:10px 12px; border-radius:10px; min-width:200px
+}
+.atx-input{ min-width:260px }
+.atx-grid{
+  display:grid; gap:18px;
+  grid-template-columns: repeat(3, minmax(0,1fr));
+}

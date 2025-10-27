@@ -1,28 +1,37 @@
-# Logs
-logs
-*.log
+# Node
+node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
-lerna-debug.log*
-
-node_modules
-dist
-dist-ssr
-*.local
-
-
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
-.DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-
-
 package-lock.json
+pnpm-lock.yaml
+yarn.lock
+
+# Vite
+dist/
+.cache/
+.temp/
+.tmp/
+
+# Env & credentials
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# OS/IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# Testing / coverage
+coverage/
+*.lcov
+
+# Asset bundles & local zips
+*.zip
+timejump-assets.zip
