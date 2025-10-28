@@ -9,20 +9,24 @@ const router = (req, res) => {
   const path = parsedUrl.pathname;
   console.log(`Request received for: ${req.method} ${path}`);
 
-  testRoute(req,res,path)
+  
 
-  // DELEGATION LOGIC
-  // if (path.startsWith('/api/attractions')) {
-  //   handleAttractionRoutes(req, res, path); // This file is now responsible for its *own* 404s
 
-  // } else if (path.startsWith('/api/employees')) {
-  //   handleEmployeeRoutes(req, res, path); // This file is now responsible for its *own* 404s
+  //DELEGATION LOGIC
+  if(path == '/'){
+     // RETURN FRONTEND
+    testRoute(req,res,path)
+  } else if (path.startsWith('/api/attractions')) {
+    handleAttractionRoutes(req, res, path); // This file is now responsible for its *own* 404s
 
-  // } else {
+  } else if (path.startsWith('/api/employees')) {
+    handleEmployeeRoutes(req, res, path); // This file is now responsible for its *own* 404s
+
+  } else {
     
-  //   res.writeHead(404, { 'Content-Type': 'application/json' });
-  //   res.end(JSON.stringify({ message: 'Route not found' }));
-  // }
+    res.writeHead(404, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ message: 'Route not found' }));
+  }
 };
 
 module.exports = router;

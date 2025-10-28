@@ -5,7 +5,7 @@ function handleAttractionRoutes(req, res, path) {
   const attractionIdMatch = path.match(/^\/api\/attractions\/([0-9]+)$/);
 
   if (req.method === 'GET' && path === '/api/attractions') {
-    attractionController.getAllAttractions(req, res);
+    return attractionController.getAllAttractions(req, res);
   
   } else if (req.method === 'GET' && attractionIdMatch) {
     const id = attractionIdMatch[1];

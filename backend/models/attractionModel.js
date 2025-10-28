@@ -2,7 +2,7 @@ const db = require('../config/db');
 
 const getAll = async () => {
     const sql = ` 
-        SELECT AttractionID, Name, AttractionType, Duration, HeightRestriction, Cancelled
+        SELECT AttractionID, Name, AttractionTypeID, ThemeID, HeightRestriction,RidersPerVehicle
         FROM attraction;
         `;
 
