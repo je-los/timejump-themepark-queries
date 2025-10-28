@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/authcontext.jsx';
-import { useCart } from '../context/CartContext';
+import { useCart } from '../context/cartcontext.jsx';
 
 const CATEGORY_ORDER = ['day', 'annual', 'birthday', 'other'];
 

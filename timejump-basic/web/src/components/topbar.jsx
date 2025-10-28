@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/authcontext.jsx';
-import { useCart } from '../context/CartContext';
-import CartModal from './CartModal';
+import { useCart } from '../context/cartcontext.jsx';
+import CartModal from './cartmodal.jsx';
 
 export default function TopBar({ onAuth }) {
   const { user, signOut } = useAuth();

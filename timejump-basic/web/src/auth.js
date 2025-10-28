@@ -20,6 +20,7 @@ export async function me(){
 
 export async function login(email, password){
   const base = import.meta.env.VITE_API_URL || '';
+  console.log(password);
   const res = await fetch(base + '/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useCart } from '../context/CartContext';
+import { useCart } from '../context/cartcontext.jsx';
 
 export default function FoodVendors(){
   const { add } = useCart();

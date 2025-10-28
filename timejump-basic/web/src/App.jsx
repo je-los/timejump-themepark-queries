@@ -1,18 +1,18 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import Nav from './components/Nav';
-import Home from './pages/Home';
-import GiftShop from './pages/GiftShop';
-import FoodVendors from './pages/FoodVendors';
-import Admin from './pages/Admin';
+import Home from './pages/home.jsx';
+import GiftShop from './pages/giftshop.jsx';
+import FoodVendors from './pages/foodvendors.jsx';
+import Admin from './pages/admin.jsx';
 import ReportsWorkspace from './pages/reportsworkspace.jsx';
-import Manager from './pages/Manager';
+import Manager from './pages/manager.jsx';
 import TicketCatalog from './pages/ticketcatalog.jsx';
 import RidesAndAttractions from './pages/ridesandattractions.jsx';
 import ThemeView from './pages/themeview.jsx';
 import RideView from './pages/rideview.jsx';
 import TopBar from './components/topbar.jsx';
-import { CartProvider } from './context/CartContext';
-import LoginModal from './components/LoginModal';
+import { CartProvider } from './context/cartcontext.jsx';
+import LoginModal from './components/loginmodal.jsx';
 import { useAuth } from './context/authcontext.jsx';
 
 const BASE_TABS = ['Home','Tickets','Attractions','GiftShop','FoodVendors'];
