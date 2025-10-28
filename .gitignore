@@ -1,0 +1,20 @@
+﻿# Node & build output
+node_modules/
+dist/
+build/
+.temp/
+coverage/
+
+# Environment & secrets
+.env
+server/.env
+*.local
+*.log
+
+# OS/editor cruft
+.DS_Store
+Thumbs.db
+*.tmp
+
+# Keep local exports only
+timejump-export/
