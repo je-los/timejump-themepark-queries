@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import Nav from './components/Nav';
+import Nav from './components/nav.jsx';
 import Home from './pages/home.jsx';
 import GiftShop from './pages/giftshop.jsx';
 import FoodVendors from './pages/foodvendors.jsx';
