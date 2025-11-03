@@ -21,7 +21,7 @@ jobs:
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.DEPLOY_KEY }}
-          source: "./timejump-basic/server/src*"
+          source: "./timejump-basic/server/src/*"
           target: "/home/ubuntu/timejump-basic/server/src"
 
       - name: Copy web files to server
@@ -30,7 +30,7 @@ jobs:
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.DEPLOY_KEY }}
-          source: "./timejump-basic/web/src*"
+          source: "./timejump-basic/web/src/*"
           target: "/home/ubuntu/timejump-basic/web/src"
 
       - name: Restart systemd services
