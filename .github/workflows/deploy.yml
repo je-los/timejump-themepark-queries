@@ -20,4 +20,4 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.DEPLOY_KEY }}
           script: |
-            echo "hello... its me"
+            ls
