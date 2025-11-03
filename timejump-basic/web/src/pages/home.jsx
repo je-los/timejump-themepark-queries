@@ -42,8 +42,8 @@ export default function Home({ onNavigate }) {
     <div className="page">
       <section className="home-hero">
         <div className="home-hero__inner">
-          <div className="home-hero__badge">Time Jump Theme Park: The Super World</div>
-          <h1>Skip Through Time, One Thrill at a Time.</h1>
+          <div className="home-hero__badge">Time Jump Theme Park</div>
+          <h1>Skip Through Time, One Thrill at a Time CORNYYY.</h1>
           <p>
             Journey from prehistoric jungles to neon skylines in a single day. Discover rides for families,
             adventurers, and thrill seekers—plus dining, shows, and unforgettable souvenirs.
