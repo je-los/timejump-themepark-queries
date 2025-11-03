@@ -1,4 +1,4 @@
-name: Deploy to Server
+name: Deploy via SCP and SSH
 
 on:
   push:
@@ -10,14 +10,39 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # Step 1: Check out your repo
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Deploy to server via SSH
+      # Step 3: Upload files to your server
+      - name: Copy server files to server
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.DEPLOY_KEY }}
+          source: "./timejump-basic/server/src*"
+          target: "/home/ubuntu/timejump-basic/server/src"
+
+      - name: Copy web files to server
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.DEPLOY_KEY }}
+          source: "./timejump-basic/web/src*"
+          target: "/home/ubuntu/timejump-basic/web/src"
+
+      - name: Restart systemd services
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.DEPLOY_KEY }}
           script: |
-            ls
+            echo "Restarting TimeJump services..."
+            sudo systemctl daemon-reload
+            sudo systemctl restart timejump_react.service
+            sudo systemctl restart timejumpapp.service
+            sudo systemctl status timejump_react.service --no-pager
+            sudo systemctl status timejumpapp.service --no-pager
