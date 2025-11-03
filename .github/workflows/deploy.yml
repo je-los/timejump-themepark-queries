@@ -12,7 +12,10 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
+      - name: Debug secrets (no sensitive data)
+        run: |
+          echo "Server user: ${{ secrets.SERVER_USER }}"
+          echo "Server IP set? -> ${{ secrets.SERVER_IP != '' }}"
       - name: Deploy to server via SSH
         uses: appleboy/ssh-action@v1.1.0
         with:
