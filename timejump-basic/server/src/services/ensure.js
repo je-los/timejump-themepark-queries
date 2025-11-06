@@ -71,6 +71,19 @@ export async function ensureParkingCatalogTable() {
   cache.set('parkingCatalog', true);
 }
 
+export async function ensureTicketCatalogTable() {
+  if (cache.has('ticketCatalog')) return;
+  await query(`
+    CREATE TABLE IF NOT EXISTS ticket_catalog (
+      ticket_type VARCHAR(80) PRIMARY KEY,
+      price DECIMAL(10,2) NOT NULL DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )
+  `);
+  cache.set('ticketCatalog', true);
+}
+
 export async function ensureScheduleNotesTable() {
   if (cache.has('scheduleNotes')) return;
   await query(`
@@ -82,4 +95,37 @@ export async function ensureScheduleNotesTable() {
     )
   `);
   cache.set('scheduleNotes', true);
+}
+
+export async function ensureTicketPurchaseTables() {
+  if (cache.has('ticketPurchases')) return;
+  await query(`
+    CREATE TABLE IF NOT EXISTS ticket_purchase (
+      purchase_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      user_id INT UNSIGNED NOT NULL,
+      item_name VARCHAR(160) NOT NULL,
+      item_type VARCHAR(32) NOT NULL,
+      quantity INT UNSIGNED NOT NULL DEFAULT 1,
+      price DECIMAL(10,2) NOT NULL DEFAULT 0,
+      details LONGTEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_ticket_purchase_user (user_id),
+      CONSTRAINT fk_ticket_purchase_user FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE
+    )
+  `);
+  cache.set('ticketPurchases', true);
+}
+
+export async function ensureUserProfileTable() {
+  if (cache.has('userProfiles')) return;
+  await query(`
+    CREATE TABLE IF NOT EXISTS user_profile (
+      user_id INT UNSIGNED PRIMARY KEY,
+      full_name VARCHAR(160),
+      phone VARCHAR(40),
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      CONSTRAINT fk_user_profile_user FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE
+    )
+  `);
+  cache.set('userProfiles', true);
 }

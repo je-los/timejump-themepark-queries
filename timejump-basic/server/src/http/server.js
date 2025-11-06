@@ -7,6 +7,7 @@ import { resolveAuthUser } from '../middleware/auth.js';
 import { formatDuration } from '../utils/time.js';
 import { performance } from 'perf_hooks';
 
+dotenv.config({ path: '.env.local', override: true }); //for local use
 dotenv.config();
 
 const DEFAULT_MAX_BODY = 1024 * 1024; // 1MB

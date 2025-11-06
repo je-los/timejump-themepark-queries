@@ -1,9 +1,15 @@
-// Minimal auth helpers + /me probe
+﻿// Minimal auth helpers + /me probe
 const KEY = 'tj_token';
 
 export function setToken(t){ localStorage.setItem(KEY, t); }
 export function getToken(){ return localStorage.getItem(KEY); }
 export function clearToken(){ localStorage.removeItem(KEY); }
+
+async function readJson(res){
+  const text = await res.text();
+  if (!text) return {};
+  try { return JSON.parse(text); } catch { return {}; }
+}
 
 export async function me(){
   const t = getToken(); if(!t) return null;
@@ -13,21 +19,32 @@ export async function me(){
     });
     if(!r.ok) return null;
     const j = await r.json();
-    // Expected shape from API: { me: { email, role } }
     return j?.me ?? null;
   }catch{ return null; }
 }
 
 export async function login(email, password){
   const base = import.meta.env.VITE_API_URL || '';
-  console.log(password);
   const res = await fetch(base + '/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password })
   });
-  if(!res.ok) throw new Error('Invalid credentials');
-  const j = await res.json();
+  const j = await readJson(res);
+  if(!res.ok) throw new Error(j?.error || 'Invalid credentials');
+  if (j?.token) setToken(j.token);
+  return j;
+}
+
+export async function signup(email, password){
+  const base = import.meta.env.VITE_API_URL || '';
+  const res = await fetch(base + '/signup', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password })
+  });
+  const j = await readJson(res);
+  if(!res.ok) throw new Error(j?.error || 'Unable to create account');
   if (j?.token) setToken(j.token);
   return j;
 }
@@ -42,9 +59,7 @@ export async function api(path, opts={}){
     ...(t ? { Authorization: 'Bearer ' + t } : {}),
   };
   const res = await fetch(base + path, { ...opts, headers });
-  const text = await res.text();
-  let json;
-  try { json = text ? JSON.parse(text) : {}; } catch { json = {}; }
+  const json = await readJson(res);
   if (!res.ok) {
     const err = new Error(json?.error || 'Request failed');
     err.status = res.status;

@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import App from './App.jsx';
 import './styles.css';
 import { AuthProvider } from './context/authcontext.jsx';
+import { BrowserRouter } from 'react-router-dom';
 
 console.log('[main] loaded');
 const el = document.getElementById('root');
@@ -11,9 +12,11 @@ if (!el) {
 } else {
   createRoot(document.getElementById('root')).render(
     <React.StrictMode>
-      <AuthProvider>
-        <App />
-      </AuthProvider>
+      <BrowserRouter>
+        <AuthProvider>
+          <App />
+        </AuthProvider>
+      </BrowserRouter>
     </React.StrictMode>
-    );
+  );
 }

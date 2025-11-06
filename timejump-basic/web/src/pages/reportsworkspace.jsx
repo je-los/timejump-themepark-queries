@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import RequireRole from '../components/requirerole.jsx';
 import Reports from './reports.jsx';
 import { api } from '../auth';
+import { useAuth } from '../context/authcontext.jsx';
 
 const SECTION_ORDER = [
   { key: 'operations', label: 'Operations Reports' },
@@ -9,6 +10,16 @@ const SECTION_ORDER = [
   { key: 'incidents', label: 'Incidents' },
   { key: 'analytics', label: 'Data Explorer' },
 ];
+
+const MAINTENANCE_TYPES = [
+  { value: 'Inspection', label: 'Inspection' },
+  { value: 'Annual check-up', label: 'Annual Check-Up' },
+  { value: 'Repair', label: 'Repair' },
+  { value: 'Emergency fix', label: 'Emergency Fix' },
+  { value: 'Upgrade', label: 'Upgrade' },
+];
+
+const MAINTENANCE_SEVERITIES = ['Low', 'Medium', 'High', 'Critical'];
 
 export default function ReportsWorkspace() {
   return (
@@ -110,9 +121,24 @@ function SectionHeader({ title, description }) {
 }
 
 function MaintenanceSection() {
+  const { actualRole, role } = useAuth();
+  const resolvedRole = actualRole || role;
+  const canCreate = ['manager', 'admin', 'owner'].includes(resolvedRole);
+  const [refreshKey, setRefreshKey] = useState(0);
+
   return (
     <div className="workspace-panel-grid">
-      <ManualMaintenanceForm />
+      {canCreate ? (
+        <ManualMaintenanceForm onSaved={() => setRefreshKey(key => key + 1)} />
+      ) : (
+        <div className="workspace-panel">
+          <h3>Maintenance logging</h3>
+          <p className="workspace-panel__intro">
+            Maintenance requests can be logged by managers, admins, or owners. Reach out to your supervisor if you
+            need access.
+          </p>
+        </div>
+      )}
       <DataTable
         title="Recent Maintenance"
         path="/maintenance"
@@ -126,15 +152,31 @@ function MaintenanceSection() {
           'Severity_of_report',
         ]}
         emptyMessage="No maintenance records found."
+        refreshKey={refreshKey}
+        onRefresh={() => setRefreshKey(key => key + 1)}
       />
     </div>
   );
 }
 
 function IncidentSection() {
+  const { actualRole, role } = useAuth();
+  const resolvedRole = actualRole || role;
+  const canCreate = ['manager', 'admin', 'owner'].includes(resolvedRole);
+  const [refreshKey, setRefreshKey] = useState(0);
+
   return (
     <div className="workspace-panel-grid">
-      <ManualIncidentForm />
+      {canCreate ? (
+        <ManualIncidentForm onSaved={() => setRefreshKey(key => key + 1)} />
+      ) : (
+        <div className="workspace-panel">
+          <h3>Incident logging</h3>
+          <p className="workspace-panel__intro">
+            Only managers, admins, and owners can file incidents. Contact a supervisor if you need to escalate an issue.
+          </p>
+        </div>
+      )}
       <DataTable
         title="Recent Incidents"
         path="/incidents"
@@ -146,23 +188,51 @@ function IncidentSection() {
           'Details',
         ]}
         emptyMessage="No incidents logged."
+        refreshKey={refreshKey}
+        onRefresh={() => setRefreshKey(key => key + 1)}
       />
     </div>
   );
 }
 
-function ManualMaintenanceForm() {
+function ManualMaintenanceForm({ onSaved }) {
   const [form, setForm] = useState({
     attractionId: '',
     employeeId: '',
     dateBroken: '',
     dateFixed: '',
-    type: '',
-    severity: '',
+    type: MAINTENANCE_TYPES[0].value,
+    severity: MAINTENANCE_SEVERITIES[1],
     description: '',
   });
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    api('/incidents/meta')
+      .then(res => {
+        if (!active) return;
+        const info = res?.data || {};
+        const types = Array.isArray(info.types) && info.types.length ? info.types : [];
+        const severities = Array.isArray(info.severities) && info.severities.length ? info.severities : [1, 2, 3, 4, 5];
+        setMeta({ types, severities });
+        setMetaError('');
+        setForm(prev => ({
+          ...prev,
+          type: prev.type || (types[0]?.id ? String(types[0].id) : prev.type),
+          severity: prev.severity || String(severities[0] ?? ''),
+        }));
+      })
+      .catch(err => {
+        if (!active) return;
+        setMeta({ types: [], severities: [1, 2, 3, 4, 5] });
+        setMetaError(err?.message || 'Unable to load incident metadata.');
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   async function submit(e) {
     e.preventDefault();
@@ -249,7 +319,7 @@ function ManualMaintenanceForm() {
   );
 }
 
-function ManualIncidentForm() {
+function ManualIncidentForm({ onSaved }) {
   const [form, setForm] = useState({
     type: '',
     employeeId: '',
@@ -259,8 +329,36 @@ function ManualIncidentForm() {
     severity: '',
     details: '',
   });
+  const [meta, setMeta] = useState({ types: [], severities: [1, 2, 3, 4, 5] });
+  const [metaError, setMetaError] = useState('');
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    api('/incidents/meta')
+      .then(res => {
+        if (!active) return;
+        const info = res?.data || {};
+        const types = Array.isArray(info.types) && info.types.length ? info.types : [];
+        const severities = Array.isArray(info.severities) && info.severities.length ? info.severities : [1, 2, 3, 4, 5];
+        setMeta({ types, severities });
+        setMetaError('');
+        setForm(prev => ({
+          ...prev,
+          type: prev.type || (types[0]?.id ? String(types[0].id) : ''),
+          severity: prev.severity || String(severities[0] ?? ''),
+        }));
+      })
+      .catch(err => {
+        if (!active) return;
+        setMeta({ types: [], severities: [1, 2, 3, 4, 5] });
+        setMetaError(err?.message || 'Unable to load incident metadata.');
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   async function submit(e) {
     e.preventDefault();
@@ -282,14 +380,15 @@ function ManualIncidentForm() {
       });
       setStatus('Incident recorded.');
       setForm({
-        type: '',
+        type: meta.types[0]?.id ? String(meta.types[0].id) : '',
         employeeId: '',
         ticketId: '',
         occurredAt: '',
         location: '',
-        severity: '',
+        severity: meta.severities[0] !== undefined ? String(meta.severities[0]) : '',
         details: '',
       });
+      if (onSaved) onSaved();
     } catch (err) {
       setStatus(err?.message || 'Unable to record incident.');
     } finally {
@@ -304,10 +403,21 @@ function ManualIncidentForm() {
         Capture high-level incident notes before handing the report off to security or HR.
       </p>
       <form onSubmit={submit} className="workspace-form">
+          {metaError && <div className="alert error">{metaError}</div>}
         <div className="workspace-form__row">
           <label className="field">
-            <span>Incident Type ID</span>
-            <input className="input" value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))} placeholder="1" />
+            <span>Incident Type</span>
+            <select
+              className="input"
+              value={form.type}
+              onChange={e => setForm(f => ({ ...f, type: e.target.value }))}
+            >
+              {meta.types.map(type => (
+                <option key={type.id} value={type.id}>
+                  {type.name}
+                </option>
+              ))}
+            </select>
           </label>
           <label className="field">
             <span>Employee ID</span>
@@ -328,8 +438,18 @@ function ManualIncidentForm() {
             <input className="input" value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} placeholder="Frontier square, queue, etc." />
           </label>
           <label className="field">
-            <span>Severity (1-5)</span>
-            <input className="input" type="number" min={1} max={5} value={form.severity} onChange={e => setForm(f => ({ ...f, severity: e.target.value }))} />
+            <span>Severity</span>
+            <select
+              className="input"
+              value={form.severity}
+              onChange={e => setForm(f => ({ ...f, severity: e.target.value }))}
+            >
+              {meta.severities.map(level => (
+                <option key={level} value={level}>
+                  {level}
+                </option>
+              ))}
+            </select>
           </label>
         </div>
         <label className="field">
@@ -345,7 +465,7 @@ function ManualIncidentForm() {
   );
 }
 
-function DataTable({ title, path, columns, emptyMessage }) {
+function DataTable({ title, path, columns, emptyMessage, refreshKey = 0, onRefresh }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -366,12 +486,19 @@ function DataTable({ title, path, columns, emptyMessage }) {
       })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [path]);
+  }, [path, refreshKey]);
 
   return (
     <div className="workspace-panel">
-      <h3>{title}</h3>
-      {loading && <div className="text-sm text-gray-700">Loading…</div>}
+      <div className="workspace-panel__top">
+        <h3>{title}</h3>
+        {onRefresh && (
+          <button className="btn" type="button" onClick={onRefresh} disabled={loading}>
+            {loading ? 'Refreshing...' : 'Refresh'}
+          </button>
+        )}
+      </div>
+      {loading && <div className="text-sm text-gray-700">Loading...</div>}
       {!loading && error && <div className="alert error">{error}</div>}
       {!loading && !error && rows.length === 0 && (
         <div className="workspace-table__empty">{emptyMessage}</div>
@@ -546,3 +673,19 @@ function AnalyticsTab() {
     </div>
   );
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

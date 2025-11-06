@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/authcontext.jsx';
 import { useCart } from '../context/cartcontext.jsx';
 
@@ -18,13 +19,38 @@ function categorizeTicket(name = '') {
   return 'day';
 }
 
-export default function TicketCatalog({ filter='all', onRequireAuth }) {
+export default function TicketCatalog({ filter = 'all' }) {
   const { user } = useAuth();
   const { add } = useCart();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [tickets, setTickets] = useState([]);
   const [parkingOptions, setParkingOptions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [status, setStatus] = useState('');
+  const [statusTone, setStatusTone] = useState('info');
+  const statusTimer = useRef(null);
+
+  function showStatus(message, tone = 'info') {
+    if (statusTimer.current) {
+      window.clearTimeout(statusTimer.current);
+    }
+    setStatusTone(tone);
+    setStatus(message);
+    statusTimer.current = window.setTimeout(() => {
+      setStatus('');
+      statusTimer.current = null;
+    }, 2500);
+  }
+
+  useEffect(() => {
+    return () => {
+      if (statusTimer.current) {
+        window.clearTimeout(statusTimer.current);
+      }
+    };
+  }, []);
 
   useEffect(()=>{
     let active = true;
@@ -74,8 +100,14 @@ export default function TicketCatalog({ filter='all', onRequireAuth }) {
   const visibleCategories = filter === 'all' ? CATEGORY_ORDER : CATEGORY_ORDER.filter(cat => cat === filter);
 
   function handleSelect(ticket){
-    if(!user || user.role !== 'customer'){
-      onRequireAuth?.('login');
+    if(!user){
+      const redirect = `${location.pathname}${location.search || ''}`;
+      navigate(`/login?redirect=${encodeURIComponent(redirect)}`);
+      showStatus('Sign in as a customer to add tickets to cart.', 'warning');
+      return;
+    }
+    if (user.role !== 'customer') {
+      showStatus('Ticket purchases are limited to customer accounts.', 'warning');
       return;
     }
 
@@ -89,11 +121,18 @@ export default function TicketCatalog({ filter='all', onRequireAuth }) {
         category: categorizeTicket(ticket.name),
       }
     });
+    showStatus(`Added ${ticket.name} to your cart.`, 'success');
   }
 
   function handleAddParking(opt){
-    if(!user || user.role !== 'customer'){
-      onRequireAuth?.('login');
+    if(!user){
+      const redirect = `${location.pathname}${location.search || ''}`;
+      navigate(`/login?redirect=${encodeURIComponent(redirect)}`);
+      showStatus('Sign in as a customer to add parking.', 'warning');
+      return;
+    }
+    if (user.role !== 'customer') {
+      showStatus('Parking add-ons are available to customer accounts only.', 'warning');
       return;
     }
     add({
@@ -104,12 +143,23 @@ export default function TicketCatalog({ filter='all', onRequireAuth }) {
       qty: 1,
       meta: { lot: opt.name },
     });
+    showStatus(`Parking for ${opt.name} added to cart.`, 'success');
   }
 
   return (
     <div className="page">
       <div className="page-box page-box--wide">
         <h1>Tickets & Passes</h1>
+        {user && user.role !== 'customer' && (
+          <div className="alert warning">
+            Ticket purchases are available to customer accounts only.
+          </div>
+        )}
+        {status && (
+          <div className={`alert ${statusTone === 'success' ? 'success' : statusTone === 'warning' ? 'warning' : 'info'}`}>
+            {status}
+          </div>
+        )}
         {loading && <p className="text-sm text-gray-600">Loading ticket options...</p>}
         {error && <p className="alert error">{error}</p>}
         {!loading && !error && visibleCategories.every(cat => grouped[cat].length === 0) && (

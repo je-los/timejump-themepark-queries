@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const THEME_CARDS = [
   {
@@ -31,11 +32,11 @@ const THEME_CARDS = [
   },
 ];
 
-export default function Home({ onNavigate }) {
+export default function Home() {
+  const navigate = useNavigate();
+
   function go(path) {
-    if (typeof onNavigate === 'function') {
-      onNavigate(path);
-    }
+    navigate(path);
   }
 
   return (
@@ -49,13 +50,13 @@ export default function Home({ onNavigate }) {
             adventurers, and thrill seekers—plus dining, shows, and unforgettable souvenirs.
           </p>
           <div className="home-hero__actions">
-            <button className="btn primary" onClick={()=>go('Tickets')}>
+            <button className="btn primary" onClick={()=>go('/ticket-passes')}>
               Tickets &amp; Passes
             </button>
-            <button className="btn" onClick={()=>go('things-to-do/rides-attractions')}>
+            <button className="btn" onClick={()=>go('/things-to-do/rides-attractions')}>
               Explore Attractions
             </button>
-            <button className="btn" onClick={()=>go('ticket-passes/annual-passes')}>
+            <button className="btn" onClick={()=>go('/ticket-passes/annual-passes')}>
               Annual Passes
             </button>
           </div>
@@ -77,7 +78,7 @@ export default function Home({ onNavigate }) {
             <button
               key={card.key}
               className={`home-theme-card bg-gradient-to-br ${card.gradient}`}
-              onClick={()=>go(`theme/${card.href.split('/').pop()}`)}
+              onClick={()=>go(`/theme/${card.href.split('/').pop()}`)}
             >
               <div className="home-theme-card__content">
                 <h3>{card.title}</h3>
@@ -98,10 +99,10 @@ export default function Home({ onNavigate }) {
             traveler. Preview limited releases and skip the in-park line by adding favorites to your cart ahead of time.
           </p>
           <div className="home-gift-shop__actions">
-            <button className="btn primary" onClick={()=>go('GiftShop')}>
+            <button className="btn primary" onClick={()=>go('/things-to-do/shopping')}>
               Shop Souvenirs
             </button>
-            <button className="btn" onClick={()=>go('FoodVendors')}>
+            <button className="btn" onClick={()=>go('/things-to-do/dining')}>
               Plan Snacks &amp; Meals
             </button>
           </div>

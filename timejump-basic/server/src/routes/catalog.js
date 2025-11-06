@@ -3,14 +3,56 @@ import { requireRole } from '../middleware/auth.js';
 import {
   ensureDefaultFoodVendor,
   ensureDefaultGiftShop,
+  ensureTicketCatalogTable,
 } from '../services/ensure.js';
 
 export function registerCatalogRoutes(router) {
   router.get('/ticket-types', async ctx => {
-    const rows = await query(
-      'SELECT ticket_type AS name, price FROM ticket_catalog ORDER BY ticket_type ASC',
-    );
-    ctx.ok({ data: rows });
+    try {
+      await ensureTicketCatalogTable();
+    } catch {
+      // Table creation is best-effort; continue even if it fails for lack of permissions.
+    }
+
+    let catalogRows = await query(
+      'SELECT ticket_type AS ticket_type, price FROM ticket_catalog ORDER BY ticket_type ASC',
+    ).catch(err => {
+      if (err?.code && err.code !== 'ER_NO_SUCH_TABLE') {
+        console.error('ticket catalog query failed', err);
+      }
+      return [];
+    });
+
+    if (!Array.isArray(catalogRows)) catalogRows = [];
+
+    if (!catalogRows.length) {
+      const fallbackRows = await query(`
+        SELECT DISTINCT TicketType AS ticket_type, AVG(Price) AS price
+        FROM ticket
+        WHERE TicketType IS NOT NULL AND TicketType <> ''
+        GROUP BY TicketType
+        ORDER BY TicketType ASC
+      `).catch(() => []);
+
+      const fallbackData = (fallbackRows || [])
+        .map(row => ({
+          name: row.ticket_type ?? row.TicketType ?? row.ticketType ?? '',
+          price: Number(row.price ?? row.Price ?? 0),
+        }))
+        .filter(item => item.name);
+
+      ctx.ok({ data: fallbackData });
+      return;
+    }
+
+    const data = catalogRows
+      .map(row => ({
+        name: row.name ?? row.ticket_type ?? row.TicketType ?? row.ticketType ?? '',
+        price: Number(row.price ?? row.Price ?? 0),
+      }))
+      .filter(item => item.name);
+
+    ctx.ok({ data });
   });
 
   router.post('/ticket-types', requireRole(['owner', 'admin'])(async ctx => {
@@ -23,6 +65,11 @@ export function registerCatalogRoutes(router) {
     if (!Number.isFinite(price) || price < 0) {
       ctx.error(400, 'Ticket price must be a non-negative number.');
       return;
+    }
+    try {
+      await ensureTicketCatalogTable();
+    } catch {
+      // continue even if table creation fails
     }
     await query(
       'INSERT INTO ticket_catalog (ticket_type, price) VALUES (?, ?)',
@@ -42,6 +89,11 @@ export function registerCatalogRoutes(router) {
       ctx.error(400, 'Ticket price must be a non-negative number.');
       return;
     }
+    try {
+      await ensureTicketCatalogTable();
+    } catch {
+      // continue even if table creation fails
+    }
     const result = await query(
       'UPDATE ticket_catalog SET price = ? WHERE ticket_type = ?',
       [price, name],
@@ -58,6 +110,11 @@ export function registerCatalogRoutes(router) {
     if (!name) {
       ctx.error(400, 'Ticket name is required.');
       return;
+    }
+    try {
+      await ensureTicketCatalogTable();
+    } catch {
+      // continue even if table creation fails
     }
     const result = await query(
       'DELETE FROM ticket_catalog WHERE ticket_type = ?',
@@ -283,33 +340,64 @@ export function registerCatalogRoutes(router) {
   }));
 
   async function loadParkingLots() {
-    const rows = await query(`
-      SELECT parking_lot_id, lot_name, base_price, service_date, passes_today
-      FROM v_parking_lots_prices
-      ORDER BY lot_name
-    `).catch(async err => {
-      if (['ER_NO_SUCH_TABLE', 'ER_VIEW_INVALID'].includes(err?.code)) {
-        return query(`
-          SELECT parking_lot_id, lot_name, base_price
-          FROM parking_lot
-          ORDER BY lot_name
-        `);
+    let viewRows = [];
+    try {
+      viewRows = await query(`
+        SELECT parking_lot_id, lot_name, base_price, service_date, passes_today
+        FROM v_parking_lots_prices
+        ORDER BY lot_name
+      `);
+    } catch (err) {
+      if (!['ER_NO_SUCH_TABLE', 'ER_VIEW_INVALID'].includes(err?.code)) {
+        throw err;
       }
-      throw err;
-    });
-    return rows.map(row => ({
-      lotId: Number(row.parking_lot_id),
-      lot: row.lot_name,
-      price: Number(row.base_price ?? 0),
-      serviceDate: row.service_date
-        ? (row.service_date instanceof Date
-          ? row.service_date.toISOString().slice(0, 10)
-          : String(row.service_date))
-        : null,
-      passesToday: row.passes_today !== undefined && row.passes_today !== null
-        ? Number(row.passes_today)
-        : null,
-    }));
+    }
+
+    let tableRows = [];
+    try {
+      tableRows = await query(`
+        SELECT parking_lot_id, lot_name, base_price
+        FROM parking_lot
+        ORDER BY lot_name
+      `);
+    } catch {
+      tableRows = [];
+    }
+
+    const merged = new Map();
+    const addRow = raw => {
+      if (!raw) return;
+      const idValue = raw.parking_lot_id ?? raw.lotId ?? raw.id;
+      if (idValue === undefined || idValue === null) return;
+      const lotId = Number(idValue);
+      const lotName = raw.lot_name ?? raw.lot ?? '';
+      merged.set(lotId, {
+        parking_lot_id: lotId,
+        lot_name: lotName,
+        base_price: raw.base_price ?? raw.price ?? 0,
+        service_date: raw.service_date ?? raw.serviceDate ?? null,
+        passes_today: raw.passes_today ?? raw.passesToday ?? null,
+      });
+    };
+
+    tableRows.forEach(addRow);
+    viewRows.forEach(addRow);
+
+    return Array.from(merged.values())
+      .sort((a, b) => String(a.lot_name || '').localeCompare(String(b.lot_name || '')))
+      .map(row => ({
+        lotId: row.parking_lot_id,
+        lot: row.lot_name,
+        price: Number(row.base_price ?? 0),
+        serviceDate: row.service_date
+          ? (row.service_date instanceof Date
+            ? row.service_date.toISOString().slice(0, 10)
+            : String(row.service_date))
+          : null,
+        passesToday: row.passes_today !== undefined && row.passes_today !== null
+          ? Number(row.passes_today)
+          : null,
+      }));
   }
 
   router.get('/parking-lots', requireRole(['employee', 'manager', 'admin', 'owner'])(async ctx => {

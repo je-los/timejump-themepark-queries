@@ -12,6 +12,36 @@ const CREATE_MATRIX = {
 };
 
 export function registerAuthRoutes(router) {
+  router.post('/signup', async ctx => {
+    const email = String(ctx.body?.email || '').trim().toLowerCase();
+    const password = String(ctx.body?.password || '');
+    if (!email || !password) {
+      ctx.error(400, 'Email and password are required.');
+      return;
+    }
+    const existing = await query(
+      'SELECT user_id FROM users WHERE email = ? LIMIT 1',
+      [email],
+    );
+    if (existing.length) {
+      ctx.error(409, 'An account already exists for that email.');
+      return;
+    }
+    const hash = hashPassword(password);
+    const result = await query(
+      'INSERT INTO users (email, password_hash, role) VALUES (?, ?, ?)',
+      [email, hash, 'customer'],
+    );
+    const token = signToken({ sub: result.insertId, role: 'customer' });
+    ctx.created({
+      token,
+      me: {
+        email,
+        role: 'customer',
+      },
+    });
+  });
+
   router.post('/login', async ctx => {
     const email = String(ctx.body?.email || '').trim().toLowerCase();
     const password = String(ctx.body?.password || '');
