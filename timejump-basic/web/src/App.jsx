@@ -1,150 +1,90 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { Navigate, Route, Routes } from 'react-router-dom';
 import Nav from './components/nav.jsx';
 import Home from './pages/home.jsx';
 import GiftShop from './pages/giftshop.jsx';
 import FoodVendors from './pages/foodvendors.jsx';
-import Admin from './pages/admin.jsx';
+import Admin from './pages/admin/index.jsx';
 import ReportsWorkspace from './pages/reportsworkspace.jsx';
 import Manager from './pages/manager.jsx';
 import TicketCatalog from './pages/ticketcatalog.jsx';
 import RidesAndAttractions from './pages/ridesandattractions.jsx';
 import ThemeView from './pages/themeview.jsx';
 import RideView from './pages/rideview.jsx';
-import TopBar from './components/topbar.jsx';
+import Account from './pages/account.jsx';
+import LoginPage from './pages/login.jsx';
 import { CartProvider } from './context/cartcontext.jsx';
-import LoginModal from './components/loginmodal.jsx';
-import { useAuth } from './context/authcontext.jsx';
 
-const BASE_TABS = ['Home','Tickets','Attractions','GiftShop','FoodVendors'];
-const EXTRA_TABS = [
-  'ticket-passes',
-  'ticket-passes/day-tickets',
-  'ticket-passes/annual-passes',
-  'ticket-passes/birthday-package',
-  'things-to-do/rides-attractions',
-  'things-to-do/dining',
-  'things-to-do/shopping',
-];
-
-export default function App(){
-  const [tab, setTab] = useState('Home');
-  const [authMode, setAuthMode] = useState(null); // 'login' | 'signup' | null
-  const { user } = useAuth();
-  const displayRole = user?.role ?? null;
+export default function App() {
   const [rideLibrary, setRideLibrary] = useState({ themes: [], rides: [] });
   const [libraryLoading, setLibraryLoading] = useState(true);
   const [libraryError, setLibraryError] = useState('');
 
-  useEffect(()=>{
+  useEffect(() => {
     let active = true;
     setLibraryLoading(true);
     fetch(`${import.meta.env.VITE_API_URL}/ride-library`)
-      .then(r=> r.ok ? r.json() : Promise.reject(new Error('Failed to load rides')))
-      .then(j=>{
-        if(!active) return;
-        setRideLibrary(j?.data || { themes: [], rides: [] });
+      .then(res => (res.ok ? res.json() : Promise.reject(new Error('Failed to load rides'))))
+      .then(json => {
+        if (!active) return;
+        setRideLibrary(json?.data || { themes: [], rides: [] });
         setLibraryError('');
       })
-      .catch(err=>{
-        if(!active) return;
+      .catch(err => {
+        if (!active) return;
         setLibraryError(err?.message || 'Unable to load ride data.');
         setRideLibrary({ themes: [], rides: [] });
       })
-      .finally(()=>active && setLibraryLoading(false));
-    return ()=>{ active=false; };
-  },[]);
-
-  const availableTabs = useMemo(()=>{
-    const themeTabs = rideLibrary.themes?.map(theme => `theme/${theme.slug}`) || [];
-    const rideTabs = rideLibrary.rides?.map(ride => `ride/${ride.slug}`) || [];
-    const tabs = [...BASE_TABS, ...EXTRA_TABS, ...themeTabs, ...rideTabs];
-    if (displayRole && ['employee','manager','admin','owner'].includes(displayRole)) tabs.push('Reports');
-    if (displayRole && ['manager','admin','owner'].includes(displayRole)) tabs.push('Manager');
-    if (displayRole && ['admin','owner'].includes(displayRole)) tabs.push('Admin');
-    return Array.from(new Set(tabs));
-  },[displayRole, rideLibrary]);
-
-  useEffect(()=>{
-    if (!availableTabs.includes(tab)) {
-      setTab(availableTabs[0] || 'Home');
-    }
-  },[availableTabs, tab]);
+      .finally(() => active && setLibraryLoading(false));
+    return () => {
+      active = false;
+    };
+  }, []);
 
   return (
     <CartProvider>
       <div className="min-h-screen bg-gray-50">
-        <TopBar onAuth={setAuthMode} />
-        <Nav current={tab} onChange={setTab} onAuth={setAuthMode} themes={rideLibrary.themes} />
-        {renderContent(tab, {
-          onRequireAuth: setAuthMode,
-          onNavigate: setTab,
-          rideLibrary,
-          libraryLoading,
-          libraryError,
-        })}
+        <Nav themes={rideLibrary.themes} />
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route
+            path="/ticket-passes"
+            element={<TicketCatalog filter="all" />}
+          />
+          <Route
+            path="/ticket-passes/day-tickets"
+            element={<TicketCatalog filter="day" />}
+          />
+          <Route
+            path="/ticket-passes/annual-passes"
+            element={<TicketCatalog filter="annual" />}
+          />
+          <Route
+            path="/ticket-passes/birthday-package"
+            element={<TicketCatalog filter="birthday" />}
+          />
+          <Route
+            path="/things-to-do/rides-attractions"
+            element={
+              <RidesAndAttractions
+                library={rideLibrary}
+                loading={libraryLoading}
+                error={libraryError}
+              />
+            }
+          />
+          <Route path="/things-to-do/dining" element={<FoodVendors />} />
+          <Route path="/things-to-do/shopping" element={<GiftShop />} />
+          <Route path="/theme/:slug" element={<ThemeView />} />
+          <Route path="/ride/:slug" element={<RideView />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/account" element={<Account />} />
+          <Route path="/reports" element={<ReportsWorkspace />} />
+          <Route path="/manager" element={<Manager />} />
+          <Route path="/admin/*" element={<Admin />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
       </div>
-      {authMode && (
-        <LoginModal initialMode={authMode} onClose={()=>setAuthMode(null)} />
-      )}
     </CartProvider>
   );
-}
-
-function renderContent(tab, { onRequireAuth, onNavigate, rideLibrary, libraryLoading, libraryError }){
-  if (tab.startsWith('theme/')) {
-    const slug = tab.split('/')[1];
-    return (
-      <ThemeView
-        slug={slug}
-        library={rideLibrary}
-        loading={libraryLoading}
-        error={libraryError}
-        onNavigate={onNavigate}
-      />
-    );
-  }
-  if (tab.startsWith('ride/')) {
-    const slug = tab.split('/')[1];
-    return <RideView slug={slug} />;
-  }
-  switch(tab){
-    case 'Home':
-      return <Home onNavigate={onNavigate} />;
-    case 'Tickets':
-      return <TicketCatalog filter="all" onRequireAuth={onRequireAuth} />;
-    case 'ticket-passes':
-      return <TicketCatalog filter="all" onRequireAuth={onRequireAuth} />;
-    case 'ticket-passes/day-tickets':
-      return <TicketCatalog filter="day" onRequireAuth={onRequireAuth} />;
-    case 'ticket-passes/annual-passes':
-      return <TicketCatalog filter="annual" onRequireAuth={onRequireAuth} />;
-    case 'ticket-passes/birthday-package':
-      return <TicketCatalog filter="birthday" onRequireAuth={onRequireAuth} />;
-    case 'Attractions':
-    case 'things-to-do/rides-attractions':
-      return (
-        <RidesAndAttractions
-          library={rideLibrary}
-          loading={libraryLoading}
-          error={libraryError}
-          onNavigate={onNavigate}
-        />
-      );
-    case 'GiftShop':
-    case 'things-to-do/shopping':
-      return <GiftShop />;
-    case 'FoodVendors':
-    case 'things-to-do/dining':
-      return <FoodVendors />;
-    case 'things-to-do/dragon-riders-fury':
-      return <RideView slug="dragon-riders-fury" />;
-    case 'Reports':
-      return <ReportsWorkspace />;
-    case 'Manager':
-      return <Manager />;
-    case 'Admin':
-      return <Admin />;
-    default:
-      return <Home onNavigate={onNavigate} />;
-  }
 }

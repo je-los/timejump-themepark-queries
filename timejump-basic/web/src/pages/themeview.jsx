@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 
-export default function ThemeView({ slug, onNavigate }) {
+export default function ThemeView() {
+  const { slug } = useParams();
+  const navigate = useNavigate();
   const [theme, setTheme] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -46,7 +49,7 @@ export default function ThemeView({ slug, onNavigate }) {
                   <article key={ride.slug || ride.id} className="ride-card">
                     <header className="ride-card__header">
                       <h2>{ride.name}</h2>
-                      <button className="btn" onClick={()=>onNavigate?.(`ride/${ride.slug}`)}>View Ride</button>
+                      <button className="btn" onClick={()=>navigate(`/ride/${ride.slug}`)}>View Ride</button>
                     </header>
                     {ride.description && (
                       <p className="text-sm text-gray-700" style={{marginTop:8}}>

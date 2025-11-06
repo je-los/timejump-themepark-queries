@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 import { createServer } from './http/server.js';
 
+dotenv.config({ path: '.env.local', override: true }); //for local use
 dotenv.config();
 
 const PORT = Number(process.env.PORT || 4000);

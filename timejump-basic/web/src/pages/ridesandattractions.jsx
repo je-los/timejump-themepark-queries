@@ -1,8 +1,9 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 
-export default function RidesAndAttractions({ library, loading, error, onNavigate }) {
+export default function RidesAndAttractions({ library, loading, error }) {
+  const navigate = useNavigate();
   const themes = library?.themes || [];
-  const allRides = themes.flatMap(theme => (theme?.rides || []).map(ride => ({ ...ride, themeName: theme.name, themeSlug: theme.slug })));
 
   return (
     <div className="page">
@@ -26,13 +27,13 @@ export default function RidesAndAttractions({ library, loading, error, onNavigat
                     <h2>{theme.name}</h2>
                     {theme.description && <p>{theme.description}</p>}
                   </div>
-                  <button className="btn" onClick={()=>onNavigate?.(`theme/${theme.slug}`)}>
+                  <button className="btn" onClick={()=>navigate(`/theme/${theme.slug}`)}>
                     View {theme.name}
                   </button>
                 </div>
                 <div className="rides-zone__grid">
                   {(theme.rides || []).map(ride=>(
-                    <article key={ride.slug} className="ride-card-tile" onClick={()=>onNavigate?.(`ride/${ride.slug}`)}>
+                    <article key={ride.slug} className="ride-card-tile" onClick={()=>navigate(`/ride/${ride.slug}`)}>
                       <h3>{ride.name}</h3>
                       <p>{ride.description || ride.type || 'Attraction details coming soon.'}</p>
                       <div className="ride-card-tile__meta">

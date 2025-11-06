@@ -1,13 +1,18 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useCart } from '../context/cartcontext.jsx';
 import { api } from '../auth.js';
+import { useAuth } from '../context/authcontext.jsx';
 
 export default function CartModal({ onClose }) {
+  const { user } = useAuth();
   const { items, add, remove, updateQty, total, clear } = useCart();
   const [parkingOptions, setParkingOptions] = useState([]);
   const [parkingLoading, setParkingLoading] = useState(false);
   const [parkingError, setParkingError] = useState('');
   const [selectedLot, setSelectedLot] = useState('');
+  const [checkoutStatus, setCheckoutStatus] = useState('');
+  const [checkoutTone, setCheckoutTone] = useState('info');
+  const [checkoutBusy, setCheckoutBusy] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -69,6 +74,50 @@ export default function CartModal({ onClose }) {
       qty: 1,
       meta: { lot: option.name },
     });
+  }
+
+  async function handleCheckout() {
+    if (!items.length) {
+      setCheckoutStatus('Your cart is empty.');
+      setCheckoutTone('warning');
+      return;
+    }
+    if (!user) {
+      setCheckoutStatus('Please sign in to complete your purchase.');
+      setCheckoutTone('warning');
+      return;
+    }
+    if (user.role !== 'customer') {
+      setCheckoutStatus('Only customer accounts can complete ticket purchases.');
+      setCheckoutTone('warning');
+      return;
+    }
+    setCheckoutBusy(true);
+    setCheckoutStatus('');
+    try {
+      const payload = {
+        items: items.map(item => ({
+          id: item.id,
+          name: item.name,
+          kind: item.kind,
+          price: Number(item.price || 0),
+          qty: Number(item.qty || 1),
+          meta: item.meta || null,
+        })),
+      };
+      const res = await api('/checkout', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+      setCheckoutTone('success');
+      setCheckoutStatus(res?.message || 'Order complete! A confirmation has been sent to your account email.');
+      clear();
+    } catch (err) {
+      setCheckoutTone('error');
+      setCheckoutStatus(err?.message || 'Unable to complete checkout right now.');
+    } finally {
+      setCheckoutBusy(false);
+    }
   }
 
   return (
@@ -160,9 +209,27 @@ export default function CartModal({ onClose }) {
                 <div className="muted">Total</div>
                 <div style={{ fontSize: 20, fontWeight: 800 }}>${total.toFixed(2)}</div>
               </div>
+              {checkoutStatus && (
+                <div
+                  className={`alert ${
+                    checkoutTone === 'success'
+                      ? 'success'
+                      : checkoutTone === 'error'
+                      ? 'error'
+                      : checkoutTone === 'warning'
+                      ? 'warning'
+                      : 'info'
+                  }`}
+                  style={{ marginTop: 12 }}
+                >
+                  {checkoutStatus}
+                </div>
+              )}
               <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                 <button className="btn" onClick={clear}>Clear</button>
-                <button className="btn primary">Checkout</button>
+                <button className="btn primary" onClick={handleCheckout} disabled={checkoutBusy}>
+                  {checkoutBusy ? 'Processing…' : 'Checkout'}
+                </button>
               </div>
             </div>
           </>

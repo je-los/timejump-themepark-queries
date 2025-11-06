@@ -1,26 +1,29 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/authcontext.jsx';
+import { useCart } from '../context/cartcontext.jsx';
+import CartModal from './cartmodal.jsx';
 
-const menuConfig = [
+const MENU_CONFIG = [
   {
     key: 'tickets',
     label: 'Tickets & Passes',
-    path: 'ticket-passes',
+    path: '/ticket-passes',
     items: [
-      { label: 'Tickets & Passes', path: 'ticket-passes' },
-      { label: 'Day Tickets', path: 'ticket-passes/day-tickets' },
-      { label: 'Annual Passes', path: 'ticket-passes/annual-passes' },
-      { label: 'Birthday Package', path: 'ticket-passes/birthday-package' },
+      { label: 'Tickets & Passes', path: '/ticket-passes' },
+      { label: 'Day Tickets', path: '/ticket-passes/day-tickets' },
+      { label: 'Annual Passes', path: '/ticket-passes/annual-passes' },
+      { label: 'Birthday Package', path: '/ticket-passes/birthday-package' },
     ],
   },
   {
     key: 'things',
     label: 'Things To Do',
-    path: 'things-to-do/rides-attractions',
+    path: '/things-to-do/rides-attractions',
     items: [
-      { label: 'Rides & Attractions', path: 'things-to-do/rides-attractions' },
-      { label: 'Dining', path: 'things-to-do/dining' },
-      { label: 'Shopping', path: 'things-to-do/shopping' },
+      { label: 'Rides & Attractions', path: '/things-to-do/rides-attractions' },
+      { label: 'Dining', path: '/things-to-do/dining' },
+      { label: 'Shopping', path: '/things-to-do/shopping' },
     ],
   },
 ];
@@ -56,97 +59,113 @@ function viewOptionsForRole(actualRole) {
   return Array.from(options);
 }
 
-const aliasMap = {
-  Tickets: 'ticket-passes',
-  Attractions: 'things-to-do/rides-attractions',
-  GiftShop: 'things-to-do/shopping',
-  FoodVendors: 'things-to-do/dining',
-  Reports: 'Reports',
-  Manager: 'Manager',
-  Admin: 'Admin',
-};
-
-export default function Nav({ current, onChange, onAuth, themes = [] }) {
-  const { user, actualRole, setViewRole, clearViewRole } = useAuth();
+export default function Nav({ themes = [] }) {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { user, signOut, actualRole, setViewRole, clearViewRole } = useAuth();
+  const { items } = useCart();
   const displayRole = user?.role ?? null;
   const viewOptions = useMemo(() => viewOptionsForRole(actualRole), [actualRole]);
   const [openMenu, setOpenMenu] = useState(null);
+  const [showCart, setShowCart] = useState(false);
   const navRef = useRef(null);
 
-  useEffect(()=>{
-    function handleDocumentClick(evt){
-      if(!navRef.current) return;
-      if(!navRef.current.contains(evt.target)){
+  useEffect(() => {
+    function handleDocumentClick(evt) {
+      if (!navRef.current) return;
+      if (!navRef.current.contains(evt.target)) {
         setOpenMenu(null);
       }
     }
     document.addEventListener('click', handleDocumentClick);
-    return ()=>document.removeEventListener('click', handleDocumentClick);
-  },[]);
+    return () => document.removeEventListener('click', handleDocumentClick);
+  }, []);
 
-  function handleNavigate(path){
+  const normalizedPath = location.pathname.replace(/\/+$/, '') || '/';
+  const redirectTarget = (normalizedPath === '/' ? '/' : normalizedPath) + (location.search || '');
+
+  const isCustomer = user?.role === 'customer';
+  const cartCount = items.length > 99 ? '99+' : String(items.length);
+
+  const menuItems = useMemo(() => {
+    if (!user) return MENU_CONFIG;
+    if (['employee', 'manager', 'admin', 'owner'].includes(user.role)) {
+      return MENU_CONFIG.filter(section => section.key !== 'tickets');
+    }
+    return MENU_CONFIG;
+  }, [user]);
+
+  const staffLinks = useMemo(() => {
+    const links = [];
+    if (['employee', 'manager', 'admin', 'owner'].includes(displayRole)) {
+      links.push({ label: 'Reports', path: '/reports' });
+    }
+    if (['manager', 'admin', 'owner'].includes(displayRole)) {
+      links.push({ label: 'Manager', path: '/manager' });
+    }
+    if (['admin', 'owner'].includes(displayRole)) {
+      links.push({ label: 'Admin', path: '/admin' });
+    }
+    return links;
+  }, [displayRole]);
+
+  function handleNavigate(path) {
     setOpenMenu(null);
-    if (onChange) onChange(path);
+    navigate(path);
   }
 
-  function handleMenuToggle(menuKey){
-    setOpenMenu(prev => prev === menuKey ? null : menuKey);
+  function handleMenuToggle(menuKey) {
+    setOpenMenu(prev => (prev === menuKey ? null : menuKey));
   }
 
-  function handleViewChange(event){
+  function handleSignOut() {
+    signOut();
+    setShowCart(false);
+    navigate('/', { replace: true });
+  }
+
+  function handleViewChange(event) {
     const value = event.target.value;
     if (!actualRole) return;
     if (value === actualRole) clearViewRole();
     else setViewRole(value);
   }
 
-  function isMenuActive(menu){
-    if(!current) return false;
-    const normalized = aliasMap[current] || current;
-    if (normalized === menu.path) return true;
+  function isMenuActive(menu) {
+    if (normalizedPath === menu.path) return true;
     if (menu.key === 'things') {
-      if (normalized.startsWith('theme/')) return true;
-      const related = ['things-to-do/rides-attractions','things-to-do/dining','things-to-do/shopping'];
-      if (related.includes(normalized)) return true;
+      if (normalizedPath.startsWith('/theme/')) return true;
+      if (normalizedPath.startsWith('/ride/')) return true;
+      const related = ['/things-to-do/rides-attractions', '/things-to-do/dining', '/things-to-do/shopping'];
+      if (related.includes(normalizedPath)) return true;
     }
-    if (menu.key === 'tickets') {
-      const related = ['ticket-passes','ticket-passes/day-tickets','ticket-passes/annual-passes','ticket-passes/birthday-package'];
-      if (related.includes(normalized)) return true;
+    if (menu.key === 'tickets' && normalizedPath.startsWith('/ticket-passes')) {
+      return true;
     }
-    return menu.items.some(item => item.path === normalized || current === item.path);
+    return menu.items.some(item => normalizedPath === item.path);
   }
 
-  const staffLinks = useMemo(()=>{
-    const links = [];
-    if (['employee','manager','admin','owner'].includes(displayRole)) {
-      links.push({ label:'Reports', path:'Reports' });
-    }
-    if (['manager','admin','owner'].includes(displayRole)) {
-      links.push({ label:'Manager', path:'Manager' });
-    }
-    if (['admin','owner'].includes(displayRole)) {
-      links.push({ label:'Admin', path:'Admin' });
-    }
-    return links;
-  },[displayRole]);
-
   return (
-    <header className="nav-shell" ref={navRef}>
-      <div className="nav-bar">
-        <button className="nav-brand" onClick={()=>handleNavigate('Home')}>
-          Time Jump Theme Park
-        </button>
+    <>
+      <header className="nav-shell" ref={navRef}>
+        <div className="nav-bar">
+          <div className="nav-left">
+            <Link className="nav-brand" to="/" onClick={() => setOpenMenu(null)}>
+              Time Jump Theme Park
+            </Link>
+          </div>
 
-        <nav className="nav-links">
-          {menuConfig.map(menu => {
-            const items = menu.key === 'things'
-              ? [
-                  { label: 'Rides & Attractions', path: 'things-to-do/rides-attractions' },
-                  ...themes.map(theme => ({ label: theme.name, path: `theme/${theme.slug}` })),
-                  { label: 'Dining', path: 'things-to-do/dining' },
-                  { label: 'Shopping', path: 'things-to-do/shopping' }
-                ]
-              : menu.items;
+          <nav className="nav-links">
+            {menuItems.map(menu => {
+              const items =
+                menu.key === 'things'
+                  ? [
+                      { label: 'Rides & Attractions', path: '/things-to-do/rides-attractions' },
+                      ...themes.map(theme => ({ label: theme.name, path: `/theme/${theme.slug}` })),
+                    { label: 'Dining', path: '/things-to-do/dining' },
+                    { label: 'Shopping', path: '/things-to-do/shopping' },
+                  ]
+                : menu.items;
             const isActive = isMenuActive(menu);
             const isOpen = openMenu === menu.key;
             return (
@@ -155,7 +174,7 @@ export default function Nav({ current, onChange, onAuth, themes = [] }) {
                   className="nav-link"
                   aria-haspopup="true"
                   aria-expanded={isOpen}
-                  onClick={()=>handleMenuToggle(menu.key)}
+                  onClick={() => handleMenuToggle(menu.key)}
                 >
                   {menu.label}
                 </button>
@@ -164,7 +183,7 @@ export default function Nav({ current, onChange, onAuth, themes = [] }) {
                     <button
                       key={item.path}
                       className="nav-dropdown__item"
-                      onClick={()=>handleNavigate(item.path)}
+                      onClick={() => handleNavigate(item.path)}
                     >
                       {item.label}
                     </button>
@@ -172,35 +191,80 @@ export default function Nav({ current, onChange, onAuth, themes = [] }) {
                 </div>
               </div>
             );
-          })}
+            })}
 
           {displayRole && viewOptions.length > 0 && (
             <div className="nav-viewas">
               <span>View As</span>
               <select value={displayRole} onChange={handleViewChange}>
-                {viewOptions.map(role => (
-                  <option key={role} value={role}>
-                    {role === actualRole ? `Default – ${ROLE_LABEL[role] || role}` : (ROLE_LABEL[role] || role)}
-                  </option>
-                ))}
+                {viewOptions.map(role => {
+                  const label = ROLE_LABEL[role] || role;
+                  const optionLabel = role === actualRole ? `Default - ${label}` : label;
+                  return (
+                    <option key={role} value={role}>
+                      {optionLabel}
+                    </option>
+                  );
+                })}
               </select>
             </div>
           )}
+
           {staffLinks.length > 0 && (
             <div className="nav-staff">
               {staffLinks.map(link => (
                 <button
                   key={link.path}
-                  className={`nav-link nav-link--staff ${current===link.path ? 'nav-link--active' : ''}`}
-                  onClick={()=>handleNavigate(link.path)}
+                  className={`nav-link nav-link--staff ${normalizedPath === link.path ? 'nav-link--active' : ''}`}
+                  onClick={() => handleNavigate(link.path)}
                 >
                   {link.label}
                 </button>
               ))}
             </div>
           )}
-        </nav>
-      </div>
-    </header>
+
+          <div className="nav-auth">
+            {isCustomer && (
+              <button
+                className="nav-cart"
+                onClick={() => setShowCart(true)}
+              >
+                Cart
+                <span className="nav-cart__badge">{cartCount}</span>
+              </button>
+            )}
+            {user && (
+              <Link
+                className="nav-account"
+                to="/account"
+                onClick={() => {
+                  setShowCart(false);
+                  setOpenMenu(null);
+                }}
+              >
+                Account
+              </Link>
+            )}
+            {user ? (
+              <button className="btn primary" onClick={handleSignOut}>
+                Sign Out
+              </button>
+            ) : (
+              <button
+                className="btn primary"
+                onClick={() =>
+                  navigate(`/login?redirect=${encodeURIComponent(redirectTarget)}`)
+                }
+              >
+                Sign In
+              </button>
+            )}
+            </div>
+          </nav>
+        </div>
+      </header>
+      {showCart && <CartModal onClose={() => setShowCart(false)} />}
+    </>
   );
 }
