@@ -1,7 +1,13 @@
 import mysql from 'mysql2/promise';
 import dotenv from 'dotenv';
+import { dirname, resolve } from 'path';
+import { fileURLToPath } from 'url';
 
-dotenv.config({ path: '.env.local', override: true });
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const localEnvPath = resolve(__dirname, '../.env.local');
+
+dotenv.config({ path: localEnvPath, override: true });
 dotenv.config();
 
 console.log('[db] config', {

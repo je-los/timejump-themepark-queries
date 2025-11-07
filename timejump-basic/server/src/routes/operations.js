@@ -1,7 +1,17 @@
 import { query } from '../db.js';
+import { hashPassword } from '../auth.js';
 import { requireRole } from '../middleware/auth.js';
 import { ensureScheduleNotesTable } from '../services/ensure.js';
 import { pick } from '../utils/object.js';
+
+const EMPLOYEE_POSITION_ID = 1;
+
+function normalizeDate(value) {
+  if (!value && value !== 0) return null;
+  const trimmed = String(value).trim();
+  if (!trimmed) return null;
+  return /^\d{4}-\d{2}-\d{2}$/.test(trimmed) ? trimmed : null;
+}
 
 export function registerOperationsRoutes(router) {
   router.get('/employees', requireRole(['manager', 'admin', 'owner'])(async ctx => {
@@ -23,6 +33,116 @@ export function registerOperationsRoutes(router) {
         email: row.email,
       })),
     });
+  }));
+
+  router.post('/employees', requireRole(['admin', 'owner'])(async ctx => {
+    const name = String(pick(ctx.body, 'name') || '').trim();
+    const email = String(pick(ctx.body, 'email') || '').trim().toLowerCase();
+    const password = String(pick(ctx.body, 'password') || '').trim();
+    const salaryInput = pick(ctx.body, 'salary');
+    const startDateRaw = pick(ctx.body, 'startDate', 'start_date');
+    const startDate = normalizeDate(startDateRaw);
+
+    if (!name) {
+      ctx.error(400, 'Employee name is required.');
+      return;
+    }
+    if (!email) {
+      ctx.error(400, 'Employee email is required.');
+      return;
+    }
+    if (!password) {
+      ctx.error(400, 'A temporary password is required.');
+      return;
+    }
+    if (password.length < 8) {
+      ctx.error(400, 'Password must be at least 8 characters.');
+      return;
+    }
+    if (startDateRaw && !startDate) {
+      ctx.error(400, 'Start date must be formatted as YYYY-MM-DD.');
+      return;
+    }
+
+    let salary = null;
+    if (salaryInput !== undefined && salaryInput !== null && String(salaryInput).trim() !== '') {
+      salary = Number(salaryInput);
+      if (!Number.isFinite(salary) || salary < 0) {
+        ctx.error(400, 'Salary must be a positive number.');
+        return;
+      }
+    }
+
+    const [employeeRows, userRows] = await Promise.all([
+      query('SELECT employeeID FROM employee WHERE email = ? LIMIT 1', [email]),
+      query('SELECT user_id FROM users WHERE email = ? LIMIT 1', [email]),
+    ]);
+    if (employeeRows.length) {
+      ctx.error(409, 'An employee already exists with that email.');
+      return;
+    }
+    if (userRows.length) {
+      ctx.error(409, 'A user already exists with that email.');
+      return;
+    }
+
+    const employeeResult = await query(
+      'INSERT INTO employee (name, salary, role, start_date, end_date, email) VALUES (?, ?, ?, ?, ?, ?)',
+      [
+        name,
+        salary !== null ? salary : null,
+        EMPLOYEE_POSITION_ID,
+        startDate,
+        null,
+        email,
+      ],
+    );
+    const employeeId = employeeResult.insertId;
+    const hash = hashPassword(password);
+    try {
+      await query(
+        'INSERT INTO users (email, password_hash, role, employeeID) VALUES (?, ?, ?, ?)',
+        [email, hash, 'employee', employeeId],
+      );
+    } catch (err) {
+      await query('DELETE FROM employee WHERE employeeID = ?', [employeeId]).catch(() => {});
+      throw err;
+    }
+
+    ctx.created({
+      data: {
+        employeeID: employeeId,
+        name,
+        salary,
+        role: EMPLOYEE_POSITION_ID,
+        role_name: 'Employee',
+        start_date: startDate,
+        end_date: null,
+        email,
+      },
+    });
+  }));
+
+  router.delete('/employees/:id', requireRole(['admin', 'owner'])(async ctx => {
+    const employeeId = Number(ctx.params?.id);
+    if (!employeeId) {
+      ctx.error(400, 'Valid employee ID is required.');
+      return;
+    }
+
+    const rows = await query(
+      'SELECT employeeID FROM employee WHERE employeeID = ? LIMIT 1',
+      [employeeId],
+    );
+    if (!rows.length) {
+      ctx.error(404, 'Employee not found.');
+      return;
+    }
+
+    await query('DELETE FROM users WHERE employeeID = ?', [employeeId]).catch(() => {});
+    await query('DELETE FROM employee WHERE employeeID = ?', [employeeId]);
+
+    ctx.noContent();
   }));
 
   router.get('/attractions', requireRole(['employee', 'manager', 'admin', 'owner'])(async ctx => {
