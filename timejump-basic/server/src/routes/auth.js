@@ -87,6 +87,7 @@ export function registerAuthRoutes(router) {
       me: {
         email: row.email,
         role: row.role,
+        employeeID: row.employeeID,
       },
     });
   });
@@ -96,6 +97,7 @@ export function registerAuthRoutes(router) {
       me: {
         email: ctx.authUser.email,
         role: ctx.authUser.role,
+        employeeID: ctx.authUser.EmployeeID,
       },
     });
   }));

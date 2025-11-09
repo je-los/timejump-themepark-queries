@@ -3,9 +3,11 @@ import { toSlug } from '../utils/strings.js';
 
 function normalizeRide(row) {
   const slug = toSlug(row.Name);
-  const riders = Number(row.RidersPerVehicle ?? 0);
+  const capacityPerDispatch = Number(row.Capacity ?? 0);
   const dispatchesPerHour = 12;
-  const estimatedCapacity = Number.isFinite(riders) && riders > 0 ? riders * dispatchesPerHour : null;
+  const estimatedCapacity = Number.isFinite(capacityPerDispatch) && capacityPerDispatch > 0
+    ? capacityPerDispatch * dispatchesPerHour
+    : null;
   return {
     id: row.AttractionID,
     attraction_id: row.AttractionID,
@@ -18,8 +20,7 @@ function normalizeRide(row) {
     type: row.TypeName || 'Attraction',
     type_description: row.typeDescription || '',
     description: row.typeDescription || '',
-    height_restriction: row.HeightRestriction,
-    riders_per_vehicle: row.RidersPerVehicle,
+    capacity_per_experience: capacityPerDispatch || null,
     estimated_capacity_per_hour: estimatedCapacity,
   };
 }
@@ -56,8 +57,7 @@ export async function listRides() {
       at.Description AS typeDescription,
       a.ThemeID,
       t.themeName,
-      a.HeightRestriction,
-      a.RidersPerVehicle
+      a.Capacity
     FROM attraction a
     LEFT JOIN theme t ON t.themeID = a.ThemeID
     LEFT JOIN attraction_type at ON at.AttractionTypeID = a.AttractionTypeID

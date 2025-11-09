@@ -6,20 +6,17 @@ const AuthContext = createContext(undefined);
 export function AuthProvider({ children }){
   const fakeRole = (import.meta.env.VITE_DEV_FAKE_ROLE || '').trim();
   const fakeEmail = (import.meta.env.VITE_DEV_FAKE_EMAIL || 'dev@timejump.local').trim() || 'dev@timejump.local';
-  const [userState, setUserState] = useState(null);   // actual user { email, role }
+  const [userState, setUserState] = useState(null);   // { email, role }
   const [loading, setLoading] = useState(true);
-  const [viewRole, setViewRoleState] = useState(null);
 
   function applyDevUser(){
     const devUser = fakeRole ? { email: fakeEmail, role: fakeRole, isDevMock: true } : null;
     setUserState(devUser);
-    setViewRoleState(null);
     setLoading(false);
   }
 
   const setUser = (next) => {
     setUserState(next);
-    setViewRoleState(null);
   };
 
   async function refresh(){
@@ -31,7 +28,6 @@ export function AuthProvider({ children }){
     try{
       const profile = await me();
       setUserState(profile || null);
-      setViewRoleState(null);
     }finally{
       setLoading(false);
     }
@@ -53,35 +49,18 @@ export function AuthProvider({ children }){
     }
     clearToken();
     setUserState(null);
-    setViewRoleState(null);
   }
-
-  function changeViewRole(role){
-    if (!userState) return;
-    if (!role || role === userState.role) setViewRoleState(null);
-    else setViewRoleState(role);
-  }
-
-  const effectiveUser = useMemo(()=>{
-    if (!userState) return null;
-    const role = viewRole || userState.role;
-    return { ...userState, role };
-  },[userState, viewRole]);
 
   const contextValue = useMemo(()=>({
-    user: effectiveUser,
+    user: userState,
     actualUser: userState,
-    role: effectiveUser?.role ?? null,
+    role: userState?.role ?? null,
     actualRole: userState?.role ?? null,
     setUser,
     refresh,
     signOut,
     loading,
-    viewRole,
-    setViewRole: changeViewRole,
-    clearViewRole: () => setViewRoleState(null),
-    isImpersonating: !!viewRole,
-  }),[effectiveUser, userState, loading, viewRole]);
+  }),[userState, loading]);
 
   return (
     <AuthContext.Provider value={contextValue}>

@@ -44,6 +44,36 @@ export function normalizeColumns(columns) {
   });
 }
 
+function SortableHeader({ column, sortableKeys, sortKey, sortDir, onSort, style }) {
+  const isSortable = sortableKeys.includes(column.key);
+  const isActive = isSortable && sortKey === column.key;
+  const nextDir = isActive && sortDir === 'asc' ? 'desc' : 'asc';
+  const className = isSortable ? 'sortable-header' : undefined;
+
+  return (
+    <th style={style} className={className}>
+      {isSortable ? (
+        <button
+          type="button"
+          className="table-sort-button"
+          onClick={() => {
+            if (!isActive) {
+              onSort(column.key, 'asc');
+            } else {
+              onSort(column.key, nextDir);
+            }
+          }}
+        >
+          <span>{column.label}</span>
+          <span className={`sort-indicator ${isActive ? sortDir : 'none'}`} aria-hidden="true" />
+        </button>
+      ) : (
+        column.label
+      )}
+    </th>
+  );
+}
+
 export function ResourceTable({
   title,
   description,
@@ -100,6 +130,10 @@ export function ResourceTable({
     });
     return copy;
   }, [filteredRows, sortKey, sortDir]);
+  const handleSort = (key, direction) => {
+    setSortKey(key);
+    setSortDir(direction);
+  };
 
   return (
     <Panel>
@@ -119,34 +153,6 @@ export function ResourceTable({
           style={{ width: '100%' }}
         />
       </div>
-      {sortableKeys.length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, margin: '8px 0' }}>
-          {sortableKeys.map(key => {
-            const column = normalizedColumns.find(col => col.key === key);
-            if (!column) return null;
-            const isActive = sortKey === key;
-            const nextDir = isActive && sortDir === 'asc' ? 'desc' : 'asc';
-            const indicator = isActive ? (sortDir === 'asc' ? ' (asc)' : ' (desc)') : '';
-            return (
-              <button
-                key={key}
-                type="button"
-                className={`btn ${isActive ? 'primary' : ''}`}
-                onClick={() => {
-                  if (!isActive) {
-                    setSortKey(key);
-                    setSortDir('asc');
-                  } else {
-                    setSortDir(nextDir);
-                  }
-                }}
-              >
-                Sort by {column.label} {indicator}
-              </button>
-            );
-          })}
-        </div>
-      )}
       {loading && <div className="text-sm text-gray-600">Loading...</div>}
       {!loading && error && <div className="alert error">{error}</div>}
       {!loading && !error && (
@@ -158,9 +164,15 @@ export function ResourceTable({
               <thead>
                 <tr>
                   {normalizedColumns.map(col => (
-                    <th key={col.key} style={{ textAlign: 'left', padding: '6px', borderBottom: '1px solid #ececec' }}>
-                      {col.label}
-                    </th>
+                    <SortableHeader
+                      key={col.key}
+                      column={col}
+                      sortableKeys={sortableKeys}
+                      sortKey={sortKey}
+                      sortDir={sortDir}
+                      onSort={handleSort}
+                      style={{ textAlign: 'left', padding: '6px', borderBottom: '1px solid #ececec' }}
+                    />
                   ))}
                 </tr>
               </thead>
@@ -307,6 +319,11 @@ export function SimpleTable({
     return copy;
   }, [filteredRows, sortKey, sortDir]);
 
+  const handleSort = (key, direction) => {
+    setSortKey(key);
+    setSortDir(direction);
+  };
+
   return (
     <Panel>
       <h3 style={{ marginTop: 0 }}>{title}</h3>
@@ -320,34 +337,6 @@ export function SimpleTable({
           style={{ width: '100%' }}
         />
       </div>
-      {sortableKeys.length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, margin: '8px 0' }}>
-          {sortableKeys.map(key => {
-            const column = normalizedColumns.find(col => col.key === key);
-            if (!column) return null;
-            const isActive = sortKey === key;
-            const nextDir = isActive && sortDir === 'asc' ? 'desc' : 'asc';
-            const indicator = isActive ? (sortDir === 'asc' ? ' (asc)' : ' (desc)') : '';
-            return (
-              <button
-                key={key}
-                type="button"
-                className={`btn ${isActive ? 'primary' : ''}`}
-                onClick={() => {
-                  if (!isActive) {
-                    setSortKey(key);
-                    setSortDir('asc');
-                  } else {
-                    setSortDir(nextDir);
-                  }
-                }}
-              >
-                Sort by {column.label} {indicator}
-              </button>
-            );
-          })}
-        </div>
-      )}
       {loading && <div className="text-sm text-gray-600">Loading...</div>}
       {!loading && error && <div className="alert error">{error}</div>}
       {!loading && !error && (
@@ -359,9 +348,15 @@ export function SimpleTable({
               <thead>
                 <tr>
                   {normalizedColumns.map(col => (
-                    <th key={col.key} style={{ textAlign: 'left', padding: '6px', borderBottom: '1px solid #eee' }}>
-                      {col.label}
-                    </th>
+                    <SortableHeader
+                      key={col.key}
+                      column={col}
+                      sortableKeys={sortableKeys}
+                      sortKey={sortKey}
+                      sortDir={sortDir}
+                      onSort={handleSort}
+                      style={{ textAlign: 'left', padding: '6px', borderBottom: '1px solid #eee' }}
+                    />
                   ))}
                 </tr>
               </thead>

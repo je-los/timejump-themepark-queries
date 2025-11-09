@@ -51,7 +51,7 @@ export default function Home() {
           </p>
           <div className="home-hero__actions">
             <button className="btn primary" onClick={()=>go('/ticket-passes')}>
-              Tickets &amp; Passes
+              Buy Tickets
             </button>
             <button className="btn" onClick={()=>go('/things-to-do/rides-attractions')}>
               Explore Attractions

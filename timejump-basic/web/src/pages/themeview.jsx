@@ -39,8 +39,12 @@ export default function ThemeView() {
             {theme.description && <p className="text-sm text-gray-700">{theme.description}</p>}
             <div className="ride-grid">
               {theme.rides.map(ride=>{
-                const height = ride.height_restriction ?? ride.HeightRestriction ?? ride.details?.HeightRestriction;
-                const ridersPerVehicle = ride.riders_per_vehicle ?? ride.RidersPerVehicle ?? ride.details?.RidersPerVehicle;
+                const capacityPerExperience = ride.capacity_per_experience
+                  ?? ride.capacity
+                  ?? ride.riders_per_vehicle
+                  ?? ride.RidersPerVehicle
+                  ?? ride.details?.RidersPerVehicle
+                  ?? null;
                 const capacity = Number.isFinite(ride.estimated_capacity_per_hour) ? ride.estimated_capacity_per_hour : null;
                 const audience = ride.target_audience ?? ride.audience ?? null;
                 const thrill = ride.experience_level ?? ride.thrill_level ?? ride.type_description ?? ride.type;
@@ -58,11 +62,8 @@ export default function ThemeView() {
                     )}
                     <ul className="ride-card__list">
                       <li><strong>Type:</strong> {ride.type || 'Attraction'}</li>
-                      {height !== undefined && height !== null && (
-                        <li><strong>Height Restriction:</strong> {height}"</li>
-                      )}
-                      {ridersPerVehicle !== undefined && ridersPerVehicle !== null && (
-                        <li><strong>Riders per Vehicle:</strong> {ridersPerVehicle}</li>
+                      {capacityPerExperience !== undefined && capacityPerExperience !== null && (
+                        <li><strong>Capacity:</strong> {capacityPerExperience} guests</li>
                       )}
                       <li>
                         <strong>Estimated Capacity:</strong>{' '}

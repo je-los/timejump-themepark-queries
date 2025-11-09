@@ -107,12 +107,15 @@ export async function ensureTicketPurchaseTables() {
       item_type VARCHAR(32) NOT NULL,
       quantity INT UNSIGNED NOT NULL DEFAULT 1,
       price DECIMAL(10,2) NOT NULL DEFAULT 0,
+      visit_date DATE NULL,
       details LONGTEXT,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       INDEX idx_ticket_purchase_user (user_id),
       CONSTRAINT fk_ticket_purchase_user FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE
     )
   `);
+  // ensure visit_date column exists for older schemas
+  await query('ALTER TABLE ticket_purchase ADD COLUMN visit_date DATE NULL AFTER price').catch(() => {});
   cache.set('ticketPurchases', true);
 }
 

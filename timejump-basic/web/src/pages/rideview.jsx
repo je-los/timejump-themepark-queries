@@ -28,8 +28,12 @@ export default function RideView() {
   },[slug]);
 
   const description = ride?.description || '';
-  const heightRestriction = ride?.HeightRestriction ?? ride?.height_restriction ?? null;
-  const ridersPerVehicle = ride?.RidersPerVehicle ?? ride?.riders_per_vehicle ?? null;
+  const capacityPerExperience = ride?.capacity_per_experience
+    ?? ride?.capacity_per_event
+    ?? ride?.capacity
+    ?? ride?.RidersPerVehicle
+    ?? ride?.riders_per_vehicle
+    ?? null;
   const capacityPerHour = Number.isFinite(ride?.estimated_capacity_per_hour)
     ? ride.estimated_capacity_per_hour
     : null;
@@ -62,11 +66,8 @@ export default function RideView() {
                 <ul className="ride-card__list" style={{paddingLeft:18, margin:0}}>
                   <li><strong>Theme:</strong> {ride.theme_name || 'Time Jump Theme Park'}</li>
                   <li><strong>Type:</strong> {ride.type || ride.TypeName || 'Attraction'}</li>
-                  {heightRestriction !== null && (
-                    <li><strong>Height Restriction:</strong> {heightRestriction}"</li>
-                  )}
-                  {ridersPerVehicle !== null && (
-                    <li><strong>Riders per Vehicle:</strong> {ridersPerVehicle}</li>
+                  {capacityPerExperience !== null && (
+                    <li><strong>Capacity:</strong> {capacityPerExperience} guests</li>
                   )}
                   {capacityPerHour && (
                     <li><strong>Estimated Capacity:</strong> {capacityPerHour.toLocaleString()} riders/hr</li>

@@ -26,13 +26,6 @@ function getNavGroups(role) {
         { key: 'incidents', label: 'Incidents', to: '/admin/incidents' },
       ],
     },
-    {
-      key: 'team',
-      label: 'Team Management',
-      items: [
-        { key: 'team', label: 'Admin & Roles', to: '/admin/team', roles: ['admin', 'owner'] },
-      ],
-    },
   ];
   return groups
     .map(group => ({
