@@ -16,6 +16,18 @@ function normalizeItems(rawItems) {
     .filter(item => item.name && item.kind && Number.isFinite(item.price) && item.price >= 0 && Number.isFinite(item.qty) && item.qty > 0);
 }
 
+function normalizeVisitDate(meta) {
+  if (!meta || typeof meta !== 'object') return null;
+  const raw = meta.visitDate || meta.visit_date;
+  if (!raw || typeof raw !== 'string') return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    return raw;
+  }
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString().slice(0, 10);
+}
+
 export function registerOrderRoutes(router) {
   router.post('/checkout', requireRole(['customer'])(async ctx => {
     const items = normalizeItems(ctx.body?.items);
@@ -28,14 +40,16 @@ export function registerOrderRoutes(router) {
     const now = new Date();
     const total = items.reduce((sum, item) => sum + item.price * item.qty, 0);
     for (const item of items) {
+      const visitDate = normalizeVisitDate(item.meta);
       await query(
-        'INSERT INTO ticket_purchase (user_id, item_name, item_type, quantity, price, details, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        'INSERT INTO ticket_purchase (user_id, item_name, item_type, quantity, price, visit_date, details, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
         [
           userId,
           item.name,
           item.kind,
           item.qty,
           item.price,
+          visitDate,
           item.meta ? JSON.stringify(item.meta) : null,
           now,
         ],
@@ -53,7 +67,7 @@ export function registerOrderRoutes(router) {
   router.get('/orders/me', requireRole(['customer'])(async ctx => {
     await ensureTicketPurchaseTables();
     const rows = await query(
-      `SELECT purchase_id, item_name, item_type, quantity, price, details, created_at
+      `SELECT purchase_id, item_name, item_type, quantity, price, visit_date, details, created_at
        FROM ticket_purchase
        WHERE user_id = ?
        ORDER BY created_at DESC
@@ -67,6 +81,7 @@ export function registerOrderRoutes(router) {
         item_type: row.item_type,
         quantity: row.quantity,
         price: Number(row.price ?? 0),
+        visit_date: row.visit_date,
         details: typeof row.details === 'string' ? safeParse(row.details) : row.details,
         created_at: row.created_at,
       })),

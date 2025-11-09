@@ -168,21 +168,25 @@ export default function Account() {
                     <tr>
                       <th>Item</th>
                       <th>Type</th>
+                      <th>Visit Date</th>
                       <th>Quantity</th>
                       <th>Price</th>
                       <th>Purchased</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {orders.map(order => (
+                    {orders.map(order => {
+                      const visitValue = order.visit_date || order.details?.visitDate;
+                      return (
                       <tr key={order.purchase_id}>
                         <td>{order.item_name}</td>
                         <td>{order.item_type}</td>
+                        <td>{formatVisitDate(visitValue)}</td>
                         <td>{order.quantity}</td>
                         <td>${Number(order.price || 0).toFixed(2)}</td>
                         <td>{formatDateTime(order.created_at)}</td>
                       </tr>
-                    ))}
+                    );})}
                   </tbody>
                 </table>
               </div>
@@ -198,5 +202,17 @@ function formatDateTime(value) {
   if (!value) return '—';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return String(value);
-  return date.toLocaleString();
+  return date.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+}
+
+function formatVisitDate(value) {
+  if (!value) return '—';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const [year, month, day] = value.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+    return date.toLocaleDateString(undefined, { dateStyle: 'medium' });
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleDateString(undefined, { dateStyle: 'medium' });
 }

@@ -153,8 +153,7 @@ export function registerOperationsRoutes(router) {
              atype.TypeName AS attraction_type_name,
              a.ThemeID,
              t.themeName AS theme_name,
-             a.HeightRestriction,
-             a.RidersPerVehicle
+             a.Capacity
       FROM attraction a
       LEFT JOIN theme t ON t.themeID = a.ThemeID
       LEFT JOIN attraction_type atype ON atype.AttractionTypeID = a.AttractionTypeID
@@ -168,8 +167,7 @@ export function registerOperationsRoutes(router) {
         attraction_type_name: row.attraction_type_name,
         ThemeID: row.ThemeID,
         theme_name: row.theme_name,
-        HeightRestriction: row.HeightRestriction,
-        RidersPerVehicle: row.RidersPerVehicle,
+        Capacity: row.Capacity,
       })),
     });
   }));

@@ -3,6 +3,13 @@ import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { login, signup } from '../auth.js';
 import { useAuth } from '../context/authcontext.jsx';
 
+const AUTH_TOAST_KEY = 'tj-auth-toast';
+
+function queueAuthWelcomeToast() {
+  if (typeof window === 'undefined' || !window.sessionStorage) return;
+  window.sessionStorage.setItem(AUTH_TOAST_KEY, 'welcome');
+}
+
 export default function LoginPage() {
   const { user, refresh } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -54,6 +61,7 @@ export default function LoginPage() {
       } else {
         await login(email, password);
       }
+      queueAuthWelcomeToast();
       await refresh();
       navigate(redirectTo, { replace: true });
     } catch (err) {
@@ -108,7 +116,7 @@ export default function LoginPage() {
           </label>
 
           <button className="btn primary w-full" type="submit" disabled={busy}>
-            {busy ? 'Please wait…' : mode === 'signup' ? 'Sign Up' : 'Sign In'}
+            {busy ? 'Please wait...' : mode === 'signup' ? 'Sign Up' : 'Sign In'}
           </button>
         </form>
 
@@ -130,7 +138,7 @@ export default function LoginPage() {
           )}
           <p className="auth-page__back">
             <Link to={redirectTo && redirectTo !== '/' ? redirectTo : '/'}>
-              ← Back to site
+              {'<'} Back to site
             </Link>
           </p>
         </footer>
