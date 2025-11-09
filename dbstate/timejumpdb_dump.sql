@@ -2,7 +2,7 @@ CREATE DATABASE  IF NOT EXISTS `timejumpdb` /*!40100 DEFAULT CHARACTER SET utf8m
 USE `timejumpdb`;
 -- MySQL dump 10.13  Distrib 8.0.43, for Win64 (x86_64)
 --
--- Host: 127.0.0.1    Database: timejumpdb
+-- Host: localhost    Database: timejumpdb
 -- ------------------------------------------------------
 -- Server version	8.0.43
 
@@ -29,14 +29,13 @@ CREATE TABLE `attraction` (
   `Name` varchar(80) NOT NULL,
   `AttractionTypeID` smallint unsigned NOT NULL,
   `ThemeID` int NOT NULL,
-  `HeightRestriction` smallint NOT NULL,
-  `RidersPerVehicle` smallint NOT NULL,
+  `Capacity` int NOT NULL,
   PRIMARY KEY (`AttractionID`),
   KEY `ThemeID_idx` (`ThemeID`),
   KEY `idx_attraction_typeid` (`AttractionTypeID`),
   CONSTRAINT `fk_attraction_theme` FOREIGN KEY (`ThemeID`) REFERENCES `theme` (`themeID`) ON DELETE RESTRICT ON UPDATE CASCADE,
   CONSTRAINT `fk_attraction_typeid` FOREIGN KEY (`AttractionTypeID`) REFERENCES `attraction_type` (`AttractionTypeID`) ON DELETE RESTRICT ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=10000000 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=10000001 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -45,7 +44,7 @@ CREATE TABLE `attraction` (
 
 LOCK TABLES `attraction` WRITE;
 /*!40000 ALTER TABLE `attraction` DISABLE KEYS */;
-INSERT INTO `attraction` VALUES (1,'Pterodactyl Plunge',1,1,54,24),(2,'Cretaceous Crossing',2,1,40,16),(3,'Raptor Rapids',3,1,42,20),(4,'The Extinction Event',4,1,0,0),(5,'Dragon Rider\'s Fury',1,2,54,24),(6,'Quest of the Crystal King',5,2,40,16),(7,'The Royal Tournament',6,2,36,20),(8,'Runaway Gold Mine',7,3,48,24),(9,'The Rattlesnake Robbery',8,3,0,12),(10,'Oil Derrick Drop',9,3,52,16),(11,'Cosmic Collapse: Wormhole Jump',10,4,54,24),(12,'The Zero-G Skyway',11,4,40,24),(13,'The Sword in the Stone',4,2,0,0),(14,'The High Noon Shootout',4,3,0,0),(15,'Symphony of the Nexus',4,4,0,0);
+INSERT INTO `attraction` VALUES (1,'Pterodactyl Plunge',1,1,24),(2,'Cretaceous Crossing',2,1,16),(3,'Raptor Rapids',3,1,20),(4,'The Extinction Event',4,1,0),(5,'Dragon Rider\'s Fury',1,2,24),(6,'Quest of the Crystal King',5,2,16),(7,'The Royal Tournament',6,2,20),(8,'Runaway Gold Mine',7,3,24),(9,'The Rattlesnake Robbery',8,3,12),(10,'Oil Derrick Drop',9,3,16),(11,'Cosmic Collapse: Wormhole Jump',10,4,24),(12,'The Zero-G Skyway',11,4,24),(13,'The Sword in the Stone',4,2,0),(14,'The High Noon Shootout',4,3,0),(15,'Symphony of the Nexus',4,4,0),(10000000,'a new ride',1,5,50);
 /*!40000 ALTER TABLE `attraction` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -145,12 +144,14 @@ CREATE TABLE `employee` (
   `salary` decimal(10,2) DEFAULT NULL,
   `role` int unsigned NOT NULL,
   `start_date` date DEFAULT NULL,
+  `end_date` date DEFAULT NULL,
   `email` varchar(60) NOT NULL,
   PRIMARY KEY (`employeeID`),
   UNIQUE KEY `uq_employee_email` (`email`),
   KEY `fk_employee_role` (`role`),
   CONSTRAINT `fk_employee_role` FOREIGN KEY (`role`) REFERENCES `positions` (`PositionID`) ON DELETE RESTRICT ON UPDATE CASCADE,
   CONSTRAINT `chk_email_format` CHECK (regexp_like(`email`,_utf8mb4'^[^[:space:]@]+@[^[:space:]@]+\\.[^[:space:]@]+$')),
+  CONSTRAINT `chk_end` CHECK (((`end_date` is null) or (`end_date` >= `start_date`))),
   CONSTRAINT `chk_salary` CHECK (((`salary` >= 0.00) and (`salary` <= 200000.00)))
 ) ENGINE=InnoDB AUTO_INCREMENT=10000004 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -161,7 +162,7 @@ CREATE TABLE `employee` (
 
 LOCK TABLES `employee` WRITE;
 /*!40000 ALTER TABLE `employee` DISABLE KEYS */;
-INSERT INTO `employee` VALUES (10000000,'Erin Employee',45000.00,1,'2025-10-27','erin.employee@timejump.test'),(10000001,'Manny Manager',65000.00,2,'2025-10-27','manny.manager@timejump.test'),(10000002,'Ada Admin',80000.00,3,'2025-10-27','ada.admin@timejump.test'),(10000003,'Owen Owner',120000.00,4,'2025-10-27','owen.owner@timejump.test');
+INSERT INTO `employee` VALUES (10000000,'Erin Employee',45000.00,1,'2025-10-27',NULL,'erin.employee@timejump.test'),(10000001,'Manny Manager',65000.00,2,'2025-10-27',NULL,'manny.manager@timejump.test'),(10000002,'Ada Admin',80000.00,3,'2025-10-27',NULL,'ada.admin@timejump.test'),(10000003,'Owen Owner',120000.00,4,'2025-10-27',NULL,'owen.owner@timejump.test');
 /*!40000 ALTER TABLE `employee` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -207,7 +208,7 @@ CREATE TABLE `gift_item` (
   UNIQUE KEY `uq_shop_itemname` (`shop_id`,`name`),
   CONSTRAINT `fk_giftitem_shop` FOREIGN KEY (`shop_id`) REFERENCES `gift_shops` (`ShopID`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `gift_item_chk_1` CHECK ((`price` >= 0))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -216,6 +217,7 @@ CREATE TABLE `gift_item` (
 
 LOCK TABLES `gift_item` WRITE;
 /*!40000 ALTER TABLE `gift_item` DISABLE KEYS */;
+INSERT INTO `gift_item` VALUES (1,10000000,'snow globe',5.00,1);
 /*!40000 ALTER TABLE `gift_item` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -239,7 +241,7 @@ CREATE TABLE `gift_shops` (
   CONSTRAINT `chk_dates_order` CHECK (((`CloseDate` is null) or (`CloseDate` >= `OpenDate`))),
   CONSTRAINT `chk_revenue_notneg` CHECK (((`Revenue` is null) or (`Revenue` >= 0))),
   CONSTRAINT `chk_shop_name_not_blank` CHECK ((trim(`ShopName`) <> _utf8mb4''))
-) ENGINE=InnoDB AUTO_INCREMENT=10000000 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=10000001 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -248,6 +250,7 @@ CREATE TABLE `gift_shops` (
 
 LOCK TABLES `gift_shops` WRITE;
 /*!40000 ALTER TABLE `gift_shops` DISABLE KEYS */;
+INSERT INTO `gift_shops` VALUES (10000000,1,'Central Gift Shop',NULL,'2025-11-09',NULL);
 /*!40000 ALTER TABLE `gift_shops` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -709,7 +712,7 @@ CREATE TABLE `theme` (
   PRIMARY KEY (`themeID`),
   UNIQUE KEY `uq_theme_name` (`themeName`),
   CONSTRAINT `chk_theme_name_not_blank` CHECK ((trim(`themeName`) <> _utf8mb4''))
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -718,7 +721,7 @@ CREATE TABLE `theme` (
 
 LOCK TABLES `theme` WRITE;
 /*!40000 ALTER TABLE `theme` DISABLE KEYS */;
-INSERT INTO `theme` VALUES (1,'Jurassic Zone','Primeval jungles, thunderous coasters, and aquatic escapades inspired by Earth’s fearless past.'),(2,'Medieval Fantasy Zone','Soaring dragons, enchanted quests, and live-action tournaments straight from the realm of legend.'),(3,'Wild West Zone','Dusty canyons, runaway trains, and stunt shows that bring frontier folklore to life.'),(4,'Nova-Crest','Gravity-defying coasters, immersive simulators, and nighttime spectacles from the future of thrills.');
+INSERT INTO `theme` VALUES (1,'Jurassic Zone','Primeval jungles, thunderous coasters, and aquatic escapades inspired by Earth’s fearless past.'),(2,'Medieval Fantasy Zone','Soaring dragons, enchanted quests, and live-action tournaments straight from the realm of legend.'),(3,'Wild West Zone','Dusty canyons, runaway trains, and stunt shows that bring frontier folklore to life.'),(4,'Nova-Crest','Gravity-defying coasters, immersive simulators, and nighttime spectacles from the future of thrills.'),(5,'a new theme','theme description');
 /*!40000 ALTER TABLE `theme` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -799,12 +802,13 @@ CREATE TABLE `ticket_purchase` (
   `item_type` varchar(32) NOT NULL,
   `quantity` int unsigned NOT NULL DEFAULT '1',
   `price` decimal(10,2) NOT NULL DEFAULT '0.00',
+  `visit_date` date DEFAULT NULL,
   `details` longtext,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`purchase_id`),
   KEY `idx_ticket_purchase_user` (`user_id`),
   CONSTRAINT `fk_ticket_purchase_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -813,7 +817,7 @@ CREATE TABLE `ticket_purchase` (
 
 LOCK TABLES `ticket_purchase` WRITE;
 /*!40000 ALTER TABLE `ticket_purchase` DISABLE KEYS */;
-INSERT INTO `ticket_purchase` VALUES (1,8,'Adult','ticket',1,89.00,'{\"category\":\"day\"}','2025-11-06 23:46:08'),(2,8,'Child','ticket',1,59.00,'{\"category\":\"day\"}','2025-11-06 23:46:08'),(3,8,'Parking - Lot A','parking',1,200.00,'{\"lot\":\"Lot A\"}','2025-11-06 23:46:08');
+INSERT INTO `ticket_purchase` VALUES (1,7,'Adult','ticket',1,89.00,NULL,'{\"category\":\"day\"}','2025-11-09 03:10:47'),(2,7,'Parking - Lot B','parking',1,180.00,NULL,'{\"lot\":\"Lot B\"}','2025-11-09 03:10:47'),(3,7,'Adult','ticket',1,89.00,NULL,'{\"category\":\"day\",\"visitDate\":\"2025-11-12\"}','2025-11-09 04:30:16'),(4,7,'Child','ticket',1,59.00,NULL,'{\"category\":\"day\",\"visitDate\":\"2025-11-12\"}','2025-11-09 04:30:16'),(5,7,'Parking - Lot A','parking',1,200.00,NULL,'{\"lot\":\"Lot A\",\"visitDate\":\"2025-11-12\"}','2025-11-09 04:30:16'),(6,7,'Adult','ticket',2,89.00,NULL,'{\"category\":\"day\",\"visitDate\":\"2025-11-11\"}','2025-11-09 05:08:49'),(7,7,'Parking - Lot A','parking',1,200.00,NULL,'{\"lot\":\"Lot A\",\"visitDate\":\"2025-11-11\"}','2025-11-09 05:08:49'),(8,7,'Adult','ticket',1,89.00,NULL,'{\"category\":\"day\",\"visitDate\":\"2025-11-20\"}','2025-11-09 05:16:04'),(9,7,'Adult','ticket',1,89.00,NULL,'{\"category\":\"day\",\"visitDate\":\"2025-11-21\"}','2025-11-09 05:16:04'),(10,7,'Adult','ticket',1,89.00,NULL,'{\"category\":\"day\",\"visitDate\":\"2025-11-12\"}','2025-11-09 05:19:27'),(11,7,'Adult','ticket',1,89.00,NULL,'{\"category\":\"day\",\"visitDate\":\"2025-11-14\"}','2025-11-09 05:28:42'),(12,7,'Adult','ticket',1,89.00,'2025-11-13','{\"category\":\"day\",\"visitDate\":\"2025-11-13\"}','2025-11-09 05:56:10');
 /*!40000 ALTER TABLE `ticket_purchase` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -1354,4 +1358,4 @@ DELIMITER ;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-11-06 23:56:36
+-- Dump completed on 2025-11-09  0:01:01
