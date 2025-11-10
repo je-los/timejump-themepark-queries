@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import Nav from './components/nav.jsx';
+import AuthToast from './components/authtoast.jsx';
 import Home from './pages/home.jsx';
 import GiftShop from './pages/giftshop.jsx';
 import FoodVendors from './pages/foodvendors.jsx';
@@ -10,11 +11,14 @@ import Manager from './pages/manager.jsx';
 import TicketCatalog from './pages/ticketcatalog.jsx';
 import RidesAndAttractions from './pages/ridesandattractions.jsx';
 import ThemeView from './pages/themeview.jsx';
-import RideView from './pages/rideview.jsx';
 import Account from './pages/account.jsx';
 import LoginPage from './pages/login.jsx';
+import StaffSchedulePage from './pages/staff/schedule.jsx';
+import MaintenancePage from './pages/admin/operations/maintenance.jsx';
 import { CartProvider } from './context/cartcontext.jsx';
 import { useAuth } from './context/authcontext.jsx';
+import RequireRole from './components/requirerole.jsx';
+import { useAuthToast, queueAuthToast } from './hooks/useauthtoast.js';
 
 export default function App() {
   const { user } = useAuth();
@@ -103,7 +107,6 @@ function CustomerRoutes({ rideLibrary, libraryLoading, libraryError }) {
       <Route path="/things-to-do/dining" element={<FoodVendors />} />
       <Route path="/things-to-do/shopping" element={<GiftShop />} />
       <Route path="/theme/:slug" element={<ThemeView />} />
-      <Route path="/ride/:slug" element={<RideView />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/account" element={<Account />} />
       <Route path="*" element={<Navigate to="/" replace />} />
@@ -147,8 +150,20 @@ function StaffShell() {
       <StaffNav currentPath={location.pathname} />
       <Routes>
         <Route path="/" element={<Navigate to={staffHome} replace />} />
+        <Route path="/schedule" element={<StaffSchedulePage />} />
         <Route path="/reports" element={<ReportsWorkspace />} />
         <Route path="/manager" element={<Manager />} />
+        <Route
+          path="/maintenance"
+          element={(
+            <RequireRole
+              roles={['manager', 'admin', 'owner']}
+              fallback={<div className="page"><div className="panel">Managers or higher only.</div></div>}
+            >
+              <MaintenancePage />
+            </RequireRole>
+          )}
+        />
         <Route path="/admin/*" element={<Admin />} />
         <Route path="/account" element={<Account />} />
         <Route path="/login" element={<Navigate to={staffHome} replace />} />
@@ -159,8 +174,10 @@ function StaffShell() {
 }
 
 const STAFF_LINKS = [
+  { label: 'Schedule', path: '/schedule', roles: ['employee', 'manager'] },
   { label: 'Reports', path: '/reports', roles: ['employee', 'manager', 'admin', 'owner'] },
-  { label: 'Manager', path: '/manager', roles: ['manager', 'admin', 'owner'] },
+  { label: 'Manager', path: '/manager', roles: ['manager'] },
+  { label: 'Maintenance', path: '/maintenance', roles: ['manager'] },
   { label: 'Admin', path: '/admin', roles: ['admin', 'owner'] },
 ];
 
@@ -168,58 +185,66 @@ function StaffNav({ currentPath }) {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const role = user?.role ?? '';
-  const links = useMemo(
-    () => STAFF_LINKS.filter(link => !link.roles || link.roles.includes(role)),
-    [role],
-  );
+  const { authToast, dismissToast } = useAuthToast(user);
+  const links = useMemo(() => {
+    const roleLinks = STAFF_LINKS.filter(link => !link.roles || link.roles.includes(role));
+    if (role === 'admin' || role === 'owner') {
+      return roleLinks.filter(link => link.path === '/reports' || link.path.startsWith('/admin'));
+    }
+    return roleLinks;
+  }, [role]);
 
   const isActive = (path) => currentPath === path || currentPath.startsWith(`${path}/`);
 
   function handleSignOut() {
+    queueAuthToast('out');
     signOut();
     navigate('/', { replace: true });
   }
 
   return (
-    <header className="nav-shell">
-      <div className="nav-bar">
-        <div className="nav-left">
-          <button className="nav-brand" type="button" onClick={() => navigate('/')}>
-            Time Jump Staff
-          </button>
-          <span className="nav-role-pill">{role ? role.toUpperCase() : 'STAFF'}</span>
-        </div>
-        <nav className="nav-links">
-          <div className="nav-staff">
-            {links.map(link => (
+    <>
+      <header className="nav-shell">
+        <div className="nav-bar">
+          <div className="nav-left">
+            <button className="nav-brand" type="button" onClick={() => navigate('/')}>
+              Time Jump Staff
+            </button>
+            <span className="nav-role-pill">{role ? role.toUpperCase() : 'STAFF'}</span>
+          </div>
+          <nav className="nav-links">
+            <div className="nav-staff">
+              {links.map(link => (
+                <button
+                  key={link.path}
+                  className={`nav-link nav-link--staff ${isActive(link.path) ? 'nav-link--active' : ''}`}
+                  onClick={() => navigate(link.path)}
+                >
+                  {link.label}
+                </button>
+              ))}
+            </div>
+            <div className="nav-auth">
               <button
-                key={link.path}
-                className={`nav-link nav-link--staff ${isActive(link.path) ? 'nav-link--active' : ''}`}
-                onClick={() => navigate(link.path)}
+                className="nav-account"
+                onClick={() => navigate('/account')}
               >
-                {link.label}
+                Account
               </button>
-            ))}
-          </div>
-          <div className="nav-auth">
-            <button
-              className="nav-account"
-              onClick={() => navigate('/account')}
-            >
-              Account
-            </button>
-            <button className="btn primary" onClick={handleSignOut}>
-              Sign Out
-            </button>
-          </div>
-        </nav>
-      </div>
-    </header>
+              <button className="btn primary" onClick={handleSignOut}>
+                Sign Out
+              </button>
+            </div>
+          </nav>
+        </div>
+      </header>
+      <AuthToast toast={authToast} onDismiss={dismissToast} />
+    </>
   );
 }
 
 function resolveStaffHome(role) {
   if (role === 'admin' || role === 'owner') return '/admin';
   if (role === 'manager') return '/manager';
-  return '/reports';
+  return '/schedule';
 }

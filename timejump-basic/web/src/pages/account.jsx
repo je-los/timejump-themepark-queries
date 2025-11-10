@@ -216,3 +216,4 @@ function formatVisitDate(value) {
   if (Number.isNaN(date.getTime())) return '—';
   return date.toLocaleDateString(undefined, { dateStyle: 'medium' });
 }
+

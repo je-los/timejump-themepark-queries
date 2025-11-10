@@ -43,7 +43,8 @@ function Planner() {
           api('/schedules').catch(err => { if (err?.status === 403) return { data: [] }; throw err; }),
         ]);
         if (!active) return;
-        setEmployees(Array.isArray(empRes?.data) ? empRes.data : (empRes?.employees || []));
+        const employeeRows = Array.isArray(empRes?.data) ? empRes.data : (empRes?.employees || []);
+        setEmployees(employeeRows.filter(row => (row.role_name ?? row.role ?? '').toLowerCase() === 'employee'));
         setAttractions(Array.isArray(attrRes?.data) ? attrRes.data : (attrRes?.attractions || []));
         setSchedules(Array.isArray(schedRes?.data) ? schedRes.data : (schedRes?.schedules || []));
       } catch (err) {
