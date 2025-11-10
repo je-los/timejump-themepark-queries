@@ -16,8 +16,16 @@ export default function Account() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [scheduleLoading, setScheduleLoading] = useState(false);
   const [hoursWorked, setHoursWorked] = useState(0);
+  const [totalHoursWorked, setTotalHoursWorked] = useState(0);
   const isCustomer = user?.role === 'customer';
   const isEmployee = useMemo(() => ['employee', 'manager'].includes(user?.role) && (user?.EmployeeID || user?.employeeID), [user]);
+  const biweeklyDateRange = useMemo(() => {
+    if (!isEmployee) return '';
+    const today = new Date();
+    const priorDate = new Date(new Date().setDate(today.getDate() - 13));
+    const options = { month: 'short', day: 'numeric' };
+    return `${priorDate.toLocaleDateString(undefined, options)} - ${today.toLocaleDateString(undefined, options)}`;
+  }, [isEmployee]);
 
   useEffect(() => {
     if (!user) return;
@@ -101,6 +109,16 @@ export default function Account() {
     });
   }, [isEmployee]);
 
+  useEffect(() => {
+    if (!isEmployee) return;
+    let cancelled = false;
+    api('/schedules/total-hours').then(res => {
+      if (!cancelled) setTotalHoursWorked(res.data?.total_hours ?? 0);
+    }).catch(() => {
+      if (!cancelled) setTotalHoursWorked(0);
+    });
+  }, [isEmployee]);
+
   const attractionNameMap = useMemo(() => {
     const map = new Map();
     attractions.forEach(a => map.set(a.AttractionID, a.Name));
@@ -151,9 +169,20 @@ export default function Account() {
           <div className="muted" style={{ fontSize: 14 }}>
             Signed in as <strong>{user.email || '—'}</strong> ({user.role})
           </div>
+          {isEmployee && totalHoursWorked !== null && (
+            <div style={{ marginTop: 16 }}>
+              <h3 style={{ marginTop: 0, marginBottom: 4, fontSize: '1rem' }}>Total Hours Worked</h3>
+              <p style={{ margin: 0, fontSize: '1.5rem', fontWeight: 700 }}>
+                {totalHoursWorked} <span style={{ fontSize: '1rem', fontWeight: 400, color: '#666' }}>hours</span>
+              </p>
+            </div>
+          )}
           {isEmployee && hoursWorked !== null && (
             <div style={{ marginTop: 16 }}>
-              <h3 style={{ marginTop: 0, marginBottom: 4, fontSize: '1rem' }}>Hours Worked</h3>
+              <h3 style={{ marginTop: 0, marginBottom: 4, fontSize: '1rem' }}>Biweekly Hours Worked</h3>
+              <div className="muted" style={{ fontSize: '0.75rem', marginBottom: 4 }}>
+                {biweeklyDateRange}
+              </div>
               <p style={{ margin: 0, fontSize: '1.5rem', fontWeight: 700 }}>
                 {hoursWorked} <span style={{ fontSize: '1rem', fontWeight: 400, color: '#666' }}>hours</span>
               </p>

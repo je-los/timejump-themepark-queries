@@ -222,6 +222,48 @@ export function registerOperationsRoutes(router) {
     });
   }));
 
+  router.get('/schedules/hours', requireRole(['employee', 'manager'])(async ctx => {
+    const employeeId = ctx.authUser.EmployeeID;
+    if (!employeeId) {
+      ctx.error(403, 'Only employees can view their hours worked.');
+      return;
+    }
+    try {
+      const rows = await query(`
+        SELECT SUM(TIME_TO_SEC(TIMEDIFF(End_time, Start_time))) / 3600 AS total_hours
+        FROM schedules
+        WHERE EmployeeID = ? AND Shift_date BETWEEN CURDATE() - INTERVAL 13 DAY AND CURDATE()
+      `, [employeeId]);
+
+      const totalHours = rows[0]?.total_hours || 0;
+      ctx.ok({ data: { total_hours: parseFloat(totalHours).toFixed(2) } });
+    } catch (err) {
+      ctx.error(500, 'Could not retrieve hours worked.');
+    }
+  }));
+
+  router.get('/schedules/total-hours', requireRole(['employee', 'manager'])(async ctx => {
+    const employeeId = ctx.authUser.EmployeeID;
+    if (!employeeId) {
+      ctx.error(403, 'Only employees can view their total hours worked.');
+      return;
+    }
+    try {
+      const rows = await query(`
+        SELECT SUM(TIME_TO_SEC(TIMEDIFF(End_time, Start_time))) / 3600 AS total_hours
+        FROM schedules
+        WHERE EmployeeID = ? AND Shift_date <= CURDATE()
+      `, [employeeId]);
+
+      const totalHours = rows[0]?.total_hours || 0;
+      ctx.ok({ data: { total_hours: parseFloat(totalHours).toFixed(2) } });
+    } catch (err) {
+      console.error(err);
+      ctx.error(500, 'Could not retrieve total hours worked.');
+    }
+  }));
+
+
   router.post('/schedules', requireRole(['manager', 'admin', 'owner'])(async ctx => {
     const employeeId = Number(pick(ctx.body, 'employeeId', 'EmployeeID'));
     const attractionId = Number(pick(ctx.body, 'attractionId', 'AttractionID'));
@@ -270,5 +312,26 @@ export function registerOperationsRoutes(router) {
       }
       throw err;
     }
+  }));
+
+  router.post('/incidents', requireRole(['employee', 'manager', 'admin', 'owner'])(async ctx => {
+    const employeeId = pick(ctx.body, 'employeeId', 'EmployeeID') ?? ctx.authUser.EmployeeID;
+    const { incidentType, ticketId, details, occurredAt, location, severity } = ctx.body;
+
+    if (!incidentType || !details || !occurredAt || !location || !severity) {
+      ctx.error(400, 'Missing required fields for incident report.');
+      return;
+    }
+
+    if (!employeeId) {
+      ctx.error(403, 'Could not determine employee for incident report.');
+      return;
+    }
+
+    const result = await query(
+      'INSERT INTO incidents (IncidentType, EmployeeID, TicketID, Details, occurred_at, location, severity) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [incidentType, employeeId, ticketId || null, details, occurredAt, location, severity]
+    );
+    ctx.created({ data: { id: result.insertId } });
   }));
 }
