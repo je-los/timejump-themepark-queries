@@ -1,6 +1,7 @@
 import { query } from '../db.js';
 import { requireRole } from '../middleware/auth.js';
 import { CANCELLATION_REASON_FALLBACK } from '../services/constants.js';
+import { ensureGiftSalesTable, ensureMenuSalesTable, ensureTicketCatalogTable } from '../services/ensure.js';
 import { getISOWeek } from '../utils/calendar.js';
 import { toSlug, toTitle } from '../utils/strings.js';
 
@@ -38,6 +39,7 @@ export function registerReportRoutes(router) {
     const start = String(ctx.query.start || '').trim();
     const end = String(ctx.query.end || '').trim();
     const reasonsParam = String(ctx.query.reasons || '').trim();
+    const search = String(ctx.query.search || '').trim();
     const codes = reasonsParam ? reasonsParam.split(',').map(code => code.trim()).filter(Boolean) : [];
 
     const reasonRows = await query(
@@ -58,19 +60,24 @@ export function registerReportRoutes(router) {
       : [];
 
     let sql = `
-      SELECT rc.cancel_id, rc.AttractionID, rc.cancel_date, rc.reason, a.Name AS attraction
+      SELECT rc.cancel_id, rc.AttractionID, DATE(rc.cancel_date) AS cancel_date, rc.reason, a.Name AS attraction
       FROM ride_cancellation rc
       LEFT JOIN attraction a ON a.AttractionID = rc.AttractionID
       WHERE 1=1
     `;
     const params = [];
     if (start) {
-      sql += ' AND rc.cancel_date >= ?';
+      sql += ' AND DATE(rc.cancel_date) >= ?';
       params.push(start);
     }
     if (end) {
-      sql += ' AND rc.cancel_date <= ?';
+      sql += ' AND DATE(rc.cancel_date) <= ?';
       params.push(end);
+    }
+    if (search) {
+      sql += ' AND (a.Name LIKE ? OR rc.reason LIKE ?)';
+      const pattern = `%${search}%`;
+      params.push(pattern, pattern);
     }
     if (reasonFilterValues.length) {
       sql += ` AND rc.reason IN (${reasonFilterValues.map(() => '?').join(',')})`;
@@ -91,35 +98,220 @@ export function registerReportRoutes(router) {
           reason,
           reason_code: code,
           reason_label: toTitle(reason),
-          notes: '',
         };
       }),
     });
   }));
 
   router.get('/reports/riders-per-day', requireRole(['employee', 'manager', 'admin', 'owner'])(async ctx => {
+    const groupMode = String(ctx.query.group || 'day').trim().toLowerCase() === 'month' ? 'month' : 'day';
     const date = String(ctx.query.date || '').trim();
-    if (!date) {
-      ctx.error(400, 'Date is required.');
+    let start = String(ctx.query.start || '').trim();
+    let end = String(ctx.query.end || '').trim();
+    const rideFilter = String(ctx.query.ride || ctx.query.attraction || '').trim();
+    const topRaw = Number(ctx.query.top || ctx.query.limit);
+    const limit = Number.isFinite(topRaw) ? Math.min(Math.max(topRaw, 1), 500) : 500;
+    const params = [];
+
+    function applyRideFilter(sqlParts) {
+      if (!rideFilter) return sqlParts;
+      if (/^\d+$/.test(rideFilter)) {
+        sqlParts.where.push('rl.AttractionID = ?');
+        params.push(Number(rideFilter));
+      } else {
+        sqlParts.where.push('a.Name LIKE ?');
+        params.push(`%${rideFilter}%`);
+      }
+      return sqlParts;
+    }
+
+    if (groupMode === 'day') {
+      if (!date) {
+        ctx.error(400, 'Date is required for daily grouping.');
+        return;
+      }
+      const sqlParts = {
+        base: `SELECT rl.AttractionID, rl.log_date, rl.riders_count, a.Name
+               FROM ride_log rl
+               LEFT JOIN attraction a ON a.AttractionID = rl.AttractionID`,
+        where: ['rl.log_date = ?'],
+        suffix: 'ORDER BY rl.riders_count DESC, rl.AttractionID ASC LIMIT ?',
+      };
+      params.push(date);
+      applyRideFilter(sqlParts);
+      params.push(limit);
+      const sql = `${sqlParts.base} WHERE ${sqlParts.where.join(' AND ')} ${sqlParts.suffix}`;
+      const rows = await query(sql, params).catch(() => []);
+      ctx.ok({
+        data: rows.map(row => ({
+          AttractionID: row.AttractionID,
+          Name: row.Name || `Attraction ${row.AttractionID}`,
+          log_date: row.log_date,
+          riders_count: Number(row.riders_count || 0),
+        })),
+      });
       return;
     }
-    const rows = await query(
-      `SELECT rl.AttractionID, rl.log_date, rl.riders_count, a.Name
-       FROM ride_log rl
-       LEFT JOIN attraction a ON a.AttractionID = rl.AttractionID
-       WHERE rl.log_date = ?
-       ORDER BY rl.riders_count DESC
-       LIMIT 500`,
-      [date],
-    ).catch(() => []);
+
+    // Monthly mode
+    const sqlParts = {
+      base: `SELECT DATE_FORMAT(rl.log_date, '%Y-%m-01') AS period_start,
+                    rl.AttractionID,
+                    a.Name,
+                    SUM(rl.riders_count) AS riders_count,
+                    AVG(rl.riders_count) AS avg_riders,
+                    COUNT(*) AS entry_count
+             FROM ride_log rl
+             LEFT JOIN attraction a ON a.AttractionID = rl.AttractionID`,
+      where: [],
+      suffix: `GROUP BY period_start, rl.AttractionID, a.Name
+               ORDER BY period_start DESC, riders_count DESC
+               LIMIT ?`,
+    };
+    if (start) {
+      sqlParts.where.push('rl.log_date >= ?');
+      params.push(start);
+    }
+    if (end) {
+      sqlParts.where.push('rl.log_date <= ?');
+      params.push(end);
+    }
+    applyRideFilter(sqlParts);
+    params.push(limit);
+    const whereClause = sqlParts.where.length ? `WHERE ${sqlParts.where.join(' AND ')}` : '';
+    const sql = `${sqlParts.base} ${whereClause} ${sqlParts.suffix}`;
+    const rows = await query(sql, params).catch(() => []);
     ctx.ok({
       data: rows.map(row => ({
+        period_start: row.period_start,
         AttractionID: row.AttractionID,
         Name: row.Name || `Attraction ${row.AttractionID}`,
-        log_date: row.log_date,
         riders_count: Number(row.riders_count || 0),
+        avg_riders: Number(row.avg_riders || 0),
+        entry_count: Number(row.entry_count || 0),
       })),
     });
+  }));
+
+  router.get('/reports/ticket-sales', requireRole(['employee', 'manager', 'admin', 'owner'])(async ctx => {
+    const start = String(ctx.query.start || '').trim();
+    const end = String(ctx.query.end || '').trim();
+    const typeFilter = String(ctx.query.type || ctx.query.ticketType || '').trim();
+    const groupRaw = String(ctx.query.group || '').trim().toLowerCase();
+    const groupMode = groupRaw === 'month' || groupRaw === 'monthly' ? 'month' : 'day';
+    const categoryFilter = String(ctx.query.category || '').trim().toLowerCase();
+    const includeTickets = !categoryFilter || categoryFilter === 'ticket';
+    const includeFood = !categoryFilter || categoryFilter === 'food';
+    const includeGifts = !categoryFilter || categoryFilter === 'gift';
+
+    const dateSelect = groupMode === 'month'
+      ? "DATE_FORMAT(t.PurchaseDate, '%Y-%m-01') AS report_date"
+      : 'DATE(t.PurchaseDate) AS report_date';
+    const groupClause = groupMode === 'month'
+      ? 'YEAR(t.PurchaseDate), MONTH(t.PurchaseDate), t.TicketType, tc.price'
+      : 'DATE(t.PurchaseDate), t.TicketType, tc.price';
+
+    let sql = `
+      SELECT ${dateSelect},
+             t.TicketType,
+             tc.price AS catalog_price,
+             COUNT(*) AS tickets_sold,
+             COALESCE(SUM(t.Price), 0) AS total_revenue,
+             COALESCE(AVG(t.Price), 0) AS avg_price
+      FROM ticket t
+      LEFT JOIN ticket_catalog tc ON tc.ticket_type = t.TicketType
+      WHERE t.PurchaseDate IS NOT NULL
+    `;
+    const params = [];
+    if (start) {
+      sql += ' AND t.PurchaseDate >= ?';
+      params.push(start);
+    }
+    if (end) {
+      sql += ' AND t.PurchaseDate <= ?';
+      params.push(end);
+    }
+    if (typeFilter) {
+      sql += ' AND t.TicketType = ?';
+      params.push(typeFilter);
+    }
+    sql += ` GROUP BY ${groupClause}`;
+    sql += ' ORDER BY report_date DESC, total_revenue DESC LIMIT 500';
+
+    const rows = await query(sql, params).catch(() => []);
+    ctx.ok({
+      data: rows.map(row => ({
+        report_date: row.report_date,
+        ticket_type: row.TicketType || 'Unspecified',
+        tickets_sold: Number(row.tickets_sold || 0),
+        total_revenue: Number(row.total_revenue || 0),
+        avg_price: Number(row.avg_price || 0),
+      })),
+    });
+  }));
+
+  router.get('/reports/revenue', requireRole(['employee', 'manager', 'admin', 'owner'])(async ctx => {
+    const start = String(ctx.query.start || '').trim();
+    const end = String(ctx.query.end || '').trim();
+    const groupRaw = String(ctx.query.group || '').trim().toLowerCase();
+    const groupMode = groupRaw === 'month' || groupRaw === 'monthly' ? 'month' : 'day';
+
+    await Promise.all([
+      ensureTicketCatalogTable(),
+      ensureMenuSalesTable(),
+      ensureGiftSalesTable(),
+    ]).catch(() => {});
+
+    const ticketQuery = buildTicketRevenueQuery(groupMode, start, end);
+    const foodQuery = buildMenuRevenueQuery(groupMode, start, end);
+    const giftQuery = buildGiftRevenueQuery(groupMode, start, end);
+
+    const [ticketRows, foodRows, giftRows] = await Promise.all([
+      includeTickets ? query(ticketQuery.sql, ticketQuery.params).catch(() => []) : Promise.resolve([]),
+      includeFood ? query(foodQuery.sql, foodQuery.params).catch(() => []) : Promise.resolve([]),
+      includeGifts ? query(giftQuery.sql, giftQuery.params).catch(() => []) : Promise.resolve([]),
+    ]);
+
+    const data = [
+      ...ticketRows.map(row => ({
+        category: 'ticket',
+        period_start: row.period_start,
+        period_label: formatPeriodLabel(groupMode, row.period_start),
+        item_name: row.item_name || 'Ticket',
+        quantity: Number(row.quantity || 0),
+        total_amount: Number(row.total_amount || 0),
+      })),
+      ...foodRows.map(row => ({
+        category: 'food',
+        period_start: row.period_start,
+        period_label: formatPeriodLabel(groupMode, row.period_start),
+        item_name: row.item_name || 'Menu Item',
+        quantity: Number(row.quantity || 0),
+        total_amount: Number(row.total_amount || 0),
+      })),
+      ...giftRows.map(row => ({
+        category: 'gift',
+        period_start: row.period_start,
+        period_label: formatPeriodLabel(groupMode, row.period_start),
+        item_name: row.item_name || 'Gift Item',
+        quantity: Number(row.quantity || 0),
+        total_amount: Number(row.total_amount || 0),
+      })),
+    ];
+
+    const searchTerm = String(ctx.query.search || '').trim().toLowerCase();
+
+    const filtered = data.filter(row => {
+      if (searchTerm) {
+        const target = `${row.item_name || ''}`.toLowerCase();
+        if (!target.includes(searchTerm)) {
+          return false;
+        }
+      }
+      return true;
+    });
+
+    ctx.ok({ data: filtered });
   }));
 
   router.get('/reports/analytics', requireRole(['employee', 'manager', 'admin', 'owner'])(async ctx => {
@@ -330,4 +522,110 @@ export function registerReportRoutes(router) {
 
     ctx.ok({ data });
   }));
+}
+
+function buildTicketRevenueQuery(groupMode, start, end) {
+  const periodExpr = selectPeriodExpression('t.PurchaseDate', groupMode);
+  const groupClause = selectGroupClause('t.PurchaseDate', groupMode);
+  let sql = `
+    SELECT ${periodExpr} AS period_start,
+           t.TicketType AS item_name,
+           COALESCE(tc.price, 0) AS catalog_price,
+           COUNT(*) AS quantity,
+           COALESCE(SUM(t.Price), 0) AS total_amount,
+           'Main Gate' AS location_name
+    FROM ticket t
+    LEFT JOIN ticket_catalog tc ON tc.ticket_type = t.TicketType
+    WHERE t.PurchaseDate IS NOT NULL
+  `;
+  const params = [];
+  if (start) {
+    sql += ' AND t.PurchaseDate >= ?';
+    params.push(start);
+  }
+  if (end) {
+    sql += ' AND t.PurchaseDate <= ?';
+    params.push(end);
+  }
+  sql += ` GROUP BY ${groupClause}, t.TicketType, tc.price
+           ORDER BY period_start DESC, total_amount DESC`;
+  return { sql, params };
+}
+
+function buildMenuRevenueQuery(groupMode, start, end) {
+  const periodExpr = selectPeriodExpression('ms.sale_date', groupMode);
+  const groupClause = selectGroupClause('ms.sale_date', groupMode);
+  let sql = `
+    SELECT ${periodExpr} AS period_start,
+           mi.name AS item_name,
+           fv.VendorName AS location_name,
+           COALESCE(SUM(ms.quantity), 0) AS quantity,
+           COALESCE(SUM(ms.quantity * ms.price_each), 0) AS total_amount
+    FROM menu_sales ms
+    JOIN menu_item mi ON mi.item_id = ms.menu_item_id
+    LEFT JOIN food_vendor fv ON fv.VendorID = mi.vendor_id
+    WHERE 1=1
+  `;
+  const params = [];
+  if (start) {
+    sql += ' AND ms.sale_date >= ?';
+    params.push(start);
+  }
+  if (end) {
+    sql += ' AND ms.sale_date <= ?';
+    params.push(end);
+  }
+  sql += ` GROUP BY ${groupClause}, mi.name, fv.VendorName
+           ORDER BY period_start DESC, total_amount DESC`;
+  return { sql, params };
+}
+
+function buildGiftRevenueQuery(groupMode, start, end) {
+  const periodExpr = selectPeriodExpression('gsale.sale_date', groupMode);
+  const groupClause = selectGroupClause('gsale.sale_date', groupMode);
+  let sql = `
+    SELECT ${periodExpr} AS period_start,
+           gi.name AS item_name,
+           gs.ShopName AS location_name,
+           COALESCE(SUM(gsale.quantity), 0) AS quantity,
+           COALESCE(SUM(gsale.quantity * gsale.price_each), 0) AS total_amount
+    FROM gift_sales gsale
+    JOIN gift_item gi ON gi.item_id = gsale.gift_item_id
+    LEFT JOIN gift_shops gs ON gs.ShopID = gi.shop_id
+    WHERE 1=1
+  `;
+  const params = [];
+  if (start) {
+    sql += ' AND gsale.sale_date >= ?';
+    params.push(start);
+  }
+  if (end) {
+    sql += ' AND gsale.sale_date <= ?';
+    params.push(end);
+  }
+  sql += ` GROUP BY ${groupClause}, gi.name, gs.ShopName
+           ORDER BY period_start DESC, total_amount DESC`;
+  return { sql, params };
+}
+
+function selectPeriodExpression(field, mode) {
+  return mode === 'month'
+    ? `DATE_FORMAT(${field}, '%Y-%m-01')`
+    : `DATE(${field})`;
+}
+
+function selectGroupClause(field, mode) {
+  return mode === 'month'
+    ? `YEAR(${field}), MONTH(${field})`
+    : `DATE(${field})`;
+}
+
+function formatPeriodLabel(mode, isoDate) {
+  if (!isoDate) return '';
+  const date = new Date(isoDate);
+  if (Number.isNaN(date.getTime())) return isoDate;
+  if (mode === 'month') {
+    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
+  }
+  return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 }

@@ -5,16 +5,63 @@ import { pick } from '../utils/object.js';
 
 export function registerMaintenanceRoutes(router) {
   router.get('/maintenance', requireRole(['employee', 'manager', 'admin', 'owner'])(async ctx => {
-    const rows = await query(`
+    const filters = ctx.query || {};
+    const start = String(filters.start || filters.dateStart || '').trim();
+    const end = String(filters.end || filters.dateEnd || '').trim();
+    const severityParam = String(filters.severity || filters.severities || '').trim();
+    const typeParam = String(filters.type || filters.types || '').trim();
+    const attractionParam = String(filters.attraction || '').trim();
+    const search = String(filters.q || filters.search || '').trim();
+
+    const toList = (value) => value
+      ? value.split(',').map(v => v.trim()).filter(Boolean)
+      : [];
+    const severities = toList(severityParam).map(val => val.toLowerCase());
+    const maintenanceTypes = toList(typeParam).map(val => val.toLowerCase());
+
+    let sql = `
       SELECT mr.RecordID, mr.AttractionID, a.Name AS attraction_name, mr.EmployeeID,
              mr.Date_broken_down, mr.Date_fixed, mr.type_of_maintenance,
              mr.Description_of_work, mr.Duration_of_repair, mr.Severity_of_report,
              mr.SourceID, mr.Approved_by_supervisor
       FROM maintenance_records mr
       LEFT JOIN attraction a ON a.AttractionID = mr.AttractionID
-      ORDER BY mr.Date_broken_down DESC, mr.RecordID DESC
-      LIMIT 500
-    `).catch(() => []);
+      WHERE 1=1
+    `;
+    const params = [];
+    if (start) {
+      sql += ' AND mr.Date_broken_down >= ?';
+      params.push(start);
+    }
+    if (end) {
+      sql += ' AND mr.Date_broken_down <= ?';
+      params.push(end);
+    }
+    if (severities.length) {
+      sql += ` AND LOWER(mr.Severity_of_report) IN (${severities.map(() => '?').join(',')})`;
+      params.push(...severities);
+    }
+    if (maintenanceTypes.length) {
+      sql += ` AND LOWER(mr.type_of_maintenance) IN (${maintenanceTypes.map(() => '?').join(',')})`;
+      params.push(...maintenanceTypes);
+    }
+    if (attractionParam) {
+      if (/^\d+$/.test(attractionParam)) {
+        sql += ' AND mr.AttractionID = ?';
+        params.push(Number(attractionParam));
+      } else {
+        sql += ' AND a.Name LIKE ?';
+        params.push(`%${attractionParam}%`);
+      }
+    }
+    if (search) {
+      sql += ' AND (a.Name LIKE ? OR mr.Description_of_work LIKE ?)';
+      const like = `%${search}%`;
+      params.push(like, like);
+    }
+    sql += ' ORDER BY mr.Date_broken_down DESC, mr.RecordID DESC LIMIT 500';
+
+    const rows = await query(sql, params).catch(() => []);
     ctx.ok({
       data: rows.map(row => ({
         RecordID: row.RecordID,

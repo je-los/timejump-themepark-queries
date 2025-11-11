@@ -150,15 +150,15 @@ export default function Account() {
         {isCustomer && (
           <section className="panel">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: 12 }}>
-              <h2 style={{ margin: 0 }}>Ticket History</h2>
+              <h2 style={{ margin: 0 }}>Purchase History</h2>
               <span className="muted" style={{ fontSize: 12 }}>
-                Latest 200 purchases
+                Latest 200 orders (tickets, parking, dining, gifts)
               </span>
             </div>
             {historyLoading && <div className="muted">Loading history…</div>}
             {!historyLoading && orders.length === 0 && (
               <div className="muted" style={{ fontSize: 14 }}>
-                You have not purchased any tickets yet.
+                You have not completed any purchases yet.
               </div>
             )}
             {!historyLoading && orders.length > 0 && (
