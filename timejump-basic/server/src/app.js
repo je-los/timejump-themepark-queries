@@ -1,7 +1,13 @@
 import dotenv from 'dotenv';
+import { dirname, resolve } from 'path';
+import { fileURLToPath } from 'url';
 import { createServer } from './http/server.js';
 
-dotenv.config({ path: '.env.local', override: true }); //for local use
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const localEnvPath = resolve(__dirname, '../.env.local');
+
+dotenv.config({ path: localEnvPath, override: true }); // prefer local overrides when present
 dotenv.config();
 
 const PORT = Number(process.env.PORT || 4000);

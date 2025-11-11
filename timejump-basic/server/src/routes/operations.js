@@ -1,7 +1,17 @@
 import { query } from '../db.js';
+import { hashPassword } from '../auth.js';
 import { requireRole } from '../middleware/auth.js';
 import { ensureScheduleNotesTable } from '../services/ensure.js';
 import { pick } from '../utils/object.js';
+
+const EMPLOYEE_POSITION_ID = 1;
+
+function normalizeDate(value) {
+  if (!value && value !== 0) return null;
+  const trimmed = String(value).trim();
+  if (!trimmed) return null;
+  return /^\d{4}-\d{2}-\d{2}$/.test(trimmed) ? trimmed : null;
+}
 
 export function registerOperationsRoutes(router) {
   router.get('/employees', requireRole(['manager', 'admin', 'owner'])(async ctx => {
@@ -25,6 +35,116 @@ export function registerOperationsRoutes(router) {
     });
   }));
 
+  router.post('/employees', requireRole(['admin', 'owner'])(async ctx => {
+    const name = String(pick(ctx.body, 'name') || '').trim();
+    const email = String(pick(ctx.body, 'email') || '').trim().toLowerCase();
+    const password = String(pick(ctx.body, 'password') || '').trim();
+    const salaryInput = pick(ctx.body, 'salary');
+    const startDateRaw = pick(ctx.body, 'startDate', 'start_date');
+    const startDate = normalizeDate(startDateRaw);
+
+    if (!name) {
+      ctx.error(400, 'Employee name is required.');
+      return;
+    }
+    if (!email) {
+      ctx.error(400, 'Employee email is required.');
+      return;
+    }
+    if (!password) {
+      ctx.error(400, 'A temporary password is required.');
+      return;
+    }
+    if (password.length < 8) {
+      ctx.error(400, 'Password must be at least 8 characters.');
+      return;
+    }
+    if (startDateRaw && !startDate) {
+      ctx.error(400, 'Start date must be formatted as YYYY-MM-DD.');
+      return;
+    }
+
+    let salary = null;
+    if (salaryInput !== undefined && salaryInput !== null && String(salaryInput).trim() !== '') {
+      salary = Number(salaryInput);
+      if (!Number.isFinite(salary) || salary < 0) {
+        ctx.error(400, 'Salary must be a positive number.');
+        return;
+      }
+    }
+
+    const [employeeRows, userRows] = await Promise.all([
+      query('SELECT employeeID FROM employee WHERE email = ? LIMIT 1', [email]),
+      query('SELECT user_id FROM users WHERE email = ? LIMIT 1', [email]),
+    ]);
+    if (employeeRows.length) {
+      ctx.error(409, 'An employee already exists with that email.');
+      return;
+    }
+    if (userRows.length) {
+      ctx.error(409, 'A user already exists with that email.');
+      return;
+    }
+
+    const employeeResult = await query(
+      'INSERT INTO employee (name, salary, role, start_date, end_date, email) VALUES (?, ?, ?, ?, ?, ?)',
+      [
+        name,
+        salary !== null ? salary : null,
+        EMPLOYEE_POSITION_ID,
+        startDate,
+        null,
+        email,
+      ],
+    );
+    const employeeId = employeeResult.insertId;
+    const hash = hashPassword(password);
+    try {
+      await query(
+        'INSERT INTO users (email, password_hash, role, employeeID) VALUES (?, ?, ?, ?)',
+        [email, hash, 'employee', employeeId],
+      );
+    } catch (err) {
+      await query('DELETE FROM employee WHERE employeeID = ?', [employeeId]).catch(() => {});
+      throw err;
+    }
+
+    ctx.created({
+      data: {
+        employeeID: employeeId,
+        name,
+        salary,
+        role: EMPLOYEE_POSITION_ID,
+        role_name: 'Employee',
+        start_date: startDate,
+        end_date: null,
+        email,
+      },
+    });
+  }));
+
+  router.delete('/employees/:id', requireRole(['admin', 'owner'])(async ctx => {
+    const employeeId = Number(ctx.params?.id);
+    if (!employeeId) {
+      ctx.error(400, 'Valid employee ID is required.');
+      return;
+    }
+
+    const rows = await query(
+      'SELECT employeeID FROM employee WHERE employeeID = ? LIMIT 1',
+      [employeeId],
+    );
+    if (!rows.length) {
+      ctx.error(404, 'Employee not found.');
+      return;
+    }
+
+    await query('DELETE FROM users WHERE employeeID = ?', [employeeId]).catch(() => {});
+    await query('DELETE FROM employee WHERE employeeID = ?', [employeeId]);
+
+    ctx.noContent();
+  }));
+
   router.get('/attractions', requireRole(['employee', 'manager', 'admin', 'owner'])(async ctx => {
     const rows = await query(`
       SELECT a.AttractionID,
@@ -33,8 +153,7 @@ export function registerOperationsRoutes(router) {
              atype.TypeName AS attraction_type_name,
              a.ThemeID,
              t.themeName AS theme_name,
-             a.HeightRestriction,
-             a.RidersPerVehicle
+             a.Capacity
       FROM attraction a
       LEFT JOIN theme t ON t.themeID = a.ThemeID
       LEFT JOIN attraction_type atype ON atype.AttractionTypeID = a.AttractionTypeID
@@ -48,8 +167,7 @@ export function registerOperationsRoutes(router) {
         attraction_type_name: row.attraction_type_name,
         ThemeID: row.ThemeID,
         theme_name: row.theme_name,
-        HeightRestriction: row.HeightRestriction,
-        RidersPerVehicle: row.RidersPerVehicle,
+        Capacity: row.Capacity,
       })),
     });
   }));
@@ -78,6 +196,73 @@ export function registerOperationsRoutes(router) {
       })),
     });
   }));
+
+  router.get('/schedules/me', requireRole(['employee', 'manager'])(async ctx => {
+    const employeeId = ctx.authUser.EmployeeID;
+    if (!employeeId) {
+      ctx.error(403, 'Only employees can view their schedule.');
+      return;
+    }
+    await ensureScheduleNotesTable();
+    const rows = await query(`
+      SELECT s.ScheduleID, s.EmployeeID, s.AttractionID, s.Shift_date, s.Start_time, s.End_time, sn.notes
+      FROM schedules s
+      LEFT JOIN schedule_notes sn ON sn.ScheduleID = s.ScheduleID
+      WHERE s.EmployeeID = ?
+      ORDER BY s.Shift_date DESC, s.Start_time ASC
+      LIMIT 100
+    `, [employeeId]).catch(() => []);
+    ctx.ok({
+      data: rows.map(row => ({
+        ...row,
+        ShiftDate: row.Shift_date,
+        StartTime: row.Start_time,
+        EndTime: row.End_time,
+      })),
+    });
+  }));
+
+  router.get('/schedules/hours', requireRole(['employee', 'manager'])(async ctx => {
+    const employeeId = ctx.authUser.EmployeeID;
+    if (!employeeId) {
+      ctx.error(403, 'Only employees can view their hours worked.');
+      return;
+    }
+    try {
+      const rows = await query(`
+        SELECT SUM(TIME_TO_SEC(TIMEDIFF(End_time, Start_time))) / 3600 AS total_hours
+        FROM schedules
+        WHERE EmployeeID = ? AND Shift_date BETWEEN CURDATE() - INTERVAL 13 DAY AND CURDATE()
+      `, [employeeId]);
+
+      const totalHours = rows[0]?.total_hours || 0;
+      ctx.ok({ data: { total_hours: parseFloat(totalHours).toFixed(2) } });
+    } catch (err) {
+      ctx.error(500, 'Could not retrieve hours worked.');
+    }
+  }));
+
+  router.get('/schedules/total-hours', requireRole(['employee', 'manager'])(async ctx => {
+    const employeeId = ctx.authUser.EmployeeID;
+    if (!employeeId) {
+      ctx.error(403, 'Only employees can view their total hours worked.');
+      return;
+    }
+    try {
+      const rows = await query(`
+        SELECT SUM(TIME_TO_SEC(TIMEDIFF(End_time, Start_time))) / 3600 AS total_hours
+        FROM schedules
+        WHERE EmployeeID = ? AND Shift_date <= CURDATE()
+      `, [employeeId]);
+
+      const totalHours = rows[0]?.total_hours || 0;
+      ctx.ok({ data: { total_hours: parseFloat(totalHours).toFixed(2) } });
+    } catch (err) {
+      console.error(err);
+      ctx.error(500, 'Could not retrieve total hours worked.');
+    }
+  }));
+
 
   router.post('/schedules', requireRole(['manager', 'admin', 'owner'])(async ctx => {
     const employeeId = Number(pick(ctx.body, 'employeeId', 'EmployeeID'));
@@ -127,5 +312,26 @@ export function registerOperationsRoutes(router) {
       }
       throw err;
     }
+  }));
+
+  router.post('/incidents', requireRole(['employee', 'manager', 'admin', 'owner'])(async ctx => {
+    const employeeId = pick(ctx.body, 'employeeId', 'EmployeeID') ?? ctx.authUser.EmployeeID;
+    const { incidentType, ticketId, details, occurredAt, location, severity } = ctx.body;
+
+    if (!incidentType || !details || !occurredAt || !location || !severity) {
+      ctx.error(400, 'Missing required fields for incident report.');
+      return;
+    }
+
+    if (!employeeId) {
+      ctx.error(403, 'Could not determine employee for incident report.');
+      return;
+    }
+
+    const result = await query(
+      'INSERT INTO incidents (IncidentType, EmployeeID, TicketID, Details, occurred_at, location, severity) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [incidentType, employeeId, ticketId || null, details, occurredAt, location, severity]
+    );
+    ctx.created({ data: { id: result.insertId } });
   }));
 }

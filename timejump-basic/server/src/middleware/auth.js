@@ -19,7 +19,7 @@ export async function resolveAuthUser(authHeader) {
     id: row.user_id,
     email: row.email,
     role: row.role,
-    employeeId: row.employeeID,
+    EmployeeID: row.employeeID,
   };
 }
 

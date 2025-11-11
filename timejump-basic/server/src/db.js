@@ -1,23 +1,30 @@
 import mysql from 'mysql2/promise';
 import dotenv from 'dotenv';
+import { dirname, resolve } from 'path';
+import { fileURLToPath } from 'url';
 
-dotenv.config({ path: '.env.local', override: true });
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const localEnvPath = resolve(__dirname, '../../.env.local');
+
+dotenv.config({ path: localEnvPath, override: true });
 dotenv.config();
 
 console.log('[db] config', {
   host: process.env.DB_HOST,
   port: process.env.DB_PORT,
   user: process.env.DB_USER,
-  database: process.env.DB_NAME,
+  database: process.env.DB_NAME || 'themepark',
 });
 
 const pool = mysql.createPool({
-  host: process.env.DB_HOST,
-  port: Number(process.env.DB_PORT||3306),
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
+  host: process.env.DB_HOST || 'localhost',
+  port: Number(process.env.DB_PORT) || 3306,
+  user: process.env.DB_USER || 'root',
   database: process.env.DB_NAME,
-  waitForConnections: true,
+  password: process.env.DB_PASSWORD,
+  namedPlaceholders: true,
+  multipleStatements: true,
   connectionLimit: 10,
 });
 

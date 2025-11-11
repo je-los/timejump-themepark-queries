@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { api } from '../auth.js';
 import { useAuth } from '../context/authcontext.jsx';
 
@@ -11,8 +11,21 @@ export default function Account() {
   const [status, setStatus] = useState('');
   const [statusTone, setStatusTone] = useState('info');
   const [orders, setOrders] = useState([]);
+  const [schedules, setSchedules] = useState([]);
+  const [attractions, setAttractions] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [scheduleLoading, setScheduleLoading] = useState(false);
+  const [hoursWorked, setHoursWorked] = useState(0);
+  const [totalHoursWorked, setTotalHoursWorked] = useState(0);
   const isCustomer = user?.role === 'customer';
+  const isEmployee = useMemo(() => ['employee', 'manager'].includes(user?.role) && (user?.EmployeeID || user?.employeeID), [user]);
+  const biweeklyDateRange = useMemo(() => {
+    if (!isEmployee) return '';
+    const today = new Date();
+    const priorDate = new Date(new Date().setDate(today.getDate() - 13));
+    const options = { month: 'short', day: 'numeric' };
+    return `${priorDate.toLocaleDateString(undefined, options)} - ${today.toLocaleDateString(undefined, options)}`;
+  }, [isEmployee]);
 
   useEffect(() => {
     if (!user) return;
@@ -62,6 +75,56 @@ export default function Account() {
     };
   }, [user, isCustomer]);
 
+  useEffect(() => {
+    if (!isEmployee) return;
+    let cancelled = false;
+    setScheduleLoading(true);
+    Promise.all([
+      api('/schedules/me'),
+      api('/attractions'),
+    ]).then(([schedulesRes, attractionsRes]) => {
+      if (cancelled) return;
+      setSchedules(Array.isArray(schedulesRes?.data) ? schedulesRes.data : []);
+      setAttractions(Array.isArray(attractionsRes?.data) ? attractionsRes.data : []);
+    }).catch(() => {
+      if (cancelled) return;
+      setSchedules([]);
+      setAttractions([]);
+    }).finally(() => {
+      if (!cancelled) setScheduleLoading(false);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isEmployee]);
+
+  useEffect(() => {
+    if (!isEmployee) return;
+    let cancelled = false;
+    api('/schedules/hours').then(res => {
+      if (!cancelled) setHoursWorked(res.data?.total_hours ?? 0);
+    }).catch(() => {
+      if (!cancelled) setHoursWorked(0);
+    });
+  }, [isEmployee]);
+
+  useEffect(() => {
+    if (!isEmployee) return;
+    let cancelled = false;
+    api('/schedules/total-hours').then(res => {
+      if (!cancelled) setTotalHoursWorked(res.data?.total_hours ?? 0);
+    }).catch(() => {
+      if (!cancelled) setTotalHoursWorked(0);
+    });
+  }, [isEmployee]);
+
+  const attractionNameMap = useMemo(() => {
+    const map = new Map();
+    attractions.forEach(a => map.set(a.AttractionID, a.Name));
+    return map;
+  }, [attractions]);
+
   async function handleSave(e) {
     e.preventDefault();
     if (!user) return;
@@ -106,6 +169,25 @@ export default function Account() {
           <div className="muted" style={{ fontSize: 14 }}>
             Signed in as <strong>{user.email || '—'}</strong> ({user.role})
           </div>
+          {isEmployee && totalHoursWorked !== null && (
+            <div style={{ marginTop: 16 }}>
+              <h3 style={{ marginTop: 0, marginBottom: 4, fontSize: '1rem' }}>Total Hours Worked</h3>
+              <p style={{ margin: 0, fontSize: '1.5rem', fontWeight: 700 }}>
+                {totalHoursWorked} <span style={{ fontSize: '1rem', fontWeight: 400, color: '#666' }}>hours</span>
+              </p>
+            </div>
+          )}
+          {isEmployee && hoursWorked !== null && (
+            <div style={{ marginTop: 16 }}>
+              <h3 style={{ marginTop: 0, marginBottom: 4, fontSize: '1rem' }}>Biweekly Hours Worked</h3>
+              <div className="muted" style={{ fontSize: '0.75rem', marginBottom: 4 }}>
+                {biweeklyDateRange}
+              </div>
+              <p style={{ margin: 0, fontSize: '1.5rem', fontWeight: 700 }}>
+                {hoursWorked} <span style={{ fontSize: '1rem', fontWeight: 400, color: '#666' }}>hours</span>
+              </p>
+            </div>
+          )}
         </section>
 
         <section className="panel">
@@ -190,6 +272,41 @@ export default function Account() {
           </section>
         )}
       </div>
+      {isEmployee && (
+        <div className="page-box page-box--wide" style={{ marginTop: 24 }}>
+          <section className="panel">
+            <h2 style={{ marginTop: 0 }}>Work Schedule</h2>
+            {scheduleLoading && <div className="muted">Loading schedule...</div>}
+            {!scheduleLoading && schedules.length === 0 && (
+              <div className="muted" style={{ fontSize: 14 }}>
+                You have no upcoming shifts.
+              </div>
+            )}
+            {!scheduleLoading && schedules.length > 0 && (
+              <div className="manager-shift-grid">
+                {schedules.map((s, idx) => {
+                  const attrName = attractionNameMap.get(s.AttractionID) || 'Unknown Attraction';
+                  return (
+                    <div key={s.ScheduleID ?? idx} className="manager-shift-card">
+                      <div className="manager-shift-card__header">
+                        <h4>{attrName}</h4>
+                        <span>{formatDate(s.ShiftDate)}</span>
+                      </div>
+                      <div className="manager-shift-card__body">
+                        <div>
+                          <label>Shift</label>
+                          <strong>{formatTime(s.StartTime)} – {formatTime(s.EndTime)}</strong>
+                        </div>
+                      </div>
+                      {s.Notes && <p className="manager-shift-card__notes">{s.Notes}</p>}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        </div>
+      )}
     </div>
   );
 }
@@ -199,4 +316,22 @@ function formatDateTime(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return String(value);
   return date.toLocaleString();
+}
+
+function formatDate(value) {
+  if (!value) return 'Date TBD';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  return new Date(d.getTime() + d.getTimezoneOffset() * 60000).toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' });
+}
+
+function formatTime(value) {
+  if (!value) return '—';
+  if (typeof value === 'string' && value.includes(':')) {
+    const [h, m] = value.split(':');
+    const date = new Date();
+    date.setHours(Number(h), Number(m || 0));
+    return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  }
+  return String(value);
 }

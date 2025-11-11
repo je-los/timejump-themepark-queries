@@ -75,19 +75,14 @@ export function registerThemeRoutes(router) {
     const name = String(ctx.body?.name || '').trim();
     const themeId = Number(ctx.body?.themeId || ctx.body?.themeID);
     const typeId = Number(ctx.body?.typeId || ctx.body?.attractionTypeId || ctx.body?.attractionType);
-    const heightRestriction = Number(ctx.body?.heightRestriction ?? ctx.body?.HeightRestriction);
-    const ridersPerVehicle = Number(ctx.body?.ridersPerVehicle ?? ctx.body?.RidersPerVehicle);
+    const capacity = Number(ctx.body?.capacity ?? ctx.body?.Capacity ?? ctx.body?.ridersPerVehicle);
 
     if (!name || !themeId || !typeId) {
       ctx.error(400, 'Name, theme, and attraction type are required.');
       return;
     }
-    if (!Number.isFinite(heightRestriction) || heightRestriction < 0) {
-      ctx.error(400, 'Height restriction must be a non-negative number.');
-      return;
-    }
-    if (!Number.isFinite(ridersPerVehicle) || ridersPerVehicle <= 0) {
-      ctx.error(400, 'Riders per vehicle must be greater than zero.');
+    if (!Number.isFinite(capacity) || capacity <= 0) {
+      ctx.error(400, 'Capacity must be greater than zero.');
       return;
     }
 
@@ -109,8 +104,8 @@ export function registerThemeRoutes(router) {
     }
 
     const result = await query(
-      'INSERT INTO attraction (Name, AttractionTypeID, ThemeID, HeightRestriction, RidersPerVehicle) VALUES (?, ?, ?, ?, ?)',
-      [name, typeId, themeId, heightRestriction, ridersPerVehicle],
+      'INSERT INTO attraction (Name, AttractionTypeID, ThemeID, Capacity) VALUES (?, ?, ?, ?)',
+      [name, typeId, themeId, capacity],
     );
 
     ctx.created({
@@ -119,8 +114,7 @@ export function registerThemeRoutes(router) {
         name,
         themeId,
         typeId,
-        heightRestriction,
-        ridersPerVehicle,
+        capacity,
         slug: toSlug(name),
       },
     });

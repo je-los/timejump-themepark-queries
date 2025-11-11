@@ -5,13 +5,6 @@ import { useCart } from '../context/cartcontext.jsx';
 
 const CATEGORY_ORDER = ['day', 'annual', 'birthday', 'other'];
 
-const CATEGORY_DESCRIPTIONS = {
-  day: 'Valid for the selected visit days. Activate on entry.',
-  annual: 'Enjoy twelve months of unlimited visits from first activation.',
-  birthday: 'Tailored celebration packages with reserved party space.',
-  other: 'Special offers and add-ons for your visit.',
-};
-
 function categorizeTicket(name = '') {
   const lc = name.toLowerCase();
   if (lc.includes('annual') || lc.includes('season') || lc.includes('year')) return 'annual';
@@ -19,9 +12,57 @@ function categorizeTicket(name = '') {
   return 'day';
 }
 
+function formatCategory(cat) {
+  switch (cat) {
+    case 'day':
+      return 'Day Tickets';
+    case 'annual':
+      return 'Annual Passes';
+    case 'birthday':
+      return 'Birthday Packages';
+    case 'other':
+      return 'Special Offers';
+    default:
+      return cat;
+  }
+}
+
+function ticketKey(ticket = {}) {
+  const identifier =
+    ticket.name ||
+    ticket.ticket_type ||
+    ticket.ticketType ||
+    ticket.id ||
+    ticket.ticketId ||
+    ticket.slug;
+  return String(identifier ?? JSON.stringify(ticket));
+}
+
+function formatCurrency(value) {
+  return `$${Number(value || 0).toFixed(2)}`;
+}
+
+function parseDateOnly(value) {
+  if (!value) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const [year, month, day] = value.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  }
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function formatDateLabel(value) {
+  const date = parseDateOnly(value);
+  if (!date) return '';
+  return date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+const QTY_OPTIONS = Array.from({ length: 10 }, (_, i) => i + 1);
+
 export default function TicketCatalog({ filter = 'all' }) {
   const { user } = useAuth();
-  const { add } = useCart();
+  const { add, items: cartItems } = useCart();
   const navigate = useNavigate();
   const location = useLocation();
   const [tickets, setTickets] = useState([]);
@@ -29,19 +70,30 @@ export default function TicketCatalog({ filter = 'all' }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [status, setStatus] = useState('');
+  const [statusDetail, setStatusDetail] = useState('');
   const [statusTone, setStatusTone] = useState('info');
   const statusTimer = useRef(null);
 
-  function showStatus(message, tone = 'info') {
+  const [ticketSelections, setTicketSelections] = useState({});
+  const [visitDate, setVisitDate] = useState('');
+  const [includeParking, setIncludeParking] = useState(false);
+  const [selectedParkingId, setSelectedParkingId] = useState('');
+  const [plannerAlert, setPlannerAlert] = useState(null);
+
+  const minDate = useMemo(() => new Date().toISOString().slice(0, 10), []);
+
+  function showStatus(message, tone = 'info', detail = '') {
     if (statusTimer.current) {
       window.clearTimeout(statusTimer.current);
     }
     setStatusTone(tone);
     setStatus(message);
+    setStatusDetail(detail);
     statusTimer.current = window.setTimeout(() => {
       setStatus('');
+      setStatusDetail('');
       statusTimer.current = null;
-    }, 2500);
+    }, 3500);
   }
 
   useEffect(() => {
@@ -52,183 +104,389 @@ export default function TicketCatalog({ filter = 'all' }) {
     };
   }, []);
 
-  useEffect(()=>{
+  useEffect(() => {
+    if (!plannerAlert) return;
+    const id = window.setTimeout(() => setPlannerAlert(null), 3000);
+    return () => window.clearTimeout(id);
+  }, [plannerAlert]);
+
+  useEffect(() => {
     let active = true;
     setLoading(true);
     Promise.all([
       fetch(`${import.meta.env.VITE_API_URL}/ticket-types`),
-      fetch(`${import.meta.env.VITE_API_URL}/parking/options`).catch(()=>null),
+      fetch(`${import.meta.env.VITE_API_URL}/parking/options`).catch(() => null),
     ])
-      .then(async ([ticketRes, parkingRes])=>{
-        if(!active) return;
+      .then(async ([ticketRes, parkingRes]) => {
+        if (!active) return;
         if (!ticketRes?.ok) throw new Error('Failed to load tickets');
         const ticketJson = await ticketRes.json();
         const parkingJson = parkingRes && parkingRes.ok ? await parkingRes.json() : { data: [] };
         setTickets(ticketJson?.data || []);
-        setParkingOptions((parkingJson?.data || []).map(item=>{
-          const lotId = item.lotId ?? item.parking_lot_id ?? null;
-          const name = item.lot ?? item.lot_name ?? '';
-          const id = lotId !== null && lotId !== undefined ? String(lotId) : name;
-          return {
-            id,
-            lotId,
-            name,
-            price: Number(item.price ?? item.base_price ?? 0),
-          };
-        }));
+        setParkingOptions(
+          (parkingJson?.data || []).map(item => {
+            const lotId = item.lotId ?? item.parking_lot_id ?? null;
+            const name = item.lot ?? item.lot_name ?? '';
+            const id = lotId !== null && lotId !== undefined ? String(lotId) : name;
+            return {
+              id,
+              lotId,
+              name,
+              price: Number(item.price ?? item.base_price ?? 0),
+            };
+          }),
+        );
         setError('');
       })
-      .catch(err=>{
-        if(!active) return;
+      .catch(err => {
+        if (!active) return;
         setError(err?.message || 'Unable to load ticket options.');
         setTickets([]);
         setParkingOptions([]);
       })
-      .finally(()=>active && setLoading(false));
-    return ()=>{ active = false; };
-  },[]);
+      .finally(() => active && setLoading(false));
+    return () => {
+      active = false;
+    };
+  }, []);
 
-  const grouped = useMemo(()=>{
-    const groups = { day:[], annual:[], birthday:[], other:[] };
-    tickets.forEach(ticket=>{
+  const grouped = useMemo(() => {
+    const groups = { day: [], annual: [], birthday: [], other: [] };
+    tickets.forEach(ticket => {
       const category = categorizeTicket(ticket.name);
       groups[category].push(ticket);
     });
     return groups;
-  },[tickets]);
+  }, [tickets]);
 
-  const visibleCategories = filter === 'all' ? CATEGORY_ORDER : CATEGORY_ORDER.filter(cat => cat === filter);
+  const visibleCategories =
+    filter === 'all' ? CATEGORY_ORDER : CATEGORY_ORDER.filter(cat => cat === filter);
 
-  function handleSelect(ticket){
-    if(!user){
+  const visibleTickets = useMemo(
+    () => visibleCategories.flatMap(category => grouped[category] || []),
+    [grouped, visibleCategories],
+  );
+
+  const selectedParking = useMemo(
+    () => parkingOptions.find(option => option.id === selectedParkingId) || null,
+    [parkingOptions, selectedParkingId],
+  );
+
+  useEffect(() => {
+    setTicketSelections(prev => {
+      const next = {};
+      tickets.forEach(ticket => {
+        const key = ticketKey(ticket);
+        const existing = prev[key] || { selected: false, qty: 1 };
+        next[key] = {
+          selected: existing.selected,
+          qty: Math.max(1, Number(existing.qty) || 1),
+        };
+      });
+      return next;
+    });
+  }, [tickets]);
+
+  useEffect(() => {
+    if (includeParking && parkingOptions.length && !selectedParkingId) {
+      setSelectedParkingId(parkingOptions[0].id);
+    }
+    if (!parkingOptions.length) {
+      setIncludeParking(false);
+      setSelectedParkingId('');
+    }
+  }, [includeParking, parkingOptions, selectedParkingId]);
+
+  const parkingAvailable = parkingOptions.length > 0;
+
+  function requireCustomerAccount() {
+    if (!user) {
       const redirect = `${location.pathname}${location.search || ''}`;
       navigate(`/login?redirect=${encodeURIComponent(redirect)}`);
       showStatus('Sign in as a customer to add tickets to cart.', 'warning');
-      return;
+      return false;
     }
     if (user.role !== 'customer') {
       showStatus('Ticket purchases are limited to customer accounts.', 'warning');
-      return;
+      return false;
     }
-
-    add({
-      id: ticket.name,
-      name: ticket.name,
-      price: ticket.price ?? 0,
-      kind: 'ticket',
-      qty: 1,
-      meta: {
-        category: categorizeTicket(ticket.name),
-      }
-    });
-    showStatus(`Added ${ticket.name} to your cart.`, 'success');
+    return true;
   }
 
-  function handleAddParking(opt){
-    if(!user){
-      const redirect = `${location.pathname}${location.search || ''}`;
+  const selectedTickets = useMemo(() => {
+    return visibleTickets.filter(ticket => ticketSelections[ticketKey(ticket)]?.selected);
+  }, [visibleTickets, ticketSelections]);
+
+  function handleSelectionChange(key, checked) {
+    setTicketSelections(prev => ({
+      ...prev,
+      [key]: {
+        selected: checked,
+        qty: Math.max(1, Number(prev[key]?.qty) || 1),
+      },
+    }));
+  }
+
+  function handleQtyChange(key, value) {
+    const qtyValue = Math.max(1, Number(value) || 1);
+    setTicketSelections(prev => ({
+      ...prev,
+      [key]: {
+        selected: prev[key]?.selected ?? true,
+        qty: qtyValue,
+      },
+    }));
+  }
+
+  function handleSubmit(event) {
+    event.preventDefault();
+    const redirect = `${location.pathname}${location.search || ''}`;
+    if (!user) {
       navigate(`/login?redirect=${encodeURIComponent(redirect)}`);
-      showStatus('Sign in as a customer to add parking.', 'warning');
       return;
     }
-    if (user.role !== 'customer') {
-      showStatus('Parking add-ons are available to customer accounts only.', 'warning');
+    if (!requireCustomerAccount()) return;
+    const existingVisit = cartItems
+      .map(item => item?.meta?.visitDate)
+      .find(date => typeof date === 'string' && date.trim());
+    if (existingVisit && existingVisit !== visitDate) {
+      setPlannerAlert({
+        type: 'date',
+        message: `Your cart already includes tickets for ${formatDateLabel(existingVisit)}. Remove them or select the same date.`,
+      });
       return;
     }
-    add({
-      id: `parking-${opt.id}`,
-      name: `Parking - ${opt.name}`,
-      price: opt.price ?? 0,
-      kind: 'parking',
-      qty: 1,
-      meta: { lot: opt.name },
+    if (!visitDate) {
+      setPlannerAlert({
+        type: 'date',
+        message: 'Choose your visit date before adding to cart.',
+      });
+      return;
+    }
+    if (!selectedTickets.length) {
+      setPlannerAlert({
+        type: 'ticket',
+        message: 'Select at least one ticket to continue.',
+      });
+      return;
+    }
+
+    let detailParts = [];
+
+    selectedTickets.forEach(ticket => {
+      const key = ticketKey(ticket);
+      const entry = ticketSelections[key];
+      const qty = Number(entry?.qty || 1);
+      const ticketMeta = {
+        category: categorizeTicket(ticket.name),
+        visitDate,
+      };
+
+      add({
+        id: `${key}-${visitDate}`,
+        name: ticket.name,
+        price: Number(ticket.price ?? 0),
+        kind: 'ticket',
+        qty,
+        meta: ticketMeta,
+      });
+
+      detailParts.push(`${qty}x ${ticket.name}`);
     });
-    showStatus(`Parking for ${opt.name} added to cart.`, 'success');
+
+    if (includeParking) {
+      if (!parkingAvailable) {
+        showStatus('Parking add-ons are not available right now.', 'warning');
+        return;
+      }
+      if (!selectedParking) {
+        showStatus('Select a parking lot to continue.', 'warning');
+        return;
+      }
+      add({
+        id: `parking-${selectedParking.id}-${visitDate}`,
+        name: `Parking - ${selectedParking.name}`,
+        price: selectedParking.price ?? 0,
+        kind: 'parking',
+        qty: 1,
+        meta: {
+          lot: selectedParking.name,
+          visitDate,
+        },
+      });
+      detailParts.push(`Parking: ${selectedParking.name}`);
+    }
+    const detailSummary = detailParts.join(' - ');
+    showStatus('Items added to your cart.', 'success', detailSummary);
   }
 
   return (
     <div className="page">
-      <div className="page-box page-box--wide">
-        <h1>Tickets & Passes</h1>
+      <div className="page-box page-box--tickets">
+        <header style={{ marginBottom: 16 }}>
+          <h1>Buy Tickets</h1>
+        </header>
+
         {user && user.role !== 'customer' && (
           <div className="alert warning">
             Ticket purchases are available to customer accounts only.
           </div>
         )}
+
         {status && (
-          <div className={`alert ${statusTone === 'success' ? 'success' : statusTone === 'warning' ? 'warning' : 'info'}`}>
-            {status}
+          <div
+            className={`status-banner status-banner--${statusTone}`}
+            role="status"
+            aria-live="polite"
+          >
+            <div className="status-banner__title">{status}</div>
+            {statusDetail && <div className="status-banner__detail">{statusDetail}</div>}
           </div>
         )}
-        {loading && <p className="text-sm text-gray-600">Loading ticket options...</p>}
+
+        <div className="ticket-date-focus">
+          <label className="ticket-date-control">
+            <span className="ticket-date-control__label">Visit date</span>
+            <input
+              className="ticket-date-control__input"
+              type="date"
+              min={minDate}
+              value={visitDate}
+              onChange={e => setVisitDate(e.target.value)}
+              required
+            />
+          </label>
+        </div>
+
+        {loading && <p className="text-sm">Loading ticket options...</p>}
         {error && <p className="alert error">{error}</p>}
-        {!loading && !error && visibleCategories.every(cat => grouped[cat].length === 0) && (
-          <p className="text-sm text-gray-600">No tickets found for this category.</p>
-        )}
-        {!loading && !error && visibleCategories.map(category => (
-          grouped[category].length > 0 && (
-            <section key={category} style={{marginTop:24}}>
-              <h2 style={{marginBottom:8, fontSize:'1.1rem'}}>{formatCategory(category)}</h2>
-              <p className="text-sm text-gray-600" style={{marginBottom:12}}>
-                {CATEGORY_DESCRIPTIONS[category]}
-              </p>
-              <div className="ticket-grid">
-                {grouped[category].map(ticket=>{
-                  const key = ticket.name || ticket.ticket_type || ticket.id;
-                  return (
-                    <button key={key} className="ticket-card" onClick={()=>handleSelect(ticket)}>
-                      <div className="ticket-card__header">
-                        <span className="ticket-card__name">{ticket.name}</span>
-                        <span className="ticket-card__price">${Number(ticket.price ?? 0).toFixed(2)}</span>
-                      </div>
-                      <div className="ticket-card__body">
-                        <p>Valid from purchase through the designated redemption period.</p>
-                        <span className="ticket-card__cta">
-                          {user?.role === 'customer' ? 'Add to cart' : 'Sign in to purchase'}
-                        </span>
-                      </div>
-                    </button>
-                  );
-                })}
+        {!loading &&
+          !error &&
+          visibleCategories.every(cat => grouped[cat].length === 0) && (
+            <p className="text-sm">No tickets found for this category.</p>
+          )}
+
+        <div className="ticket-stack">
+          {!loading &&
+            !error &&
+            visibleCategories.map(category => (
+              grouped[category].length > 0 && (
+                <section key={category} className="ticket-section">
+                  <div className="ticket-table" aria-label={`${formatCategory(category)} tickets`}>
+                    <div className="ticket-table__head ticket-table__head--multiselect">
+                      <span>Choose</span>
+                      <span>Details</span>
+                      <span>Qty</span>
+                      <span>Price</span>
+                    </div>
+                    {grouped[category].map(ticket => {
+                      const key = ticketKey(ticket);
+                      const state = ticketSelections[key] || { selected: false, qty: 1 };
+                      return (
+                        <label
+                          key={key}
+                          className={`ticket-row ticket-row--multiselect ${state.selected ? 'ticket-row--active' : ''}`}
+                        >
+                          <span className="ticket-row__control">
+                            <input
+                              type="checkbox"
+                              checked={state.selected}
+                              onChange={e => handleSelectionChange(key, e.target.checked)}
+                            />
+                          </span>
+                          <div className="ticket-row__info">
+                            <div className="ticket-row__name">{ticket.name}</div>
+                          </div>
+                          <div className="ticket-row__qty">
+                            <select
+                              className="input"
+                              value={state.qty}
+                              onChange={e => handleQtyChange(key, e.target.value)}
+                              disabled={!state.selected}
+                            >
+                              {QTY_OPTIONS.map(option => (
+                                <option key={option} value={option}>
+                                  {option}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="ticket-row__price">{formatCurrency(ticket.price)}</div>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </section>
+              )
+            ))}
+        </div>
+
+        <form className="ticket-planner" onSubmit={handleSubmit}>
+          <div className="ticket-planner__card">
+            <div>
+              <h3>Your Selection</h3>
+              <div style={{ fontSize: '0.9rem', color: '#0f172a' }}>
+                {selectedTickets.length
+                  ? `${selectedTickets.length} ticket type${selectedTickets.length === 1 ? '' : 's'} selected`
+                  : 'Select one or more ticket types from the list.'}
               </div>
-            </section>
-          )
-        ))}
-        {!loading && !error && parkingOptions.length > 0 && (
-          <section style={{marginTop:32}}>
-            <h2 style={{marginBottom:8, fontSize:'1.1rem'}}>Parking Add-Ons</h2>
-            <p className="text-sm text-gray-600" style={{marginBottom:12}}>
-              Reserve a parking lot to pair with any ticket in your cart. Only one parking lot can be active per purchase.
-            </p>
-            <div className="ticket-grid">
-              {parkingOptions.map(opt=>(
-                <div key={opt.id} className="ticket-card ticket-card--offer">
-                  <div className="ticket-card__header">
-                    <span className="ticket-card__name">{opt.name}</span>
-                    <span className="ticket-card__price">${Number(opt.price ?? 0).toFixed(2)}</span>
-                  </div>
-                  <div className="ticket-card__body">
-                    <p>Adding this lot replaces any existing parking selection in your cart.</p>
-                    <button className="btn primary" onClick={()=>handleAddParking(opt)}>
-                      Add Parking
-                    </button>
-                  </div>
-                </div>
-              ))}
+              <div style={{ fontSize: '0.9rem', color: '#0f172a' }}>
+                {visitDate
+                  ? `Visit date locked to ${formatDateLabel(visitDate)}`
+                  : 'Pick your visit date above to enable checkout.'}
+              </div>
             </div>
-          </section>
+
+            <label className="ticket-checkbox">
+              <input
+                type="checkbox"
+                checked={includeParking}
+                disabled={!parkingAvailable}
+                onChange={e => setIncludeParking(e.target.checked)}
+              />
+              <span>Reserve parking (optional)</span>
+            </label>
+
+            {includeParking && parkingAvailable && (
+              <label className="ticket-field">
+                Parking lot
+                <select
+                  className="input"
+                  value={selectedParkingId}
+                  onChange={e => setSelectedParkingId(e.target.value)}
+                  required
+                >
+                  {parkingOptions.map(option => (
+                    <option key={option.id} value={option.id}>
+                      {option.name} — {formatCurrency(option.price)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+
+            <button
+              type="submit"
+              className="btn primary"
+            >
+              Add to cart
+            </button>
+          </div>
+        </form>
+        {plannerAlert && (
+          <div className="ticket-alert" role="alert">
+            <div className="ticket-alert__card">
+              <strong>
+                {plannerAlert.type === 'date' ? 'Pick a date' : 'Choose a ticket'}
+              </strong>
+              <p>{plannerAlert.message}</p>
+              <button className="btn primary" onClick={() => setPlannerAlert(null)}>
+                Got it
+              </button>
+            </div>
+          </div>
         )}
       </div>
     </div>
   );
-}
-
-function formatCategory(cat){
-  switch(cat){
-    case 'day': return 'Day Tickets';
-    case 'annual': return 'Annual Passes';
-    case 'birthday': return 'Birthday Packages';
-    case 'other': return 'Special Offers';
-    default: return cat;
-  }
 }

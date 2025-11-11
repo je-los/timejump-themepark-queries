@@ -162,7 +162,7 @@ function MaintenanceSection() {
 function IncidentSection() {
   const { actualRole, role } = useAuth();
   const resolvedRole = actualRole || role;
-  const canCreate = ['manager', 'admin', 'owner'].includes(resolvedRole);
+  const canCreate = ['employee', 'manager', 'admin', 'owner'].includes(resolvedRole);
   const [refreshKey, setRefreshKey] = useState(0);
 
   return (
@@ -673,19 +673,3 @@ function AnalyticsTab() {
     </div>
   );
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

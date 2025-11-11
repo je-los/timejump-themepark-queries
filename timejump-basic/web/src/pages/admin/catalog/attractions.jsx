@@ -10,8 +10,7 @@ export default function AttractionsPage() {
     name: '',
     themeId: '',
     typeId: '',
-    heightRestriction: '',
-    ridersPerVehicle: '',
+    capacity: '',
   });
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState('');
@@ -29,8 +28,7 @@ export default function AttractionsPage() {
         name: item.Name ?? item.name,
         theme: item.theme_name ?? '',
         type: item.attraction_type_name ?? item.TypeName ?? item.type ?? '',
-        height: item.HeightRestriction ?? item.height_restriction,
-        riders: item.RidersPerVehicle ?? item.riders_per_vehicle,
+        capacity: item.Capacity ?? item.capacity ?? item.RidersPerVehicle ?? item.riders_per_vehicle ?? null,
       }));
       setRows(list);
     } catch (err) {
@@ -84,14 +82,9 @@ export default function AttractionsPage() {
       setFormError('Attraction type must be selected.');
       return;
     }
-    const ridersValue = Number(form.ridersPerVehicle);
-    if (!Number.isFinite(ridersValue) || ridersValue <= 0) {
-      setFormError('Riders per vehicle must be greater than zero.');
-      return;
-    }
-    const heightValue = Number(form.heightRestriction || 0);
-    if (!Number.isFinite(heightValue) || heightValue < 0) {
-      setFormError('Height restriction must be zero or higher.');
+    const capacityValue = Number(form.capacity);
+    if (!Number.isFinite(capacityValue) || capacityValue <= 0) {
+      setFormError('Capacity must be greater than zero.');
       return;
     }
     setBusy(true);
@@ -104,8 +97,7 @@ export default function AttractionsPage() {
           name: form.name.trim(),
           themeId: form.themeId,
           typeId: form.typeId,
-          heightRestriction: heightValue,
-          ridersPerVehicle: ridersValue,
+          capacity: capacityValue,
         }),
       });
       setStatus('Attraction saved.');
@@ -113,8 +105,7 @@ export default function AttractionsPage() {
         name: '',
         themeId: '',
         typeId: '',
-        heightRestriction: '',
-        ridersPerVehicle: '',
+        capacity: '',
       });
       loadAttractions();
     } catch (err) {
@@ -173,24 +164,13 @@ export default function AttractionsPage() {
             </select>
           </label>
           <label className="field">
-            <span>Height restriction (inches)</span>
-            <input
-              className="input"
-              type="number"
-              min="0"
-              value={form.heightRestriction}
-              onChange={e => setForm(f => ({ ...f, heightRestriction: e.target.value }))}
-              disabled={busy}
-            />
-          </label>
-          <label className="field">
-            <span>Riders per vehicle</span>
+            <span>Capacity per dispatch/event</span>
             <input
               className="input"
               type="number"
               min="1"
-              value={form.ridersPerVehicle}
-              onChange={e => setForm(f => ({ ...f, ridersPerVehicle: e.target.value }))}
+              value={form.capacity}
+              onChange={e => setForm(f => ({ ...f, capacity: e.target.value }))}
               disabled={busy}
             />
           </label>
@@ -217,8 +197,7 @@ export default function AttractionsPage() {
           { key: 'name', label: 'Attraction' },
           { key: 'theme', label: 'Theme' },
           { key: 'type', label: 'Type' },
-          { key: 'height', label: 'Height (in)' },
-          { key: 'riders', label: 'Riders / Vehicle' },
+          { key: 'capacity', label: 'Capacity' },
         ]}
         loading={loading}
         error={error}

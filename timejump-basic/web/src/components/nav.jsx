@@ -7,68 +7,72 @@ import CartModal from './cartmodal.jsx';
 const MENU_CONFIG = [
   {
     key: 'tickets',
-    label: 'Tickets & Passes',
+    label: 'Buy Tickets',
     path: '/ticket-passes',
     items: [
-      { label: 'Tickets & Passes', path: '/ticket-passes' },
-      { label: 'Day Tickets', path: '/ticket-passes/day-tickets' },
-      { label: 'Annual Passes', path: '/ticket-passes/annual-passes' },
-      { label: 'Birthday Package', path: '/ticket-passes/birthday-package' },
+      { label: 'Buy Tickets', path: '/ticket-passes' },
     ],
   },
   {
-    key: 'things',
-    label: 'Things To Do',
+    key: 'experiences',
+    label: 'Rides & Attractions',
     path: '/things-to-do/rides-attractions',
     items: [
       { label: 'Rides & Attractions', path: '/things-to-do/rides-attractions' },
+    ],
+  },
+  {
+    key: 'marketplace',
+    label: 'Marketplace',
+    path: '/things-to-do/dining',
+    items: [
       { label: 'Dining', path: '/things-to-do/dining' },
       { label: 'Shopping', path: '/things-to-do/shopping' },
     ],
   },
 ];
 
-const ROLE_LABEL = {
-  owner: 'Owner',
-  admin: 'Admin',
-  manager: 'Manager',
-  employee: 'Employee',
-  customer: 'Customer',
-};
+const AUTH_TOAST_KEY = 'tj-auth-toast';
 
-function viewOptionsForRole(actualRole) {
-  if (!actualRole || actualRole === 'customer') return [];
-  const options = new Set([actualRole]);
-  if (actualRole === 'owner') {
-    options.add('admin');
-    options.add('manager');
-    options.add('employee');
-    options.add('customer');
-  } else if (actualRole === 'admin') {
-    options.add('manager');
-    options.add('employee');
-    options.add('customer');
-  } else if (actualRole === 'manager') {
-    options.add('employee');
-    options.add('customer');
-  } else if (actualRole === 'employee') {
-    options.add('customer');
-  } else {
-    options.add('customer');
-  }
-  return Array.from(options);
+function consumeLoginToastFlag() {
+  if (typeof window === 'undefined' || !window.sessionStorage) return false;
+  const value = window.sessionStorage.getItem(AUTH_TOAST_KEY);
+  if (!value) return false;
+  window.sessionStorage.removeItem(AUTH_TOAST_KEY);
+  return value === 'welcome';
 }
 
 export default function Nav({ themes = [] }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, signOut, actualRole, setViewRole, clearViewRole } = useAuth();
+  const { user, signOut } = useAuth();
   const { items } = useCart();
   const displayRole = user?.role ?? null;
-  const viewOptions = useMemo(() => viewOptionsForRole(actualRole), [actualRole]);
   const [openMenu, setOpenMenu] = useState(null);
   const [showCart, setShowCart] = useState(false);
+  const [authToast, setAuthToast] = useState(null);
   const navRef = useRef(null);
+  const prevUserRef = useRef(user);
+  const firstUserCheckRef = useRef(true);
+  useEffect(() => {
+    if (firstUserCheckRef.current) {
+      firstUserCheckRef.current = false;
+      prevUserRef.current = user;
+      return;
+    }
+    const prevUser = prevUserRef.current;
+    if (!prevUser && user) {
+      if (consumeLoginToastFlag()) {
+        setAuthToast({ type: 'in', message: 'Signed in successfully.' });
+      }
+    }
+    prevUserRef.current = user;
+  }, [user]);
+  useEffect(() => {
+    if (!authToast) return;
+    const id = window.setTimeout(() => setAuthToast(null), 3500);
+    return () => window.clearTimeout(id);
+  }, [authToast]);
 
   useEffect(() => {
     function handleDocumentClick(evt) {
@@ -120,24 +124,20 @@ export default function Nav({ themes = [] }) {
 
   function handleSignOut() {
     signOut();
+    setAuthToast({ type: 'out', message: 'Signed out. See you soon!' });
     setShowCart(false);
     navigate('/', { replace: true });
   }
 
-  function handleViewChange(event) {
-    const value = event.target.value;
-    if (!actualRole) return;
-    if (value === actualRole) clearViewRole();
-    else setViewRole(value);
-  }
-
   function isMenuActive(menu) {
     if (normalizedPath === menu.path) return true;
-    if (menu.key === 'things') {
+    if (menu.key === 'experiences') {
       if (normalizedPath.startsWith('/theme/')) return true;
       if (normalizedPath.startsWith('/ride/')) return true;
-      const related = ['/things-to-do/rides-attractions', '/things-to-do/dining', '/things-to-do/shopping'];
-      if (related.includes(normalizedPath)) return true;
+      if (normalizedPath === '/things-to-do/rides-attractions') return true;
+    }
+    if (menu.key === 'marketplace') {
+      if (normalizedPath === '/things-to-do/dining' || normalizedPath === '/things-to-do/shopping') return true;
     }
     if (menu.key === 'tickets' && normalizedPath.startsWith('/ticket-passes')) {
       return true;
@@ -157,58 +157,54 @@ export default function Nav({ themes = [] }) {
 
           <nav className="nav-links">
             {menuItems.map(menu => {
-              const items =
-                menu.key === 'things'
-                  ? [
-                      { label: 'Rides & Attractions', path: '/things-to-do/rides-attractions' },
-                      ...themes.map(theme => ({ label: theme.name, path: `/theme/${theme.slug}` })),
-                    { label: 'Dining', path: '/things-to-do/dining' },
-                    { label: 'Shopping', path: '/things-to-do/shopping' },
-                  ]
-                : menu.items;
-            const isActive = isMenuActive(menu);
-            const isOpen = openMenu === menu.key;
-            return (
-              <div key={menu.key} className={`nav-item ${isActive ? 'nav-item--active' : ''}`}>
-                <button
-                  className="nav-link"
-                  aria-haspopup="true"
-                  aria-expanded={isOpen}
-                  onClick={() => handleMenuToggle(menu.key)}
-                >
-                  {menu.label}
-                </button>
-                <div className={`nav-dropdown ${isOpen ? 'nav-dropdown--open' : ''}`}>
-                  {items.map(item => (
-                    <button
-                      key={item.path}
-                      className="nav-dropdown__item"
-                      onClick={() => handleNavigate(item.path)}
+              if (menu.key === 'tickets') {
+                const active = normalizedPath.startsWith('/ticket-passes');
+                return (
+                  <div key={menu.key} className={`nav-item ${active ? 'nav-item--active' : ''}`}>
+                    <Link
+                      className="nav-link nav-link--static"
+                      to="/ticket-passes"
+                      onClick={() => setOpenMenu(null)}
                     >
-                      {item.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            );
-            })}
+                      {menu.label}
+                    </Link>
+                  </div>
+                );
+              }
 
-          {displayRole && viewOptions.length > 0 && (
-            <div className="nav-viewas">
-              <span>View As</span>
-              <select value={displayRole} onChange={handleViewChange}>
-                {viewOptions.map(role => {
-                  const label = ROLE_LABEL[role] || role;
-                  const optionLabel = role === actualRole ? `Default - ${label}` : label;
-                  return (
-                    <option key={role} value={role}>
-                      {optionLabel}
-                    </option>
-                  );
-                })}
-              </select>
-            </div>
-          )}
+              let items = menu.items;
+              if (menu.key === 'experiences') {
+                items = [
+                  { label: 'Rides & Attractions', path: '/things-to-do/rides-attractions' },
+                  ...themes.map(theme => ({ label: theme.name, path: `/theme/${theme.slug}` })),
+                ];
+              }
+              const isActive = isMenuActive(menu);
+              const isOpen = openMenu === menu.key;
+              return (
+                <div key={menu.key} className={`nav-item ${isActive ? 'nav-item--active' : ''}`}>
+                  <button
+                    className="nav-link"
+                    aria-haspopup="true"
+                    aria-expanded={isOpen}
+                    onClick={() => handleMenuToggle(menu.key)}
+                  >
+                    {menu.label}
+                  </button>
+                  <div className={`nav-dropdown ${isOpen ? 'nav-dropdown--open' : ''}`}>
+                    {items.map(item => (
+                      <button
+                        key={item.path}
+                        className="nav-dropdown__item"
+                        onClick={() => handleNavigate(item.path)}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
 
           {staffLinks.length > 0 && (
             <div className="nav-staff">
@@ -264,6 +260,19 @@ export default function Nav({ themes = [] }) {
           </nav>
         </div>
       </header>
+      {authToast && (
+        <div className="nav-toast-flyout" role="status">
+          <div className="nav-toast-flyout__body">
+            <div className="nav-toast-flyout__title">
+              {authToast.type === 'in' ? "You're signed in" : "You're signed out"}
+            </div>
+            <p>{authToast.message}</p>
+            <button className="btn primary" onClick={() => setAuthToast(null)}>
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
       {showCart && <CartModal onClose={() => setShowCart(false)} />}
     </>
   );
