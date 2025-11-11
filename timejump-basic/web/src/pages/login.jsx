@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { login, signup } from '../auth.js';
 import { useAuth } from '../context/authcontext.jsx';
+import { queueAuthToast } from '../hooks/useauthtoast.js';
 
 const AUTH_TOAST_KEY = 'tj-auth-toast';
 
@@ -61,7 +62,7 @@ export default function LoginPage() {
       } else {
         await login(email, password);
       }
-      queueAuthWelcomeToast();
+      queueAuthToast('in');
       await refresh();
       navigate(redirectTo, { replace: true });
     } catch (err) {

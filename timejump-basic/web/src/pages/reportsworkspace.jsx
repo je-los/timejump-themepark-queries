@@ -7,7 +7,6 @@ import { useAuth } from '../context/authcontext.jsx';
 const SECTION_ORDER = [
   { key: 'operations', label: 'Operations Reports' },
   { key: 'maintenance', label: 'Maintenance' },
-  { key: 'incidents', label: 'Incidents' },
   { key: 'analytics', label: 'Data Explorer' },
 ];
 
@@ -91,14 +90,6 @@ function WorkspaceShell() {
           <MaintenanceSection />
         </section>
 
-        <section id="incidents" className="workspace-section">
-          <SectionHeader
-            title="Incident Log"
-            description="Capture a snapshot of guest or staff incidents and append manual updates."
-          />
-          <IncidentSection />
-        </section>
-
         <section id="analytics" className="workspace-section">
           <SectionHeader
             title="Data Explorer"
@@ -159,42 +150,6 @@ function MaintenanceSection() {
   );
 }
 
-function IncidentSection() {
-  const { actualRole, role } = useAuth();
-  const resolvedRole = actualRole || role;
-  const canCreate = ['employee', 'manager', 'admin', 'owner'].includes(resolvedRole);
-  const [refreshKey, setRefreshKey] = useState(0);
-
-  return (
-    <div className="workspace-panel-grid">
-      {canCreate ? (
-        <ManualIncidentForm onSaved={() => setRefreshKey(key => key + 1)} />
-      ) : (
-        <div className="workspace-panel">
-          <h3>Incident logging</h3>
-          <p className="workspace-panel__intro">
-            Only managers, admins, and owners can file incidents. Contact a supervisor if you need to escalate an issue.
-          </p>
-        </div>
-      )}
-      <DataTable
-        title="Recent Incidents"
-        path="/incidents"
-        columns={[
-          'IncidentID',
-          'IncidentType',
-          'EmployeeID',
-          'TicketID',
-          'Details',
-        ]}
-        emptyMessage="No incidents logged."
-        refreshKey={refreshKey}
-        onRefresh={() => setRefreshKey(key => key + 1)}
-      />
-    </div>
-  );
-}
-
 function ManualMaintenanceForm({ onSaved }) {
   const [form, setForm] = useState({
     attractionId: '',
@@ -207,32 +162,6 @@ function ManualMaintenanceForm({ onSaved }) {
   });
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState('');
-
-  useEffect(() => {
-    let active = true;
-    api('/incidents/meta')
-      .then(res => {
-        if (!active) return;
-        const info = res?.data || {};
-        const types = Array.isArray(info.types) && info.types.length ? info.types : [];
-        const severities = Array.isArray(info.severities) && info.severities.length ? info.severities : [1, 2, 3, 4, 5];
-        setMeta({ types, severities });
-        setMetaError('');
-        setForm(prev => ({
-          ...prev,
-          type: prev.type || (types[0]?.id ? String(types[0].id) : prev.type),
-          severity: prev.severity || String(severities[0] ?? ''),
-        }));
-      })
-      .catch(err => {
-        if (!active) return;
-        setMeta({ types: [], severities: [1, 2, 3, 4, 5] });
-        setMetaError(err?.message || 'Unable to load incident metadata.');
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
 
   async function submit(e) {
     e.preventDefault();
@@ -312,152 +241,6 @@ function ManualMaintenanceForm({ onSaved }) {
         </label>
         <div className="workspace-form__actions">
           <button className="btn primary" type="submit" disabled={busy}>{busy ? 'Saving...' : 'Save Maintenance'}</button>
-          {status && <span className="text-sm text-gray-700">{status}</span>}
-        </div>
-      </form>
-    </div>
-  );
-}
-
-function ManualIncidentForm({ onSaved }) {
-  const [form, setForm] = useState({
-    type: '',
-    employeeId: '',
-    ticketId: '',
-    occurredAt: '',
-    location: '',
-    severity: '',
-    details: '',
-  });
-  const [meta, setMeta] = useState({ types: [], severities: [1, 2, 3, 4, 5] });
-  const [metaError, setMetaError] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [status, setStatus] = useState('');
-
-  useEffect(() => {
-    let active = true;
-    api('/incidents/meta')
-      .then(res => {
-        if (!active) return;
-        const info = res?.data || {};
-        const types = Array.isArray(info.types) && info.types.length ? info.types : [];
-        const severities = Array.isArray(info.severities) && info.severities.length ? info.severities : [1, 2, 3, 4, 5];
-        setMeta({ types, severities });
-        setMetaError('');
-        setForm(prev => ({
-          ...prev,
-          type: prev.type || (types[0]?.id ? String(types[0].id) : ''),
-          severity: prev.severity || String(severities[0] ?? ''),
-        }));
-      })
-      .catch(err => {
-        if (!active) return;
-        setMeta({ types: [], severities: [1, 2, 3, 4, 5] });
-        setMetaError(err?.message || 'Unable to load incident metadata.');
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  async function submit(e) {
-    e.preventDefault();
-    if (busy) return;
-    setBusy(true);
-    setStatus('');
-    try {
-      await api('/incidents', {
-        method: 'POST',
-        body: JSON.stringify({
-          incidentType: form.type ? Number(form.type) : undefined,
-          employeeId: form.employeeId ? Number(form.employeeId) : undefined,
-          ticketId: form.ticketId ? Number(form.ticketId) : undefined,
-          occurredAt: form.occurredAt,
-          location: form.location,
-          severity: form.severity ? Number(form.severity) : undefined,
-          details: form.details,
-        }),
-      });
-      setStatus('Incident recorded.');
-      setForm({
-        type: meta.types[0]?.id ? String(meta.types[0].id) : '',
-        employeeId: '',
-        ticketId: '',
-        occurredAt: '',
-        location: '',
-        severity: meta.severities[0] !== undefined ? String(meta.severities[0]) : '',
-        details: '',
-      });
-      if (onSaved) onSaved();
-    } catch (err) {
-      setStatus(err?.message || 'Unable to record incident.');
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <div className="workspace-panel">
-      <h3>Quick Log Incident</h3>
-      <p className="workspace-panel__intro">
-        Capture high-level incident notes before handing the report off to security or HR.
-      </p>
-      <form onSubmit={submit} className="workspace-form">
-          {metaError && <div className="alert error">{metaError}</div>}
-        <div className="workspace-form__row">
-          <label className="field">
-            <span>Incident Type</span>
-            <select
-              className="input"
-              value={form.type}
-              onChange={e => setForm(f => ({ ...f, type: e.target.value }))}
-            >
-              {meta.types.map(type => (
-                <option key={type.id} value={type.id}>
-                  {type.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="field">
-            <span>Employee ID</span>
-            <input className="input" value={form.employeeId} onChange={e => setForm(f => ({ ...f, employeeId: e.target.value }))} placeholder="Optional" />
-          </label>
-          <label className="field">
-            <span>Ticket ID</span>
-            <input className="input" value={form.ticketId} onChange={e => setForm(f => ({ ...f, ticketId: e.target.value }))} placeholder="Optional" />
-          </label>
-        </div>
-        <div className="workspace-form__row">
-          <label className="field">
-            <span>Occurred At</span>
-            <input className="input" type="datetime-local" value={form.occurredAt} onChange={e => setForm(f => ({ ...f, occurredAt: e.target.value }))} />
-          </label>
-          <label className="field">
-            <span>Location</span>
-            <input className="input" value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} placeholder="Frontier square, queue, etc." />
-          </label>
-          <label className="field">
-            <span>Severity</span>
-            <select
-              className="input"
-              value={form.severity}
-              onChange={e => setForm(f => ({ ...f, severity: e.target.value }))}
-            >
-              {meta.severities.map(level => (
-                <option key={level} value={level}>
-                  {level}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-        <label className="field">
-          <span>Details</span>
-          <textarea className="input" rows={3} value={form.details} onChange={e => setForm(f => ({ ...f, details: e.target.value }))} placeholder="What happened? Who was involved? Any follow-up actions?" />
-        </label>
-        <div className="workspace-form__actions">
-          <button className="btn primary" type="submit" disabled={busy}>{busy ? 'Saving...' : 'Record Incident'}</button>
           {status && <span className="text-sm text-gray-700">{status}</span>}
         </div>
       </form>
@@ -673,3 +456,20 @@ function AnalyticsTab() {
     </div>
   );
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -36,14 +36,12 @@ export default function Tickets() {
           const lotId = item.lotId ?? item.parking_lot_id ?? null;
           const name = item.lot ?? item.lot_name ?? '';
           const id = lotId !== null && lotId !== undefined ? String(lotId) : name;
-          const serviceDate = item.serviceDate ?? item.service_date ?? null;
           const passes = item.passesToday ?? item.passes_today ?? null;
           return {
             id,
             lotId,
             name,
             price: Number(item.price ?? item.base_price ?? 0),
-            serviceDate: serviceDate ? String(serviceDate) : null,
             passesToday: passes !== null && passes !== undefined ? Number(passes) : null,
           };
         });

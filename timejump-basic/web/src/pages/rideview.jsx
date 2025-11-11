@@ -34,9 +34,6 @@ export default function RideView() {
     ?? ride?.RidersPerVehicle
     ?? ride?.riders_per_vehicle
     ?? null;
-  const capacityPerHour = Number.isFinite(ride?.estimated_capacity_per_hour)
-    ? ride.estimated_capacity_per_hour
-    : null;
   const audience = ride?.target_audience ?? ride?.audience ?? null;
   const thrill = ride?.experience_level ?? ride?.thrill_level ?? null;
   const duration = ride?.duration_minutes ?? ride?.duration ?? null;
@@ -55,6 +52,9 @@ export default function RideView() {
             <p className="text-sm text-gray-700">
               Experience {ride.Name || ride.name || 'this attraction'}.
             </p>
+            {ride.image_url && (
+              <div className="ride-detail__image" style={{ backgroundImage: `url(${ride.image_url})` }} />
+            )}
             {description && (
               <p className="text-sm text-gray-700" style={{marginTop:8}}>
                 {description}
@@ -67,10 +67,7 @@ export default function RideView() {
                   <li><strong>Theme:</strong> {ride.theme_name || 'Time Jump Theme Park'}</li>
                   <li><strong>Type:</strong> {ride.type || ride.TypeName || 'Attraction'}</li>
                   {capacityPerExperience !== null && (
-                    <li><strong>Capacity:</strong> {capacityPerExperience} guests</li>
-                  )}
-                  {capacityPerHour && (
-                    <li><strong>Estimated Capacity:</strong> {capacityPerHour.toLocaleString()} riders/hr</li>
+                    <li><strong>Capacity #:</strong> {capacityPerExperience}</li>
                   )}
                 </ul>
               </div>

@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 
 export default function ThemeView() {
   const { slug } = useParams();
-  const navigate = useNavigate();
   const [theme, setTheme] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -35,54 +34,73 @@ export default function ThemeView() {
         {error && <p className="alert error">{error}</p>}
         {!loading && !error && theme && (
           <>
-            <h1>{theme.name}</h1>
-            {theme.description && <p className="text-sm text-gray-700">{theme.description}</p>}
-            <div className="ride-grid">
-              {theme.rides.map(ride=>{
+            <div className="theme-detail__hero">
+              <div className="theme-detail__copy">
+                <p className="theme-detail__eyebrow">Featured realm</p>
+                <h1>{theme.name}</h1>
+                {theme.description && <p className="text-sm text-gray-700">{theme.description}</p>}
+                <p className="text-sm text-gray-600" style={{ marginTop: 8 }}>
+                  {(theme.rides || []).length} attractions in this land.
+                </p>
+              </div>
+              {theme.image_url && (
+                <div className="theme-detail__image" style={{ backgroundImage: `url(${theme.image_url})` }} />
+              )}
+            </div>
+
+            <div className="ride-grid ride-grid--detail">
+              {(theme.rides || []).map(ride=>{
                 const capacityPerExperience = ride.capacity_per_experience
                   ?? ride.capacity
                   ?? ride.riders_per_vehicle
                   ?? ride.RidersPerVehicle
                   ?? ride.details?.RidersPerVehicle
                   ?? null;
-                const capacity = Number.isFinite(ride.estimated_capacity_per_hour) ? ride.estimated_capacity_per_hour : null;
+                const typeLabel = ride.type || ride.TypeName || 'Attraction';
                 const audience = ride.target_audience ?? ride.audience ?? null;
                 const thrill = ride.experience_level ?? ride.thrill_level ?? ride.type_description ?? ride.type;
                 const duration = ride.duration_minutes ?? ride.duration ?? null;
+                const description =
+                  ride.description && ride.description.trim().toLowerCase() === 'seated or street performance with scheduled times.'
+                    ? ''
+                    : ride.description;
                 return (
-                  <article key={ride.slug || ride.id} className="ride-card">
+                  <article key={ride.slug || ride.id} className="ride-card ride-card--theme">
                     <header className="ride-card__header">
                       <h2>{ride.name}</h2>
-                      <button className="btn" onClick={()=>navigate(`/ride/${ride.slug}`)}>View Ride</button>
                     </header>
-                    {ride.description && (
-                      <p className="text-sm text-gray-700" style={{marginTop:8}}>
-                        {ride.description}
+                    <div className="ride-card__meta">
+                      {typeLabel && <span className="ride-card__chip">{typeLabel}</span>}
+                      {thrill && <span className="ride-card__chip ride-card__chip--accent">{thrill}</span>}
+                    </div>
+                    {ride.image_url && (
+                      <div className="ride-card__media" style={{ backgroundImage: `url(${ride.image_url})` }} />
+                    )}
+                    {description && (
+                      <p className="ride-card__body">
+                        {description}
                       </p>
                     )}
-                    <ul className="ride-card__list">
-                      <li><strong>Type:</strong> {ride.type || 'Attraction'}</li>
+                    <div className="ride-card__stats">
                       {capacityPerExperience !== undefined && capacityPerExperience !== null && (
-                        <li><strong>Capacity:</strong> {capacityPerExperience} guests</li>
+                        <div>
+                          <strong>{capacityPerExperience.toLocaleString()}</strong>
+                          <span className="ride-card__stat-label">Capacity</span>
+                        </div>
                       )}
-                      <li>
-                        <strong>Estimated Capacity:</strong>{' '}
-                        {capacity ? `${capacity.toLocaleString()} riders/hr` : 'Not available'}
-                      </li>
-                      <li>
-                        <strong>Who It's For:</strong>{' '}
-                        {audience || 'Details coming soon.'}
-                      </li>
-                      <li>
-                        <strong>Experience Level:</strong>{' '}
-                        {thrill || 'Information coming soon.'}
-                      </li>
+                      {audience && (
+                        <div>
+                          <strong>{audience}</strong>
+                          <span className="ride-card__stat-label">Audience</span>
+                        </div>
+                      )}
                       {duration && (
-                        <li>
-                          <strong>Ride Duration:</strong> {duration} min
-                        </li>
+                        <div>
+                          <strong>{duration} min</strong>
+                          <span className="ride-card__stat-label">Duration</span>
+                        </div>
                       )}
-                    </ul>
+                    </div>
                   </article>
                 );
               })}

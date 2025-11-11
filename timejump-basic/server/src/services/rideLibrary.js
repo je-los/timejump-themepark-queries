@@ -1,5 +1,10 @@
 import { query } from '../db.js';
 import { toSlug } from '../utils/strings.js';
+import {
+  ensureAttractionExperienceColumns,
+  ensureAttractionImageColumn,
+  ensureThemeImageColumn,
+} from './ensure.js';
 
 function normalizeRide(row) {
   const slug = toSlug(row.Name);
@@ -22,14 +27,19 @@ function normalizeRide(row) {
     description: row.typeDescription || '',
     capacity_per_experience: capacityPerDispatch || null,
     estimated_capacity_per_hour: estimatedCapacity,
+    image_url: row.image_url || null,
+    experience_level: row.experience_level || null,
+    target_audience: row.target_audience || null,
   };
 }
 
 export async function listThemes() {
+  await ensureThemeImageColumn();
   const rows = await query(`
     SELECT t.themeID,
            t.themeName,
            t.Description,
+           t.image_url,
            COUNT(a.AttractionID) AS attraction_count
     FROM theme t
     LEFT JOIN attraction a ON a.ThemeID = t.themeID
@@ -44,10 +54,13 @@ export async function listThemes() {
     slug: toSlug(row.themeName),
     description: row.Description || '',
     attraction_count: Number(row.attraction_count || 0),
+    image_url: row.image_url || null,
   }));
 }
 
 export async function listRides() {
+  await ensureAttractionImageColumn();
+  await ensureAttractionExperienceColumns();
   const rows = await query(`
     SELECT
       a.AttractionID,
@@ -57,7 +70,10 @@ export async function listRides() {
       at.Description AS typeDescription,
       a.ThemeID,
       t.themeName,
-      a.Capacity
+      a.Capacity,
+      a.image_url,
+      a.experience_level,
+      a.target_audience
     FROM attraction a
     LEFT JOIN theme t ON t.themeID = a.ThemeID
     LEFT JOIN attraction_type at ON at.AttractionTypeID = a.AttractionTypeID

@@ -34,13 +34,10 @@ export function normalizeColumns(columns) {
         .replace(/\b\w/g, ch => ch.toUpperCase());
       return { key: col, label };
     }
-    if (!col.label) {
-      const label = col.key
-        .replace(/_/g, ' ')
-        .replace(/\b\w/g, ch => ch.toUpperCase());
-      return { ...col, label };
-    }
-    return col;
+    const label = col.label
+      ? col.label
+      : col.key.replace(/_/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase());
+    return { ...col, label };
   });
 }
 
@@ -123,6 +120,11 @@ export function ResourceTable({
       if (bv === undefined || bv === null) return -1;
       if (typeof av === 'number' && typeof bv === 'number') {
         return sortDir === 'asc' ? av - bv : bv - av;
+      }
+      const numA = Number(av);
+      const numB = Number(bv);
+      if (!Number.isNaN(numA) && !Number.isNaN(numB)) {
+        return sortDir === 'asc' ? numA - numB : numB - numA;
       }
       return sortDir === 'asc'
         ? String(av).localeCompare(String(bv))
@@ -364,8 +366,12 @@ export function SimpleTable({
                 {sortedRows.map((row, idx) => (
                   <tr key={idx}>
                     {normalizedColumns.map(col => (
-                      <td key={col.key} style={{ padding: '6px', borderBottom: '1px solid #f3f3f3' }}>
-                        {row[col.key] ?? '--'}
+                      <td
+                        key={col.key}
+                        data-column={col.key}
+                        style={{ padding: '6px', borderBottom: '1px solid #f3f3f3' }}
+                      >
+                        {col.render ? col.render(row[col.key], row) : (row[col.key] ?? '--')}
                       </td>
                     ))}
                   </tr>

@@ -3,6 +3,8 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/authcontext.jsx';
 import { useCart } from '../context/cartcontext.jsx';
 import CartModal from './cartmodal.jsx';
+import AuthToast from './authtoast.jsx';
+import { useAuthToast, queueAuthToast } from '../hooks/useauthtoast.js';
 
 const MENU_CONFIG = [
   {
@@ -32,16 +34,6 @@ const MENU_CONFIG = [
   },
 ];
 
-const AUTH_TOAST_KEY = 'tj-auth-toast';
-
-function consumeLoginToastFlag() {
-  if (typeof window === 'undefined' || !window.sessionStorage) return false;
-  const value = window.sessionStorage.getItem(AUTH_TOAST_KEY);
-  if (!value) return false;
-  window.sessionStorage.removeItem(AUTH_TOAST_KEY);
-  return value === 'welcome';
-}
-
 export default function Nav({ themes = [] }) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -50,7 +42,7 @@ export default function Nav({ themes = [] }) {
   const displayRole = user?.role ?? null;
   const [openMenu, setOpenMenu] = useState(null);
   const [showCart, setShowCart] = useState(false);
-  const [authToast, setAuthToast] = useState(null);
+  const { authToast, dismissToast } = useAuthToast(user);
   const navRef = useRef(null);
   const prevUserRef = useRef(user);
   const firstUserCheckRef = useRef(true);
@@ -123,6 +115,7 @@ export default function Nav({ themes = [] }) {
   }
 
   function handleSignOut() {
+    queueAuthToast('out');
     signOut();
     setAuthToast({ type: 'out', message: 'Signed out. See you soon!' });
     setShowCart(false);
@@ -133,7 +126,6 @@ export default function Nav({ themes = [] }) {
     if (normalizedPath === menu.path) return true;
     if (menu.key === 'experiences') {
       if (normalizedPath.startsWith('/theme/')) return true;
-      if (normalizedPath.startsWith('/ride/')) return true;
       if (normalizedPath === '/things-to-do/rides-attractions') return true;
     }
     if (menu.key === 'marketplace') {
@@ -155,23 +147,9 @@ export default function Nav({ themes = [] }) {
             </Link>
           </div>
 
+          <div className="nav-right">
           <nav className="nav-links">
             {menuItems.map(menu => {
-              if (menu.key === 'tickets') {
-                const active = normalizedPath.startsWith('/ticket-passes');
-                return (
-                  <div key={menu.key} className={`nav-item ${active ? 'nav-item--active' : ''}`}>
-                    <Link
-                      className="nav-link nav-link--static"
-                      to="/ticket-passes"
-                      onClick={() => setOpenMenu(null)}
-                    >
-                      {menu.label}
-                    </Link>
-                  </div>
-                );
-              }
-
               let items = menu.items;
               if (menu.key === 'experiences') {
                 items = [
@@ -180,9 +158,19 @@ export default function Nav({ themes = [] }) {
                 ];
               }
               const isActive = isMenuActive(menu);
-              const isOpen = openMenu === menu.key;
+              const isStatic = menu.key === 'tickets';
+              const isOpen = !isStatic && openMenu === menu.key;
               return (
                 <div key={menu.key} className={`nav-item ${isActive ? 'nav-item--active' : ''}`}>
+                  {isStatic ? (
+                    <Link
+                      className="nav-link nav-link--static"
+                      to={menu.path}
+                      onClick={() => setOpenMenu(null)}
+                    >
+                      {menu.label}
+                    </Link>
+                  ) : (
                   <button
                     className="nav-link"
                     aria-haspopup="true"
@@ -191,20 +179,24 @@ export default function Nav({ themes = [] }) {
                   >
                     {menu.label}
                   </button>
-                  <div className={`nav-dropdown ${isOpen ? 'nav-dropdown--open' : ''}`}>
-                    {items.map(item => (
-                      <button
-                        key={item.path}
-                        className="nav-dropdown__item"
-                        onClick={() => handleNavigate(item.path)}
-                      >
-                        {item.label}
-                      </button>
-                    ))}
-                  </div>
+                  )}
+                  {!isStatic && (
+                    <div className={`nav-dropdown ${isOpen ? 'nav-dropdown--open' : ''}`}>
+                      {items.map(item => (
+                        <button
+                          key={item.path}
+                          className="nav-dropdown__item"
+                          onClick={() => handleNavigate(item.path)}
+                        >
+                          {item.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             })}
+          </nav>
 
           {staffLinks.length > 0 && (
             <div className="nav-staff">
@@ -257,22 +249,10 @@ export default function Nav({ themes = [] }) {
               </button>
             )}
             </div>
-          </nav>
-        </div>
-      </header>
-      {authToast && (
-        <div className="nav-toast-flyout" role="status">
-          <div className="nav-toast-flyout__body">
-            <div className="nav-toast-flyout__title">
-              {authToast.type === 'in' ? "You're signed in" : "You're signed out"}
-            </div>
-            <p>{authToast.message}</p>
-            <button className="btn primary" onClick={() => setAuthToast(null)}>
-              Dismiss
-            </button>
           </div>
         </div>
-      )}
+      </header>
+      <AuthToast toast={authToast} onDismiss={dismissToast} />
       {showCart && <CartModal onClose={() => setShowCart(false)} />}
     </>
   );

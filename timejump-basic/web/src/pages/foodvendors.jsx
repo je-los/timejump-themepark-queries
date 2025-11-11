@@ -1,44 +1,133 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useCart } from '../context/cartcontext.jsx';
 
-export default function FoodVendors(){
+export default function FoodVendors() {
   const { add } = useCart();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
+  const [query, setQuery] = useState('');
+  const [activeTheme, setActiveTheme] = useState('all');
+  const [sortDir, setSortDir] = useState('asc');
 
-  useEffect(()=>{
+  useEffect(() => {
     let alive = true;
-    (async ()=>{
-      setLoading(true); setErr('');
-      try{
-        const r = await fetch(import.meta.env.VITE_API_URL + '/food/items');
-        const j = await r.json();
-        if(!r.ok) throw new Error(j?.error || 'Failed to load food items');
-        if(alive) setItems(Array.isArray(j) ? j : (j.items || []));
-      }catch(e){ if(alive) setErr(e.message||'Failed to load food items'); }
-      finally{ if(alive) setLoading(false); }
+    (async () => {
+      setLoading(true);
+      setErr('');
+      try {
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/food/items`);
+        const json = await res.json();
+        if (!res.ok) throw new Error(json?.error || 'Failed to load food items');
+        if (alive) setItems(Array.isArray(json) ? json : json.items || []);
+      } catch (error) {
+        if (alive) setErr(error.message || 'Failed to load food items');
+      } finally {
+        if (alive) setLoading(false);
+      }
     })();
-    return ()=>{ alive=false; };
-  },[]);
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const themes = useMemo(() => {
+    const set = new Set(items.map(item => item.theme_name || 'Other'));
+    return ['all', ...Array.from(set).sort((a, b) => a.localeCompare(b))];
+  }, [items]);
+
+  const filtered = useMemo(() => {
+    return items
+      .filter(item => item.name.toLowerCase().includes(query.toLowerCase()))
+      .filter(item => activeTheme === 'all' || (item.theme_name || 'Other') === activeTheme);
+  }, [items, query, activeTheme]);
+
+  const sortedItems = useMemo(() => {
+    return [...filtered].sort((a, b) => {
+      const cmp = (a.name || '').localeCompare(b.name || '');
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+  }, [filtered, sortDir]);
 
   return (
-    <div className="max-w-5xl mx-auto p-6">
-      <div className="rounded-2xl border bg-white card-padding shadow-sm">
-        <h2 className="text-xl font-semibold mb-4">Food Vendors</h2>
+    <div className="page">
+      <div className="page-box page-box--wide dining-page">
+        <section className="dining-hero">
+          <div className="dining-hero__content">
+            <p className="dining-eyebrow">Marketplace</p>
+            <h1>Dine your way through every era.</h1>
+            <p>Filter by land, browse signature bites, and plan your tasting tour before you even scan your ticket.</p>
+          </div>
+        </section>
 
-        {loading && <div className="text-sm text-gray-600">Loading…</div>}
+        <div className="dining-tools">
+          <input
+            className="input input--compact"
+            placeholder="Search menu items..."
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+          />
+          <div className="dining-filters">
+            {themes.map(theme => (
+              <button
+                key={theme}
+                className={`dining-filter ${activeTheme === theme ? 'dining-filter--active' : ''}`}
+                onClick={() => setActiveTheme(theme)}
+              >
+                {theme === 'all' ? 'All Lands' : theme}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="dining-sort-bar">
+          <span>Sort by name:</span>
+          <div className="dining-sort-buttons">
+            <button
+              type="button"
+              className={`dining-sort-btn ${sortDir === 'asc' ? 'active' : ''}`}
+              onClick={() => setSortDir('asc')}
+            >
+              A-Z
+            </button>
+            <button
+              type="button"
+              className={`dining-sort-btn ${sortDir === 'desc' ? 'active' : ''}`}
+              onClick={() => setSortDir('desc')}
+            >
+              Z-A
+            </button>
+          </div>
+        </div>
+
+        {loading && <div className="text-sm text-gray-600">Loading...</div>}
         {err && !loading && <div className="alert error">{err}</div>}
-        {!loading && !err && items.length===0 && <div className="text-sm text-gray-600">No items found.</div>}
+        {!loading && !err && sortedItems.length === 0 && (
+          <div className="text-sm text-gray-600">No menu items match that filter.</div>
+        )}
 
-        {!loading && !err && items.length>0 && (
+        {!loading && !err && sortedItems.length > 0 && (
           <div className="items-grid">
-            {items.map(i=>(
-              <div key={i.id} className="item-card">
-                <div className="item-name">{i.name}</div>
-                <div className="item-price">${Number(i.price||0).toFixed(2)}</div>
-                <button className="btn" onClick={()=>add({ kind:'food', id:i.id, name:i.name, price:i.price })}>Add to Cart</button>
-              </div>
+            {sortedItems.map(item => (
+              <article key={item.id} className="item-card">
+                {item.image_url ? (
+                  <div className="item-card__image">
+                    <img src={item.image_url} alt={item.name} loading="lazy" />
+                  </div>
+                ) : (
+                  <div className="item-card__image item-card__image--placeholder">Menu preview</div>
+                )}
+                <div className="item-name">{item.name}</div>
+                <div className="item-card__footer">
+                  <span className="item-card__price">${Number(item.price || 0).toFixed(2)}</span>
+                  <button
+                    className="btn item-card__add"
+                    onClick={() => add({ kind: 'food', id: item.id, name: item.name, price: item.price })}
+                  >
+                    Add to Cart
+                  </button>
+                </div>
+              </article>
             ))}
           </div>
         )}
@@ -46,3 +135,7 @@ export default function FoodVendors(){
     </div>
   );
 }
+
+
+
+

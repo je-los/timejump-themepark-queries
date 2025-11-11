@@ -23,7 +23,27 @@ export default function RidesAndAttractions({ library, loading, error }) {
     return rides;
   }, [themes]);
 
-  const spotlightRides = allRides.slice(0, 8);
+  const showRides = useMemo(() => {
+    return allRides.filter(ride => {
+      const typeLabel = (ride.type || ride.TypeName || '').toLowerCase();
+      return typeLabel.includes('show');
+    });
+  }, [allRides]);
+
+  const ridesByType = useMemo(() => {
+    const grouped = new Map();
+    showRides.forEach(ride => {
+      const key = (ride.type || ride.TypeName || 'Shows').trim();
+      if (!grouped.has(key)) grouped.set(key, []);
+      grouped.get(key).push(ride);
+    });
+    return Array.from(grouped.entries()).sort(([a], [b]) => a.localeCompare(b));
+  }, [showRides]);
+
+  const featuredShows = useMemo(
+    () => showRides.slice(0, 12),
+    [showRides],
+  );
 
   return (
     <div className="page rides-page">
@@ -62,6 +82,9 @@ export default function RidesAndAttractions({ library, loading, error }) {
               <div className="rides-themes__grid">
                 {themes.map(theme => (
                   <article key={theme.slug} className="theme-card">
+                    {theme.image_url && (
+                      <div className="theme-card__image" style={{ backgroundImage: `url(${theme.image_url})` }} />
+                    )}
                     <div className="theme-card__header">
                       <h3>{theme.name}</h3>
                       <span>{(theme.rides || []).length} attractions</span>
@@ -84,42 +107,65 @@ export default function RidesAndAttractions({ library, loading, error }) {
             <section className="rides-highlight">
               <div className="section-header rides-section-header">
                 <div>
-                  <h2>Spotlight attractions</h2>
-                  <p>Fan favorites from every era—perfect for anchoring your itinerary.</p>
+                  <h2>Featured entertainment</h2>
                 </div>
               </div>
-              {spotlightRides.length ? (
+              {featuredShows.length ? (
                 <div className="rides-highlight__grid">
-                  {spotlightRides.map(ride => (
-                    <article key={ride.slug || ride.name} className="ride-feature-card">
-                      <div className="ride-feature-card__meta">
-                        <span>{ride.themeName}</span>
-                        <span>{ride.type || 'Attraction'}</span>
-                      </div>
-                      <h3>{ride.name}</h3>
-                      <p>{ride.description || ride.type_description || 'Details coming soon.'}</p>
-                      <div className="ride-feature-card__stats">
-                        {ride.capacity && (
-                          <div>
-                            <strong>{ride.capacity}</strong>
-                            <span>guests per dispatch</span>
-                          </div>
+                  {featuredShows.map(ride => {
+                    const experience = ride.experience_level
+                      ?? ride.experienceLevel
+                      ?? ride.thrill_level
+                      ?? ride.type_description
+                      ?? null;
+                    const audience = ride.target_audience
+                      ?? ride.targetAudience
+                      ?? ride.audience
+                      ?? null;
+                    const descriptionRaw = ride.description || ride.type_description || '';
+                    const description =
+                      descriptionRaw && descriptionRaw.trim().toLowerCase() === 'seated or street performance with scheduled times.'
+                        ? ''
+                        : descriptionRaw;
+                    return (
+                      <article key={ride.slug || ride.name} className="ride-feature-card ride-feature-card--show">
+                        {ride.image_url && (
+                          <div className="ride-feature-card__image" style={{ backgroundImage: `url(${ride.image_url})` }} />
                         )}
-                        {ride.estimated_capacity_per_hour && (
-                          <div>
-                            <strong>{ride.estimated_capacity_per_hour.toLocaleString()}</strong>
-                            <span>guests per hour</span>
-                          </div>
-                        )}
-                      </div>
-                      <button className="btn" onClick={() => navigate(`/ride/${ride.slug}`)}>
-                        View details
-                      </button>
-                    </article>
-                  ))}
+                        <div className="ride-feature-card__meta">
+                          <span>{ride.themeName}</span>
+                        </div>
+                        <h3>{ride.name}</h3>
+                        {description && <p>{description}</p>}
+                        <div className="ride-feature-card__stats">
+                          {ride.capacity && (
+                            <div>
+                              <strong>{ride.capacity.toLocaleString()}</strong>
+                              <span className="ride-feature-card__stat-label">Capacity</span>
+                            </div>
+                          )}
+                          {experience && (
+                            <div>
+                              <strong>{experience}</strong>
+                              <span className="ride-feature-card__stat-label">Experience</span>
+                            </div>
+                          )}
+                          {audience && (
+                            <div>
+                              <strong>{audience}</strong>
+                              <span className="ride-feature-card__stat-label">Audience</span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="ride-feature-card__cta">
+                          <span>Included in {ride.themeName}</span>
+                        </div>
+                      </article>
+                    );
+                  })}
                 </div>
               ) : (
-                <p className="text-sm text-gray-600">Add rides in the admin console to populate the spotlight grid.</p>
+                <p className="text-sm text-gray-600">Add live entertainment in the admin console to populate this section.</p>
               )}
             </section>
           </>
@@ -134,3 +180,4 @@ export default function RidesAndAttractions({ library, loading, error }) {
     </div>
   );
 }
+

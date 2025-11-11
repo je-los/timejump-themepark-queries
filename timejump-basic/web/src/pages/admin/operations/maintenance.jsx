@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { api } from '../../../auth';
 import { Panel, TableList } from '../shared.jsx';
 
+const DEFAULT_SEVERITIES = ['low', 'medium', 'high', 'critical'];
+
 export default function MaintenancePage() {
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -22,6 +24,7 @@ export default function MaintenancePage() {
   const [attractions, setAttractions] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [types, setTypes] = useState([]);
+  const [severities, setSeverities] = useState(DEFAULT_SEVERITIES);
 
   const loadRecords = useCallback(async () => {
     setLoading(true);
@@ -39,10 +42,10 @@ export default function MaintenancePage() {
 
   const loadMetadata = useCallback(async () => {
     try {
-      const [attractionRes, employeeRes, typeRes] = await Promise.all([
+      const [attractionRes, employeeRes, metaRes] = await Promise.all([
         api('/attractions').catch(() => ({ data: [] })),
         api('/employees').catch(() => ({ data: [] })),
-        api('/maintenance/types').catch(() => ({ data: [] })),
+        api('/maintenance/meta').catch(() => ({ data: {} })),
       ]);
       setAttractions((attractionRes.data || []).map(item => ({
         id: item.AttractionID ?? item.id ?? item.attractionID,
@@ -52,14 +55,23 @@ export default function MaintenancePage() {
         id: item.employeeID ?? item.id,
         name: item.name ?? `${item.first_name ?? ''} ${item.last_name ?? ''}`.trim(),
       })));
-      setTypes((typeRes.data || []).map(item => ({
-        id: item.id ?? item.code ?? item.type,
-        name: item.label ?? item.name ?? item.type_name ?? item.type,
-      })));
+      const meta = metaRes.data || {};
+      const normalizedTypes = (meta.types || []).map(value => {
+        const label = typeof value === 'string'
+          ? value.replace(/_/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase())
+          : String(value);
+        return { id: value, name: label };
+      });
+      setTypes(normalizedTypes);
+      const normalizedSeverities = (meta.severities || []).length
+        ? (meta.severities || []).map(value => String(value).toLowerCase())
+        : DEFAULT_SEVERITIES;
+      setSeverities(normalizedSeverities);
     } catch {
       setAttractions([]);
       setEmployees([]);
       setTypes([]);
+      setSeverities(DEFAULT_SEVERITIES);
     }
   }, []);
 
@@ -207,10 +219,11 @@ export default function MaintenancePage() {
                 disabled={saving}
               >
                 <option value="">Select severity...</option>
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
-                <option value="critical">Critical</option>
+                {severities.map(severity => (
+                  <option key={severity} value={severity}>
+                    {severity.replace(/\b\w/g, ch => ch.toUpperCase())}
+                  </option>
+                ))}
               </select>
             </label>
             <label className="field" style={{ gridColumn: '1 / -1' }}>
@@ -248,11 +261,11 @@ export default function MaintenancePage() {
               rows={records}
               columns={[
                 { key: 'attraction_name', label: 'Attraction' },
-                { key: 'type_name', label: 'Type' },
-                { key: 'severity', label: 'Severity' },
-                { key: 'date_reported', label: 'Reported' },
-                { key: 'date_resolved', label: 'Resolved' },
-                { key: 'employee_name', label: 'Assigned To' },
+                { key: 'type_of_maintenance', label: 'Type' },
+                { key: 'Severity_of_report', label: 'Severity' },
+                { key: 'Date_broken_down', label: 'Reported' },
+                { key: 'Date_fixed', label: 'Resolved' },
+                { key: 'EmployeeID', label: 'Assigned To', render: val => val || '—' },
               ]}
               emptyMessage="No maintenance records yet."
             />

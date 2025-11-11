@@ -1,0 +1,21 @@
+.item-card__footer {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.item-card__price {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #0f172a;
+  white-space: nowrap;
+}
+
+.item-card__add {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  margin-top: 0;
+  align-self: auto;
+}
