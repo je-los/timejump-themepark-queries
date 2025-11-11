@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import jurasticTJ from '../assets/JurasticTJ.jpg';
 
 export default function ThemeView() {
   const { slug } = useParams();
@@ -36,7 +37,18 @@ export default function ThemeView() {
         {!loading && !error && theme && (
           <>
             <h1>{theme.name}</h1>
-            {theme.description && <p className="text-sm text-gray-700">{theme.description}</p>}
+            {theme.description && ( 
+              <p className="text-sm text-gray-700">{theme.description}</p>
+            )}
+
+            <div className="theme-artwork">
+              <img
+                src={jurasticTJ}
+                alt="Jurassic Theme Artwork"
+                className="w-full h-auto rounded-lg shadow-md mb-6"
+              />
+            </div>
+
             <div className="ride-grid">
               {theme.rides.map(ride=>{
                 const capacityPerExperience = ride.capacity_per_experience

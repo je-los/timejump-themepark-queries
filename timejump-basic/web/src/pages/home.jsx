@@ -1,5 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import jurasticTJ from '../assets/JurasticTJ.jpg';
+import tjShop from '../assets/TJshop.jpg';
 
 const THEME_CARDS = [
   {
@@ -62,10 +64,12 @@ export default function Home() {
           </div>
         </div>
         <div className="home-hero__visual">
-          <div className="home-hero__placeholder">
-            <span>Theme artwork coming soon</span>
-          </div>
-        </div>
+          <img
+            src={jurasticTJ}
+            alt="Jurassic Theme Artwork"
+            className="home-hero__img"
+          />
+      </div>
       </section>
 
       <section className="home-themes">
@@ -108,9 +112,11 @@ export default function Home() {
           </div>
         </div>
         <div className="home-gift-shop__visual">
-          <div className="home-gift-shop__placeholder">
-            <span>Gift shop gallery coming soon</span>
-          </div>
+        <img
+          src={tjShop}
+          alt="Time Jump Gift Shop"
+          className="home-gift-shop__img"
+        />
         </div>
       </section>
     </div>
