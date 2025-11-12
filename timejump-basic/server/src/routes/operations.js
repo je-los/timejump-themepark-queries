@@ -4,7 +4,7 @@ import { requireRole } from '../middleware/auth.js';
 import {
   ensureAttractionExperienceColumns,
   ensureAttractionImageColumn,
-  ensureScheduleNotesTable,
+  ensureScheduleCompletionColumn,
 } from '../services/ensure.js';
 import { pick } from '../utils/object.js';
 
@@ -393,7 +393,7 @@ export function registerOperationsRoutes(router) {
   }));
 
   router.get('/schedules', requireRole(['employee', 'manager', 'admin', 'owner'])(async ctx => {
-    await ensureScheduleNotesTable();
+    await ensureScheduleCompletionColumn();
     const isEmployee = ctx.authUser.role === 'employee';
     let whereClause = '';
     const params = [];
@@ -402,7 +402,7 @@ export function registerOperationsRoutes(router) {
         ctx.error(400, 'Employee profile is missing.');
         return;
       }
-      whereClause = 'WHERE s.EmployeeID = ?';
+      whereClause = 'WHERE s.EmployeeID = ? AND s.is_completed = 0';
       params.push(ctx.authUser.employeeId);
     } else if (ctx.query?.employeeId) {
       const filterId = Number(ctx.query.employeeId);
@@ -420,9 +420,8 @@ export function registerOperationsRoutes(router) {
              s.Shift_date,
              s.Start_time,
              s.End_time,
-             sn.notes
+             s.is_completed
       FROM schedules s
-      LEFT JOIN schedule_notes sn ON sn.ScheduleID = s.ScheduleID
       LEFT JOIN employee e ON e.employeeID = s.EmployeeID
       LEFT JOIN attraction a ON a.AttractionID = s.AttractionID
       ${whereClause}
@@ -444,7 +443,7 @@ export function registerOperationsRoutes(router) {
         startTime: row.Start_time,
         End_time: row.End_time,
         endTime: row.End_time,
-        notes: row.notes || '',
+        is_completed: row.is_completed === 1,
       })),
     });
   }));
@@ -455,7 +454,6 @@ export function registerOperationsRoutes(router) {
     const shiftDate = String(pick(ctx.body, 'shiftDate', 'Shift_date') || '').trim();
     const startTime = String(pick(ctx.body, 'startTime', 'Start_time') || '').trim();
     const endTime = String(pick(ctx.body, 'endTime', 'End_time') || '').trim();
-    const notes = String(pick(ctx.body, 'notes') || '').trim();
 
     if (!employeeId || !attractionId || !shiftDate || !startTime || !endTime) {
       ctx.error(400, 'Employee, attraction, date, start, and end time are required.');
@@ -468,14 +466,6 @@ export function registerOperationsRoutes(router) {
         [employeeId, attractionId, shiftDate, startTime, endTime],
       );
       const scheduleId = result.insertId;
-      if (notes) {
-        await ensureScheduleNotesTable();
-        await query(
-          'INSERT INTO schedule_notes (ScheduleID, notes) VALUES (?, ?) ' +
-          'ON DUPLICATE KEY UPDATE notes = VALUES(notes)',
-          [scheduleId, notes],
-        );
-      }
       ctx.created({
         data: {
           ScheduleID: scheduleId,
@@ -487,7 +477,6 @@ export function registerOperationsRoutes(router) {
           startTime,
           End_time: endTime,
           endTime,
-          notes,
         },
       });
     } catch (err) {
@@ -546,10 +535,13 @@ export function registerOperationsRoutes(router) {
   }));
 
   router.post('/ride-log', requireRole(['employee', 'manager', 'admin', 'owner'])(async ctx => {
+    await ensureScheduleCompletionColumn();
     const attractionId = Number(pick(ctx.body, 'attractionId', 'AttractionID'));
     const logDate = String(pick(ctx.body, 'logDate', 'date', 'log_date') || '').trim();
     const ridersRaw = pick(ctx.body, 'riders', 'ridersCount', 'riders_count');
     const ridersCount = Number(ridersRaw);
+    const providedScheduleId = Number(pick(ctx.body, 'scheduleId', 'ScheduleID'));
+    let targetScheduleId = Number.isInteger(providedScheduleId) && providedScheduleId > 0 ? providedScheduleId : null;
 
     if (!attractionId || !logDate) {
       ctx.error(400, 'Attraction and date are required.');
@@ -566,11 +558,23 @@ export function registerOperationsRoutes(router) {
         return;
       }
       const [assignment] = await query(
-        'SELECT ScheduleID FROM schedules WHERE EmployeeID = ? AND AttractionID = ? AND Shift_date = ? LIMIT 1',
+        'SELECT ScheduleID FROM schedules WHERE EmployeeID = ? AND AttractionID = ? AND Shift_date = ? AND is_completed = 0 LIMIT 1',
         [ctx.authUser.employeeId, attractionId, logDate],
       ).catch(() => []);
       if (!assignment) {
         ctx.error(403, 'You are not scheduled on that attraction for the selected date.');
+        return;
+      }
+      if (!targetScheduleId) {
+        targetScheduleId = assignment.ScheduleID;
+      }
+    } else if (targetScheduleId) {
+      const [schedule] = await query(
+        'SELECT ScheduleID FROM schedules WHERE ScheduleID = ? AND AttractionID = ? AND Shift_date = ? LIMIT 1',
+        [targetScheduleId, attractionId, logDate],
+      ).catch(() => []);
+      if (!schedule) {
+        ctx.error(400, 'Schedule entry not found for the provided identifiers.');
         return;
       }
     }
@@ -580,6 +584,14 @@ export function registerOperationsRoutes(router) {
       'ON DUPLICATE KEY UPDATE riders_count = VALUES(riders_count)',
       [attractionId, logDate, ridersCount],
     );
+
+    if (targetScheduleId) {
+      await query(
+        'UPDATE schedules SET is_completed = 1 WHERE ScheduleID = ?',
+        [targetScheduleId],
+      ).catch(() => {});
+    }
+
     ctx.ok({
       data: {
         AttractionID: attractionId,

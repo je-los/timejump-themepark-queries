@@ -2,17 +2,39 @@ import React, { useEffect, useState } from 'react';
 import { api } from '../auth.js';
 import { useAuth } from '../context/authcontext.jsx';
 
+const emptyProfile = {
+  first_name: '',
+  last_name: '',
+  date_of_birth: '',
+  phone: '',
+};
+
+function formatPhoneDisplay(value) {
+  const digits = String(value || '').replace(/\D/g, '').slice(0, 10);
+  if (!digits) return '';
+  if (digits.length < 4) return `(${digits}`;
+  if (digits.length < 7) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+}
+
+function formatPhoneFixed(value) {
+  const digits = String(value || '').replace(/\D/g, '');
+  if (digits.length !== 10) return null;
+  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+}
+
 export default function Account() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
-  const [profile, setProfile] = useState({ full_name: '', phone: '' });
-  const [form, setForm] = useState({ full_name: '', phone: '' });
+  const [profile, setProfile] = useState(emptyProfile);
+  const [form, setForm] = useState(emptyProfile);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState('');
   const [statusTone, setStatusTone] = useState('info');
   const [orders, setOrders] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const isCustomer = user?.role === 'customer';
+  const [editing, setEditing] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -21,11 +43,13 @@ export default function Account() {
     api('/profile/me')
       .then(res => {
         if (cancelled) return;
-        const data = res?.profile || { full_name: '', phone: '' };
+        const data = res?.profile || emptyProfile;
         setProfile(data);
         setForm({
-          full_name: data.full_name || '',
-          phone: data.phone || '',
+          first_name: data.first_name || '',
+          last_name: data.last_name || '',
+          phone: formatPhoneDisplay(data.phone || ''),
+          date_of_birth: data.date_of_birth || '',
         });
       })
       .catch(err => {
@@ -64,21 +88,37 @@ export default function Account() {
 
   async function handleSave(e) {
     e.preventDefault();
-    if (!user) return;
+    if (!user || !editing) return;
     setSaving(true);
     setStatus('');
     try {
+      const formattedPhone = formatPhoneFixed(form.phone);
+      if (!formattedPhone) {
+        setStatusTone('error');
+        setStatus('Phone number must include 10 digits (e.g., (555) 123-4567).');
+        setSaving(false);
+        return;
+      }
       const payload = {
-        full_name: form.full_name.trim(),
-        phone: form.phone.trim(),
+        first_name: form.first_name.trim(),
+        last_name: form.last_name.trim(),
+        phone: formattedPhone,
+        date_of_birth: form.date_of_birth || '',
       };
       const res = await api('/profile/me', {
         method: 'PUT',
         body: JSON.stringify(payload),
       });
-      setProfile(res?.profile || payload);
+      const updated = res?.profile || payload;
+      setProfile({
+        first_name: updated.first_name || '',
+        last_name: updated.last_name || '',
+        phone: updated.phone || '',
+        date_of_birth: updated.date_of_birth || '',
+      });
       setStatusTone('success');
       setStatus('Profile updated.');
+      setEditing(false);
     } catch (err) {
       setStatusTone('error');
       setStatus(err?.message || 'Unable to save profile.');
@@ -109,17 +149,76 @@ export default function Account() {
         </section>
 
         <section className="panel">
-          <h2 style={{ marginTop: 0 }}>Profile Details</h2>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+            <h2 style={{ marginTop: 0 }}>Profile Details</h2>
+            {!loading && (
+              <div className="account-actions" style={{ display: 'flex', gap: 8 }}>
+                {!editing ? (
+                  <button
+                    className="btn"
+                    type="button"
+                    onClick={() => {
+                      setForm({
+                        first_name: profile.first_name || '',
+                        last_name: profile.last_name || '',
+                        phone: formatPhoneDisplay(profile.phone) || '',
+                        date_of_birth: profile.date_of_birth || '',
+                      });
+                      setStatus('');
+                      setStatusTone('info');
+                      setEditing(true);
+                    }}
+                  >
+                    Modify
+                  </button>
+                ) : (
+                  <>
+                    <button className="btn primary" form="profile-form" type="submit" disabled={saving}>
+                      {saving ? 'Saving…' : 'Confirm'}
+                    </button>
+                    <button
+                      className="btn"
+                      type="button"
+                      onClick={() => {
+                      setForm({
+                        first_name: profile.first_name || '',
+                        last_name: profile.last_name || '',
+                        phone: formatPhoneDisplay(profile.phone) || '',
+                        date_of_birth: profile.date_of_birth || '',
+                      });
+                      setStatus('');
+                      setStatusTone('info');
+                      setEditing(false);
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
           {loading && <div className="muted">Loading profile…</div>}
           {!loading && (
-            <form className="account-form" onSubmit={handleSave}>
+            <form className="account-form" id="profile-form" onSubmit={handleSave}>
               <label className="field">
-                <span>Full name</span>
+                <span>First name</span>
                 <input
                   className="input"
-                  value={form.full_name}
-                  onChange={e => setForm(f => ({ ...f, full_name: e.target.value }))}
-                  placeholder="Add your name"
+                  value={form.first_name}
+                  onChange={e => setForm(f => ({ ...f, first_name: e.target.value }))}
+                  disabled={!editing}
+                  placeholder="First name"
+                />
+              </label>
+              <label className="field">
+                <span>Last name</span>
+                <input
+                  className="input"
+                  value={form.last_name}
+                  onChange={e => setForm(f => ({ ...f, last_name: e.target.value }))}
+                  disabled={!editing}
+                  placeholder="Last name"
                 />
               </label>
               <label className="field">
@@ -127,13 +226,21 @@ export default function Account() {
                 <input
                   className="input"
                   value={form.phone}
-                  onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
+                  onChange={e => setForm(f => ({ ...f, phone: formatPhoneDisplay(e.target.value) }))}
+                  disabled={!editing}
                   placeholder="(555) 123-4567"
                 />
               </label>
-              <button className="btn primary" type="submit" disabled={saving}>
-                {saving ? 'Saving…' : 'Save Changes'}
-              </button>
+              <label className="field">
+                <span>Date of birth</span>
+                <input
+                  className="input"
+                  type="date"
+                  value={profile.date_of_birth || ''}
+                  readOnly
+                  disabled
+                />
+              </label>
               {status && (
                 <div
                   className={`alert ${
@@ -145,6 +252,14 @@ export default function Account() {
               )}
             </form>
           )}
+        </section>
+
+        <section className="panel">
+          <h2 style={{ marginTop: 0 }}>Password</h2>
+          <p className="muted" style={{ marginBottom: 16 }}>
+            Update your password to keep your account secure.
+          </p>
+          <PasswordForm />
         </section>
 
         {isCustomer && (
@@ -195,6 +310,110 @@ export default function Account() {
         )}
       </div>
     </div>
+  );
+}
+
+function PasswordForm() {
+  const [current, setCurrent] = useState('');
+  const [nextPassword, setNextPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState('');
+  const [tone, setTone] = useState('info');
+
+  async function handlePasswordChange(e) {
+    e.preventDefault();
+    if (busy) return;
+    if (!current || !nextPassword) {
+      setTone('error');
+      setStatus('Current and new password are required.');
+      return;
+    }
+    if (nextPassword !== confirm) {
+      setTone('error');
+      setStatus('New password and confirmation do not match.');
+      return;
+    }
+    setBusy(true);
+    setStatus('');
+    try {
+      await api('/profile/password', {
+        method: 'PUT',
+        body: JSON.stringify({
+          currentPassword: current,
+          newPassword: nextPassword,
+        }),
+      });
+      setTone('success');
+      setStatus('Password updated successfully.');
+      setCurrent('');
+      setNextPassword('');
+      setConfirm('');
+    } catch (err) {
+      setTone('error');
+      setStatus(err?.message || 'Unable to update password.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form onSubmit={handlePasswordChange} className="account-form">
+      <label className="field">
+        <span>Current password</span>
+        <input
+          className="input"
+          type="password"
+          value={current}
+          onChange={e => setCurrent(e.target.value)}
+          autoComplete="current-password"
+        />
+      </label>
+      <label className="field">
+        <span>New password</span>
+        <input
+          className="input"
+          type="password"
+          value={nextPassword}
+          onChange={e => setNextPassword(e.target.value)}
+          autoComplete="new-password"
+          minLength={6}
+        />
+      </label>
+      <label className="field">
+        <span>Confirm password</span>
+        <input
+          className="input"
+          type="password"
+          value={confirm}
+          onChange={e => setConfirm(e.target.value)}
+          autoComplete="new-password"
+          minLength={6}
+        />
+      </label>
+      <div style={{ display: 'flex', gap: 12 }}>
+        <button className="btn primary" type="submit" disabled={busy}>
+          {busy ? 'Saving…' : 'Update Password'}
+        </button>
+        <button
+          className="btn"
+          type="button"
+          onClick={() => {
+            setCurrent('');
+            setNextPassword('');
+            setConfirm('');
+            setStatus('');
+          }}
+        >
+          Cancel
+        </button>
+      </div>
+      {status && (
+        <div className={`alert ${tone === 'success' ? 'success' : tone === 'error' ? 'error' : 'info'}`}>
+          {status}
+        </div>
+      )}
+    </form>
   );
 }
 

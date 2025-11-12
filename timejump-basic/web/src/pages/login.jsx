@@ -4,6 +4,20 @@ import { login, signup } from '../auth.js';
 import { useAuth } from '../context/authcontext.jsx';
 import { queueAuthToast } from '../hooks/useauthtoast.js';
 
+function formatPhoneDisplay(value) {
+  const digits = String(value || '').replace(/\D/g, '').slice(0, 10);
+  if (!digits) return '';
+  if (digits.length < 4) return `(${digits}`;
+  if (digits.length < 7) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+}
+
+function formatPhoneFixed(value) {
+  const digits = String(value || '').replace(/\D/g, '');
+  if (digits.length !== 10) return null;
+  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+}
+
 export default function LoginPage() {
   const { user, refresh } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -11,6 +25,7 @@ export default function LoginPage() {
   const [status, setStatus] = useState('');
   const [statusTone, setStatusTone] = useState('error');
   const [busy, setBusy] = useState(false);
+  const [signupPhone, setSignupPhone] = useState('');
 
   const redirectTo = useMemo(() => {
     const redirectParam = searchParams.get('redirect');
@@ -18,6 +33,12 @@ export default function LoginPage() {
   }, [searchParams]);
 
   const mode = searchParams.get('mode') === 'signup' ? 'signup' : 'login';
+
+  useEffect(() => {
+    if (mode !== 'signup') {
+      setSignupPhone('');
+    }
+  }, [mode]);
 
   useEffect(() => {
     if (user) {
@@ -51,7 +72,17 @@ export default function LoginPage() {
     setStatus('');
     try {
       if (mode === 'signup') {
-        await signup(email, password);
+        const firstName = String(formData.get('firstName') || '').trim();
+        const lastName = String(formData.get('lastName') || '').trim();
+        const dateOfBirth = String(formData.get('dateOfBirth') || '').trim();
+        const phone = formatPhoneFixed(signupPhone);
+        if (!firstName || !lastName || !dateOfBirth || !phone) {
+          setStatusTone('error');
+          setStatus('First name, last name, date of birth, and a valid 10-digit phone are required.');
+          setBusy(false);
+          return;
+        }
+        await signup({ email, password, firstName, lastName, dateOfBirth, phone });
       } else {
         await login(email, password);
       }
@@ -83,6 +114,58 @@ export default function LoginPage() {
             <div className={`alert ${statusTone === 'error' ? 'error' : 'info'}`}>
               {status}
             </div>
+          )}
+
+          {mode === 'signup' && (
+            <>
+              <label className="field">
+                <span>First name</span>
+                <input
+                  className="input"
+                  name="firstName"
+                  type="text"
+                  autoComplete="given-name"
+                  required={mode === 'signup'}
+                  placeholder="First name"
+                />
+              </label>
+
+              <label className="field">
+                <span>Last name</span>
+                <input
+                  className="input"
+                  name="lastName"
+                  type="text"
+                  autoComplete="family-name"
+                  required={mode === 'signup'}
+                  placeholder="Last name"
+                />
+              </label>
+
+              <label className="field">
+                <span>Date of birth</span>
+                <input
+                  className="input"
+                  name="dateOfBirth"
+                  type="date"
+                  required={mode === 'signup'}
+                />
+              </label>
+
+              <label className="field">
+                <span>Phone number</span>
+                <input
+                  className="input"
+                  name="phone"
+                  type="tel"
+                  autoComplete="tel"
+                  value={signupPhone}
+                  onChange={e => setSignupPhone(formatPhoneDisplay(e.target.value))}
+                  required={mode === 'signup'}
+                  placeholder="(555) 123-4567"
+                />
+              </label>
+            </>
           )}
 
           <label className="field">

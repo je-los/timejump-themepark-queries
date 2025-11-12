@@ -1,6 +1,7 @@
 import { hashPassword, signToken, verifyPassword } from '../auth.js';
 import { query } from '../db.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
+import { ensureUserProfileTable } from '../services/ensure.js';
 import { isZeroBuffer } from '../utils/buffer.js';
 
 const CREATE_MATRIX = {
@@ -11,12 +12,35 @@ const CREATE_MATRIX = {
   customer: new Set([]),
 };
 
+function normalizeBirthDate(value) {
+  const str = String(value || '').trim();
+  if (!str) return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(str)) return null;
+  const date = new Date(`${str}T00:00:00Z`);
+  return Number.isNaN(date.getTime()) ? null : str;
+}
+
+function normalizePhone(value) {
+  const digits = String(value || '').replace(/\D/g, '');
+  if (digits.length !== 10) return null;
+  const area = digits.slice(0, 3);
+  const prefix = digits.slice(3, 6);
+  const line = digits.slice(6);
+  return `(${area}) ${prefix}-${line}`;
+}
+
 export function registerAuthRoutes(router) {
   router.post('/signup', async ctx => {
     const email = String(ctx.body?.email || '').trim().toLowerCase();
     const password = String(ctx.body?.password || '');
-    if (!email || !password) {
-      ctx.error(400, 'Email and password are required.');
+    const firstName = String(ctx.body?.firstName ?? ctx.body?.first_name ?? '').trim();
+    const lastName = String(ctx.body?.lastName ?? ctx.body?.last_name ?? '').trim();
+    const phone = String(ctx.body?.phone ?? '').trim();
+    const birthDateRaw = ctx.body?.dateOfBirth ?? ctx.body?.date_of_birth;
+    const dateOfBirth = normalizeBirthDate(birthDateRaw);
+
+    if (!email || !password || !firstName || !lastName || !phone || !dateOfBirth) {
+      ctx.error(400, 'First name, last name, email, password, phone, and date of birth are required.');
       return;
     }
     const existing = await query(
@@ -31,6 +55,27 @@ export function registerAuthRoutes(router) {
     const result = await query(
       'INSERT INTO users (email, password_hash, role) VALUES (?, ?, ?)',
       [email, hash, 'customer'],
+    );
+    await ensureUserProfileTable();
+    await query(
+      `
+        INSERT INTO user_profile (user_id, first_name, last_name, full_name, phone, date_of_birth)
+        VALUES (?, ?, ?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE
+          first_name = VALUES(first_name),
+          last_name = VALUES(last_name),
+          full_name = VALUES(full_name),
+          phone = VALUES(phone),
+          date_of_birth = VALUES(date_of_birth)
+      `,
+      [
+        result.insertId,
+        firstName,
+        lastName,
+        `${firstName} ${lastName}`.trim(),
+        phone,
+        dateOfBirth,
+      ],
     );
     const token = signToken({ sub: result.insertId, role: 'customer' });
     ctx.created({
