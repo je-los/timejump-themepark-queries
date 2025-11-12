@@ -519,6 +519,7 @@ export function registerOperationsRoutes(router) {
 
 
   router.post('/schedules', requireRole(['manager', 'admin', 'owner'])(async ctx => {
+    console.log("You are in here, the second schedules");
     const employeeId = Number(pick(ctx.body, 'employeeId', 'EmployeeID'));
     const attractionId = Number(pick(ctx.body, 'attractionId', 'AttractionID'));
     const shiftDate = String(pick(ctx.body, 'shiftDate', 'Shift_date') || '').trim();
