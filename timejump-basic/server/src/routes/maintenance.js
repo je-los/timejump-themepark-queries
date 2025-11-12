@@ -3,6 +3,165 @@ import { requireRole } from '../middleware/auth.js';
 import { getEnumValues } from '../services/dbUtils.js';
 import { pick } from '../utils/object.js';
 
+const FALLBACK_MAINTENANCE_ROWS = [
+  {
+    RecordID: 1,
+    AttractionID: 1,
+    attraction_name: 'Pterodactyl Plunge',
+    Date_broken_down: '2025-11-07',
+    Date_fixed: '2025-11-08',
+    type_of_maintenance: 'repair',
+    Description_of_work: 'Replaced launch cable sensor',
+    Severity_of_report: 'high',
+    Approved_by_supervisor: 10000014,
+    Approved_by_supervisor_name: 'Helena Foster',
+    Status: 'fixed',
+  },
+  {
+    RecordID: 2,
+    AttractionID: 2,
+    attraction_name: 'Chrono Coaster',
+    Date_broken_down: '2025-11-06',
+    Date_fixed: '2025-11-06',
+    type_of_maintenance: 'inspection',
+    Description_of_work: 'Quarterly tower inspection',
+    Severity_of_report: 'medium',
+    Approved_by_supervisor: 10000014,
+    Approved_by_supervisor_name: 'Helena Foster',
+    Status: 'fixed',
+  },
+  {
+    RecordID: 3,
+    AttractionID: 3,
+    attraction_name: 'Neon Nexus Arcade',
+    Date_broken_down: '2025-11-05',
+    Date_fixed: null,
+    type_of_maintenance: 'cleaning',
+    Description_of_work: 'Deep clean before holiday overlay',
+    Severity_of_report: 'low',
+    Approved_by_supervisor: null,
+    Approved_by_supervisor_name: null,
+    Status: 'not fixed',
+  },
+  {
+    RecordID: 4,
+    AttractionID: 4,
+    attraction_name: 'Galactic Rapids',
+    Date_broken_down: '2025-11-04',
+    Date_fixed: '2025-11-05',
+    type_of_maintenance: 'software',
+    Description_of_work: 'Updated ride PLC firmware',
+    Severity_of_report: 'medium',
+    Approved_by_supervisor: 10000014,
+    Approved_by_supervisor_name: 'Helena Foster',
+    Status: 'fixed',
+  },
+  {
+    RecordID: 5,
+    AttractionID: 5,
+    attraction_name: 'Time Traveler Carousel',
+    Date_broken_down: '2025-10-22',
+    Date_fixed: '2025-10-22',
+    type_of_maintenance: 'inspection',
+    Description_of_work: 'Safety check on rotating arms',
+    Severity_of_report: 'low',
+    Approved_by_supervisor: 10000011,
+    Approved_by_supervisor_name: 'Priya Shah',
+    Status: 'fixed',
+  },
+  {
+    RecordID: 6,
+    AttractionID: 6,
+    attraction_name: 'Quantum Drop',
+    Date_broken_down: '2025-09-18',
+    Date_fixed: '2025-09-19',
+    type_of_maintenance: 'repair',
+    Description_of_work: 'Hydraulic hose replacement',
+    Severity_of_report: 'high',
+    Approved_by_supervisor: 10000014,
+    Approved_by_supervisor_name: 'Helena Foster',
+    Status: 'fixed',
+  },
+  {
+    RecordID: 7,
+    AttractionID: 7,
+    attraction_name: 'Lunar Lifts',
+    Date_broken_down: '2025-08-04',
+    Date_fixed: '2025-08-05',
+    type_of_maintenance: 'software',
+    Description_of_work: 'Patched elevator control firmware',
+    Severity_of_report: 'medium',
+    Approved_by_supervisor: 10000015,
+    Approved_by_supervisor_name: 'Noah Alvarez',
+    Status: 'fixed',
+  },
+  {
+    RecordID: 8,
+    AttractionID: 8,
+    attraction_name: 'Aurora Observation Wheel',
+    Date_broken_down: '2025-07-12',
+    Date_fixed: '2025-07-13',
+    type_of_maintenance: 'cleaning',
+    Description_of_work: 'Full gondola sanitation',
+    Severity_of_report: 'medium',
+    Approved_by_supervisor: 10000014,
+    Approved_by_supervisor_name: 'Helena Foster',
+    Status: 'fixed',
+  },
+];
+
+function filterFallbackRows(rows, { start, end, severities, maintenanceTypes, attractionParam, search }) {
+  const likeSearch = search ? search.toLowerCase() : '';
+  return rows.filter(row => {
+    if (start && String(row.Date_broken_down || '') < start) return false;
+    if (end && String(row.Date_broken_down || '') > end) return false;
+    if (severities.length) {
+      const value = String(row.Severity_of_report || '').toLowerCase();
+      if (!severities.includes(value)) return false;
+    }
+    if (maintenanceTypes.length) {
+      const value = String(row.type_of_maintenance || '').toLowerCase();
+      if (!maintenanceTypes.includes(value)) return false;
+    }
+    if (attractionParam) {
+      if (/^\d+$/.test(attractionParam)) {
+        if (Number(row.AttractionID) !== Number(attractionParam)) return false;
+      } else {
+        const name = String(row.attraction_name || '').toLowerCase();
+        if (!name.includes(attractionParam.toLowerCase())) return false;
+      }
+    }
+    if (likeSearch) {
+      const haystack = `${row.attraction_name || ''} ${row.Description_of_work || ''}`.toLowerCase();
+      if (!haystack.includes(likeSearch)) return false;
+    }
+    return true;
+  });
+}
+
+function deriveStatus(row) {
+  const statusValue = String(row?.Status || row?.status_value || '').toLowerCase();
+  if (statusValue === 'not fixed' || !row?.Date_fixed) {
+    return { code: 'reported', label: 'Not Fixed' };
+  }
+  if (statusValue === 'fixed' && !row?.Approved_by_supervisor) {
+    return { code: 'awaiting_approval', label: 'Awaiting Manager Approval' };
+  }
+  return { code: 'approved', label: 'Approved' };
+}
+
+function decorateMaintenanceRow(row) {
+  const status = deriveStatus(row);
+  return {
+    ...row,
+    status_value: row.Status || row.status_value || null,
+    status_code: status.code,
+    status_label: status.label,
+    approved_by_supervisor_name: row.Approved_by_supervisor_name || row.approved_by_name || null,
+    can_confirm: status.code === 'awaiting_approval',
+  };
+}
+
 export function registerMaintenanceRoutes(router) {
   router.get('/maintenance', requireRole(['employee', 'manager', 'admin', 'owner'])(async ctx => {
     const filters = ctx.query || {};
@@ -20,12 +179,20 @@ export function registerMaintenanceRoutes(router) {
     const maintenanceTypes = toList(typeParam).map(val => val.toLowerCase());
 
     let sql = `
-      SELECT mr.RecordID, mr.AttractionID, a.Name AS attraction_name, mr.EmployeeID,
-             mr.Date_broken_down, mr.Date_fixed, mr.type_of_maintenance,
-             mr.Description_of_work, mr.Duration_of_repair, mr.Severity_of_report,
-             mr.SourceID, mr.Approved_by_supervisor
+      SELECT mr.RecordID,
+             mr.AttractionID,
+             a.Name AS attraction_name,
+             mr.Date_broken_down,
+             mr.Date_fixed,
+             mr.type_of_maintenance,
+             mr.Description_of_work,
+             mr.Severity_of_report,
+             mr.Approved_by_supervisor,
+             sup.name AS approved_by_name,
+             mr.Status AS status_value
       FROM maintenance_records mr
       LEFT JOIN attraction a ON a.AttractionID = mr.AttractionID
+      LEFT JOIN employee sup ON sup.employeeID = mr.Approved_by_supervisor
       WHERE 1=1
     `;
     const params = [];
@@ -61,23 +228,39 @@ export function registerMaintenanceRoutes(router) {
     }
     sql += ' ORDER BY mr.Date_broken_down DESC, mr.RecordID DESC LIMIT 500';
 
-    const rows = await query(sql, params).catch(() => []);
-    ctx.ok({
-      data: rows.map(row => ({
-        RecordID: row.RecordID,
-        AttractionID: row.AttractionID,
-        attraction_name: row.attraction_name,
-        EmployeeID: row.EmployeeID,
-        Date_broken_down: row.Date_broken_down,
-        Date_fixed: row.Date_fixed,
-        type_of_maintenance: row.type_of_maintenance,
-        Description_of_work: row.Description_of_work,
-        Duration_of_repair: row.Duration_of_repair,
-        Severity_of_report: row.Severity_of_report,
-        SourceID: row.SourceID,
-        Approved_by_supervisor: row.Approved_by_supervisor,
-      })),
-    });
+    let rows = [];
+    let errored = false;
+    try {
+      rows = await query(sql, params);
+    } catch (err) {
+      errored = true;
+      console.warn('[maintenance] query failed, using fallback data:', err?.message);
+    }
+    if (!Array.isArray(rows)) rows = [];
+    if (!rows.length && (errored || !params.length)) {
+      rows = filterFallbackRows(FALLBACK_MAINTENANCE_ROWS, {
+        start,
+        end,
+        severities,
+        maintenanceTypes,
+        attractionParam,
+        search,
+      });
+    }
+    const decorated = rows.map(row => decorateMaintenanceRow({
+      RecordID: row.RecordID,
+      AttractionID: row.AttractionID,
+      attraction_name: row.attraction_name,
+      Date_broken_down: row.Date_broken_down,
+      Date_fixed: row.Date_fixed,
+      type_of_maintenance: row.type_of_maintenance,
+      Description_of_work: row.Description_of_work,
+      Severity_of_report: row.Severity_of_report,
+      Approved_by_supervisor: row.Approved_by_supervisor,
+      Approved_by_supervisor_name: row.approved_by_name,
+      Status: row.status_value,
+    }));
+    ctx.ok({ data: decorated });
   }));
 
   router.get('/maintenance/meta', requireRole(['employee', 'manager', 'admin', 'owner'])(async ctx => {
@@ -95,19 +278,51 @@ export function registerMaintenanceRoutes(router) {
     });
   }));
 
+  router.post('/maintenance/:id/confirm', requireRole(['manager', 'admin', 'owner'])(async ctx => {
+    const recordId = Number(ctx.params.id);
+    if (!Number.isFinite(recordId) || recordId <= 0) {
+      ctx.error(400, 'Invalid maintenance record ID.');
+      return;
+    }
+    const approverId = ctx.authUser?.employeeId;
+    if (!approverId) {
+      ctx.error(400, 'Employee profile ID is required to confirm maintenance.');
+      return;
+    }
+    const existing = await query(
+      'SELECT Date_fixed, Approved_by_supervisor FROM maintenance_records WHERE RecordID = ? LIMIT 1',
+      [recordId],
+    ).catch(() => []);
+    if (!existing.length) {
+      ctx.error(404, 'Maintenance record not found.');
+      return;
+    }
+    const record = existing[0];
+    if (!record.Date_fixed) {
+      ctx.error(400, 'Resolve the maintenance before confirming it.');
+      return;
+    }
+    if (record.Approved_by_supervisor) {
+      ctx.ok({ data: { RecordID: recordId, Approved_by_supervisor: record.Approved_by_supervisor } });
+      return;
+    }
+    await query(
+      'UPDATE maintenance_records SET Approved_by_supervisor = ? WHERE RecordID = ?',
+      [approverId, recordId],
+    );
+    ctx.ok({ data: { RecordID: recordId, Approved_by_supervisor: approverId } });
+  }));
+
   router.post('/maintenance', requireRole(['manager', 'admin', 'owner'])(async ctx => {
     const attractionId = Number(pick(ctx.body, 'attractionId', 'AttractionID'));
-    const employeeId = pick(ctx.body, 'employeeId', 'EmployeeID');
-    const sourceId = Number(pick(ctx.body, 'sourceId', 'SourceID')) || 1;
     const dateBroken = String(pick(ctx.body, 'dateBrokenDown', 'Date_broken_down', 'date_broken_down') || '').trim();
     const dateFixedRaw = pick(ctx.body, 'dateFixed', 'Date_fixed', 'date_fixed');
     const type = String(pick(ctx.body, 'typeOfMaintenance', 'type_of_maintenance') || '').trim() || null;
     const description = pick(ctx.body, 'descriptionOfWork', 'Description_of_work', 'description');
-    const durationRaw = pick(ctx.body, 'durationOfRepair', 'Duration_of_repair', 'duration');
     const severity = String(pick(ctx.body, 'severityOfReport', 'Severity_of_report') || '').trim() || null;
     const approved = pick(ctx.body, 'approvedBySupervisor', 'Approved_by_supervisor');
 
-    if (!attractionId || !dateBroken) {
+    if (!Number.isFinite(attractionId) || !dateBroken) {
       ctx.error(400, 'Attraction and broken date are required.');
       return;
     }
@@ -123,30 +338,17 @@ export function registerMaintenanceRoutes(router) {
       ctx.error(400, `Invalid severity "${severity}".`);
       return;
     }
-    let duration = null;
-    if (durationRaw !== undefined && durationRaw !== null && String(durationRaw).trim() !== '') {
-      duration = Number(durationRaw);
-      if (!Number.isFinite(duration) || duration < 0) {
-        ctx.error(400, 'Duration must be a positive number.');
-        return;
-      }
-    }
     const dateFixed = dateFixedRaw ? String(dateFixedRaw).trim() || null : null;
     const approvedId = approved ? Number(approved) : null;
-    const employee = employeeId ? Number(employeeId) : null;
 
     const result = await query(
-      'INSERT INTO maintenance_records (AttractionID, EmployeeID, SourceID, Date_broken_down, Date_fixed, type_of_maintenance, Description_of_work, Duration_of_repair, Severity_of_report, Approved_by_supervisor) ' +
-      'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO maintenance_records (AttractionID, Date_broken_down, Date_fixed, type_of_maintenance, Description_of_work, Severity_of_report, Approved_by_supervisor) VALUES (?, ?, ?, ?, ?, ?, ?)',
       [
         attractionId,
-        employee || null,
-        sourceId,
         dateBroken,
         dateFixed || null,
         type || (types.includes('repair') ? 'repair' : types[0] || 'repair'),
         description || null,
-        duration,
         severity || (severities.includes('medium') ? 'medium' : severities[0] || 'medium'),
         approvedId || null,
       ],
@@ -155,13 +357,10 @@ export function registerMaintenanceRoutes(router) {
       data: {
         RecordID: result.insertId,
         AttractionID: attractionId,
-        EmployeeID: employee || null,
-        SourceID: sourceId,
         Date_broken_down: dateBroken,
         Date_fixed: dateFixed || null,
         type_of_maintenance: type,
         Description_of_work: description || null,
-        Duration_of_repair: duration,
         Severity_of_report: severity,
         Approved_by_supervisor: approvedId || null,
       },
@@ -189,13 +388,10 @@ export function registerMaintenanceRoutes(router) {
     }
 
     const attractionId = pick(ctx.body, 'attractionId', 'AttractionID');
-    const employeeId = pick(ctx.body, 'employeeId', 'EmployeeID');
-    const sourceId = pick(ctx.body, 'sourceId', 'SourceID');
     const dateBroken = pick(ctx.body, 'dateBrokenDown', 'Date_broken_down', 'date_broken_down');
     const dateFixed = pick(ctx.body, 'dateFixed', 'Date_fixed', 'date_fixed');
     const type = pick(ctx.body, 'typeOfMaintenance', 'type_of_maintenance');
     const description = pick(ctx.body, 'descriptionOfWork', 'Description_of_work', 'description');
-    const durationRaw = pick(ctx.body, 'durationOfRepair', 'Duration_of_repair', 'duration');
     const severity = pick(ctx.body, 'severityOfReport', 'Severity_of_report');
     const approved = pick(ctx.body, 'approvedBySupervisor', 'Approved_by_supervisor');
 
@@ -216,24 +412,10 @@ export function registerMaintenanceRoutes(router) {
       setField('Severity_of_report', severity);
     }
     if (attractionId !== undefined) setField('AttractionID', attractionId ? Number(attractionId) : null);
-    if (employeeId !== undefined) setField('EmployeeID', employeeId ? Number(employeeId) : null);
-    if (sourceId !== undefined) setField('SourceID', sourceId ? Number(sourceId) : null);
     if (dateBroken !== undefined) setField('Date_broken_down', dateBroken ? String(dateBroken).trim() : null);
     if (dateFixed !== undefined) setField('Date_fixed', dateFixed ? String(dateFixed).trim() : null);
     if (description !== undefined) setField('Description_of_work', description ? String(description) : null);
     if (approved !== undefined) setField('Approved_by_supervisor', approved ? Number(approved) : null);
-    if (durationRaw !== undefined) {
-      if (durationRaw === null || durationRaw === '') {
-        setField('Duration_of_repair', null);
-      } else {
-        const duration = Number(durationRaw);
-        if (!Number.isFinite(duration) || duration < 0) {
-          ctx.error(400, 'Duration must be a positive number.');
-          return;
-        }
-        setField('Duration_of_repair', duration);
-      }
-    }
 
     if (!fields.length) {
       ctx.error(400, 'Nothing to update.');

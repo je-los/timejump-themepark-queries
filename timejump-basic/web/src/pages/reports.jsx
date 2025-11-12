@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../auth';
 import { useAuth } from '../context/authcontext.jsx';
 
@@ -53,9 +53,9 @@ const REPORT_CONFIGS = [
           { value: 'day', label: 'Day' },
           { value: 'month', label: 'Month' },
         ],
-        default: 'day',
+        default: 'month',
         allowAll: false,
-        helper: 'Switch to “Month” to see totals and averages per month.',
+        helper: 'Switch to “Day” to focus on a single date’s rider counts.',
       },
       { key: 'date', label: 'Ride Date (daily)', type: 'date', default: () => today(), helper: 'Only used when grouping by day.' },
       { key: 'start', label: 'Start Date (monthly)', type: 'date', default: '' },
@@ -84,9 +84,12 @@ const REPORT_CONFIGS = [
     columns: [
       'attraction_name',
       'Date_broken_down',
+      'Date_fixed',
       'Severity_of_report',
       'type_of_maintenance',
       'Description_of_work',
+      'status_label',
+      'approved_by_supervisor_name',
     ],
     fields: [
       { key: 'start', label: 'Start Date', type: 'date', default: '' },
@@ -216,6 +219,7 @@ export default function Reports() {
   const activeError = errors[activeReport] || '';
   const activeInfo = infos[activeReport] || '';
   const isLoading = loadingKey === activeReport;
+  const isMaintenanceReport = activeReport === 'maintenance';
   const lastSummary = lastRun[activeReport];
   const tablePrefs = tableState[activeReport] || { search: '', sortKey: '', sortDir: 'asc' };
 
@@ -280,6 +284,11 @@ export default function Reports() {
     });
   }, [reportRows, tablePrefs, activeConfig.columns]);
 
+  const formStateRef = useRef(formState);
+  useEffect(() => {
+    formStateRef.current = formState;
+  }, [formState]);
+
   function updateField(reportKey, fieldKey, nextValue) {
     setFormState(prev => ({
       ...prev,
@@ -287,13 +296,14 @@ export default function Reports() {
         ...prev[reportKey],
         [fieldKey]: nextValue,
       },
-  }));
+    }));
   }
 
-  async function runReport(reportKey, options = {}) {
+  const runReport = useCallback(async (reportKey, options = {}) => {
     const config = REPORT_CONFIGS.find(cfg => cfg.key === reportKey);
     if (!config) return;
-    const params = config.buildParams(formState[reportKey]);
+    const state = formStateRef.current?.[reportKey] || {};
+    const params = config.buildParams(state);
     const queryString = params.toString();
     const url = queryString ? `${config.endpoint}?${queryString}` : config.endpoint;
     setLoadingKey(reportKey);
@@ -323,7 +333,16 @@ export default function Reports() {
     } finally {
       setLoadingKey('');
     }
-  }
+  }, []);
+
+  const autoRunReportsRef = useRef(new Set());
+  useEffect(() => {
+    if (!activeReport) return;
+    if (autoRunReportsRef.current.has(activeReport)) return;
+    autoRunReportsRef.current.add(activeReport);
+    runReport(activeReport, { silent: true });
+  }, [activeReport, runReport]);
+
 
   function handleSubmit(event) {
     event.preventDefault();
@@ -346,7 +365,6 @@ export default function Reports() {
       <aside className="panel panel--stretch" style={{ padding: 0, overflow: 'hidden' }}>
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           {REPORT_CONFIGS.map(cfg => {
-            const summary = lastRun[cfg.key];
             return (
               <button
                 key={cfg.key}
@@ -355,11 +373,6 @@ export default function Reports() {
                 onClick={() => setActiveReport(cfg.key)}
               >
                 <div className="report-select-card__title">{cfg.title}</div>
-                {summary && (
-                  <div className="report-select-card__meta">
-                    {`${summary.count} rows • ${formatRelative(summary.at)}`}
-                  </div>
-                )}
               </button>
             );
           })}
@@ -391,11 +404,6 @@ export default function Reports() {
               <button className="btn" type="button" onClick={() => resetFilters(activeReport)} disabled={isLoading}>
                 Reset Filters
               </button>
-              {lastSummary && (
-                <span className="text-sm text-gray-700">
-                  Last run: {formatRelative(lastSummary.at)} — {lastSummary.count} rows
-                </span>
-              )}
             </div>
             {activeError && <div className="alert error">{activeError}</div>}
             {!activeError && activeInfo && hasRun && (
@@ -428,14 +436,21 @@ export default function Reports() {
                   </span>
                 )}
               </div>
-              <ReportTable
-                rows={visibleRows}
-                columns={activeConfig.columns}
-                emptyMessage={activeConfig.emptyMessage}
-                sortKey={tablePrefs.sortKey}
-                sortDir={tablePrefs.sortDir}
-                onSort={column => handleSort(activeReport, column)}
-              />
+              {isMaintenanceReport ? (
+                <MaintenanceReportTable
+                  rows={visibleRows}
+                  emptyMessage={activeConfig.emptyMessage}
+                />
+              ) : (
+                <ReportTable
+                  rows={visibleRows}
+                  columns={activeConfig.columns}
+                  emptyMessage={activeConfig.emptyMessage}
+                  sortKey={tablePrefs.sortKey}
+                  sortDir={tablePrefs.sortDir}
+                  onSort={column => handleSort(activeReport, column)}
+                />
+              )}
             </>
           )}
         </div>
@@ -614,6 +629,43 @@ function ReportTable({ rows, columns, emptyMessage, sortKey, sortDir, onSort }) 
   );
 }
 
+function MaintenanceReportTable({ rows, emptyMessage }) {
+  const data = Array.isArray(rows) ? rows : [];
+  if (!data.length) return <div className="report-empty">{emptyMessage}</div>;
+  return (
+    <div className="workspace-table">
+      <table>
+        <thead>
+          <tr>
+            <th>Attraction</th>
+            <th>Type</th>
+            <th>Severity</th>
+            <th>Reported</th>
+            <th>Resolved</th>
+            <th>Status</th>
+            <th>Approved By</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.map(row => (
+            <tr key={row.RecordID ?? `${row.attraction_name}-${row.Date_broken_down}`}>
+              <td>{row.attraction_name || row.AttractionID || '--'}</td>
+              <td>{row.type_of_maintenance || '--'}</td>
+              <td>{row.Severity_of_report || '--'}</td>
+              <td>{formatDateOnly(row.Date_broken_down)}</td>
+              <td>{formatDateOnly(row.Date_fixed)}</td>
+              <td>{row.status_label || row.Status || 'Unknown'}</td>
+              <td>{row.approved_by_supervisor_name || row.Approved_by_supervisor || 'Pending'}</td>
+              <td>{row.Description_of_work || '--'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function normalizeRow(row) {
   if (!row || typeof row !== 'object') return {};
   return row;
@@ -718,3 +770,13 @@ function formatRelative(value) {
   }
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
+
+function formatDateOnly(value) {
+  if (!value) return '--';
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString();
+}
+
+
+

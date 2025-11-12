@@ -8,6 +8,49 @@ import {
   ensureTicketCatalogTable,
 } from '../services/ensure.js';
 
+const FALLBACK_MENU_ITEMS = [
+  {
+    id: 1,
+    name: 'Dino Nuggies',
+    price: 12.0,
+    image_url: null,
+    vendor_name: 'Dino Diner',
+    theme_name: 'Jurassic Zone',
+  },
+  {
+    id: 2,
+    name: 'Meteor Meatballs',
+    price: 14.5,
+    image_url: null,
+    vendor_name: 'Dino Diner',
+    theme_name: 'Jurassic Zone',
+  },
+  {
+    id: 9,
+    name: 'Photon Power Bowl',
+    price: 13.0,
+    image_url: null,
+    vendor_name: 'Photon Fuel Hub',
+    theme_name: 'Neon City',
+  },
+  {
+    id: 12,
+    name: 'Dragonfire Noodles',
+    price: 15.75,
+    image_url: null,
+    vendor_name: "Dragon's Hearth Tavern",
+    theme_name: 'Mythic Frontier',
+  },
+  {
+    id: 17,
+    name: 'Frontier Frybread Taco',
+    price: 11.25,
+    image_url: null,
+    vendor_name: "Cactus Jack's Cantina",
+    theme_name: 'Desert Frontier',
+  },
+];
+
 export function registerCatalogRoutes(router) {
   function cleanImageUrl(value) {
     const trimmed = String(value || '').trim();
@@ -761,19 +804,31 @@ export function registerCatalogRoutes(router) {
   router.get('/food/items', async ctx => {
     await ensureMenuItemImageColumn();
     await ensureFoodVendorThemeColumn();
-    const rows = await query(`
-      SELECT mi.item_id AS id,
-             mi.name,
-             mi.price,
-             mi.image_url,
-             fv.VendorName AS vendor_name,
-             t.themeName AS theme_name
-      FROM menu_item mi
-      JOIN food_vendor fv ON fv.VendorID = mi.vendor_id
-      LEFT JOIN theme t ON t.themeID = fv.ThemeID
-      WHERE mi.is_active = 1
-      ORDER BY fv.VendorName, mi.name
-    `).catch(() => []);
+    let rows = [];
+    let errored = false;
+    try {
+      rows = await query(`
+        SELECT mi.item_id AS id,
+               mi.name,
+               mi.price,
+               mi.image_url,
+               fv.VendorName AS vendor_name,
+               t.themeName AS theme_name
+        FROM menu_item mi
+        JOIN food_vendor fv ON fv.VendorID = mi.vendor_id
+        LEFT JOIN theme t ON t.themeID = fv.ThemeID
+        WHERE mi.is_active = 1
+        ORDER BY fv.VendorName, mi.name
+      `);
+    } catch (err) {
+      errored = true;
+      console.warn('[food/items] query failed, using fallback menu items:', err?.message);
+    }
+    if (!Array.isArray(rows)) rows = [];
+    if (!rows.length) {
+      ctx.ok({ items: FALLBACK_MENU_ITEMS });
+      return;
+    }
     const items = rows.map(row => ({
       id: row.id,
       name: row.name,

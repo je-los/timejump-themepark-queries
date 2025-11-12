@@ -2,7 +2,7 @@ CREATE DATABASE  IF NOT EXISTS `timejumpdb` /*!40100 DEFAULT CHARACTER SET utf8m
 USE `timejumpdb`;
 -- MySQL dump 10.13  Distrib 8.0.43, for Win64 (x86_64)
 --
--- Host: localhost    Database: timejumpdb
+-- Host: 127.0.0.1    Database: timejumpdb
 -- ------------------------------------------------------
 -- Server version	8.0.43
 
@@ -71,7 +71,7 @@ CREATE TABLE `attraction_closure` (
   CONSTRAINT `fk_closure_attraction` FOREIGN KEY (`AttractionID`) REFERENCES `attraction` (`AttractionID`) ON DELETE CASCADE,
   CONSTRAINT `fk_closure_status` FOREIGN KEY (`StatusID`) REFERENCES `cancellation_status` (`StatusID`) ON DELETE RESTRICT,
   CONSTRAINT `chk_no_overlap` CHECK (((`EndsAt` is null) or (`EndsAt` > `StartsAt`)))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -80,6 +80,7 @@ CREATE TABLE `attraction_closure` (
 
 LOCK TABLES `attraction_closure` WRITE;
 /*!40000 ALTER TABLE `attraction_closure` DISABLE KEYS */;
+INSERT INTO `attraction_closure` VALUES (1,1,1,'2025-01-09 08:30:00','2025-01-09 13:45:00','Wind gusts over safe envelope'),(2,2,1,'2025-01-11 10:15:00',NULL,'Lift pump fault; waiting on maintenance'),(3,4,1,'2025-01-07 07:00:00','2025-01-07 11:30:00','Staffing shortage AM shift');
 /*!40000 ALTER TABLE `attraction_closure` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -244,7 +245,7 @@ CREATE TABLE `gift_sales` (
   KEY `idx_gift_sales_date` (`sale_date`),
   KEY `fk_gift_sales_item` (`gift_item_id`),
   CONSTRAINT `fk_gift_sales_item` FOREIGN KEY (`gift_item_id`) REFERENCES `gift_item` (`item_id`) ON DELETE RESTRICT ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -253,7 +254,7 @@ CREATE TABLE `gift_sales` (
 
 LOCK TABLES `gift_sales` WRITE;
 /*!40000 ALTER TABLE `gift_sales` DISABLE KEYS */;
-INSERT INTO `gift_sales` VALUES (1,1,1,'2025-11-10 21:06:28',5.00);
+INSERT INTO `gift_sales` VALUES (1,1,1,'2025-11-10 21:06:28',5.00),(2,1,1,'2025-11-11 19:09:33',5.00),(3,1,1,'2025-11-12 02:34:35',5.00);
 /*!40000 ALTER TABLE `gift_sales` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -297,26 +298,23 @@ DROP TABLE IF EXISTS `maintenance_records`;
 CREATE TABLE `maintenance_records` (
   `RecordID` int unsigned NOT NULL AUTO_INCREMENT,
   `AttractionID` int unsigned NOT NULL,
-  `EmployeeID` int unsigned DEFAULT NULL,
   `Date_broken_down` date NOT NULL,
   `Date_fixed` date DEFAULT NULL,
   `type_of_maintenance` enum('inspection','repair','cleaning','software','calibration','emergency') NOT NULL DEFAULT 'repair',
   `Description_of_work` text,
-  `Duration_of_repair` decimal(6,2) DEFAULT NULL,
   `Severity_of_report` enum('low','medium','high','critical') NOT NULL,
   `Approved_by_supervisor` int unsigned DEFAULT NULL,
+  `Status` enum('not fixed','fixed') GENERATED ALWAYS AS (if((`Date_fixed` is null),_utf8mb4'not fixed',_utf8mb4'fixed')) VIRTUAL,
   PRIMARY KEY (`RecordID`),
   KEY `fk_mr_attraction` (`AttractionID`),
-  KEY `fk_mr_employee` (`EmployeeID`),
   KEY `fk_mr_supervisor` (`Approved_by_supervisor`),
   KEY `ix_mr_severity` (`Severity_of_report`),
+  KEY `ix_mr_status` (`Status`),
   CONSTRAINT `fk_mr_attraction` FOREIGN KEY (`AttractionID`) REFERENCES `attraction` (`AttractionID`) ON DELETE RESTRICT ON UPDATE CASCADE,
-  CONSTRAINT `fk_mr_employee` FOREIGN KEY (`EmployeeID`) REFERENCES `employee` (`employeeID`) ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT `fk_mr_supervisor` FOREIGN KEY (`Approved_by_supervisor`) REFERENCES `employee` (`employeeID`) ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT `chk_desc_len` CHECK ((char_length(`Description_of_work`) <= 1000)),
-  CONSTRAINT `chk_mr_dates` CHECK (((`Date_fixed` is null) or (`Date_fixed` >= `Date_broken_down`))),
-  CONSTRAINT `chk_mr_duration` CHECK (((`Duration_of_repair` is null) or (`Duration_of_repair` >= 0)))
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  CONSTRAINT `chk_mr_dates` CHECK (((`Date_fixed` is null) or (`Date_fixed` >= `Date_broken_down`)))
+) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -325,7 +323,7 @@ CREATE TABLE `maintenance_records` (
 
 LOCK TABLES `maintenance_records` WRITE;
 /*!40000 ALTER TABLE `maintenance_records` DISABLE KEYS */;
-INSERT INTO `maintenance_records` VALUES (1,1,10000011,'2025-11-07','2025-11-08','repair','Replaced launch cable sensor',5.50,'high',10000014),(2,2,10000012,'2025-11-06','2025-11-06','inspection','Quarterly tower inspection',2.00,'medium',10000014),(3,3,10000013,'2025-11-05',NULL,'cleaning','Deep clean before holiday overlay',3.00,'low',NULL),(4,4,10000015,'2025-11-04','2025-11-05','software','Updated ride PLC firmware',4.00,'medium',10000014);
+INSERT INTO `maintenance_records` (`RecordID`, `AttractionID`, `Date_broken_down`, `Date_fixed`, `type_of_maintenance`, `Description_of_work`, `Severity_of_report`, `Approved_by_supervisor`) VALUES (1,1,'2025-11-07','2025-11-08','repair','Replaced launch cable sensor','high',10000014),(2,2,'2025-11-06','2025-11-06','inspection','Quarterly tower inspection','medium',10000014),(3,3,'2025-11-05',NULL,'cleaning','Deep clean before holiday overlay','low',NULL),(4,4,'2025-11-04','2025-11-05','software','Updated ride PLC firmware','medium',10000014),(5,1,'2025-01-08','2025-01-10','repair','Replaced hydraulic actuator on launch cable','high',10000014),(6,2,'2025-01-12',NULL,'emergency','Control PLC throwing checksum faults; awaiting vendor','critical',NULL),(7,3,'2025-01-05','2025-01-05','inspection','Quarterly tower inspection passed with minor notes','medium',10000014),(8,4,'2025-01-02','2025-01-03','cleaning','Deep clean before Lunar New Year overlay install','low',NULL),(9,2,'2025-06-03','2025-06-04','calibration','Recalibrated lap-bar sensors','medium',10000014),(10,3,'2025-05-16',NULL,'emergency','Power surge knocked out arcade lights','critical',10000015),(11,1,'2025-04-09','2025-04-10','repair','Replaced fiber drive belt','high',10000014),(12,4,'2025-03-25','2025-03-26','inspection','Pre-season water flume inspection','low',10000014);
 /*!40000 ALTER TABLE `maintenance_records` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -379,7 +377,7 @@ CREATE TABLE `menu_sales` (
   KEY `idx_menu_sales_date` (`sale_date`),
   KEY `fk_menu_sales_item` (`menu_item_id`),
   CONSTRAINT `fk_menu_sales_item` FOREIGN KEY (`menu_item_id`) REFERENCES `menu_item` (`item_id`) ON DELETE RESTRICT ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=15 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -388,7 +386,7 @@ CREATE TABLE `menu_sales` (
 
 LOCK TABLES `menu_sales` WRITE;
 /*!40000 ALTER TABLE `menu_sales` DISABLE KEYS */;
-INSERT INTO `menu_sales` VALUES (1,18,1,'2025-11-10 21:06:28',6.90),(2,15,1,'2025-11-10 21:06:28',7.99),(3,16,1,'2025-11-10 21:06:28',13.99),(4,1,1,'2025-11-10 21:06:28',5.99),(5,9,1,'2025-11-10 21:06:28',8.99);
+INSERT INTO `menu_sales` VALUES (1,18,1,'2025-11-10 21:06:28',6.90),(2,15,1,'2025-11-10 21:06:28',7.99),(3,16,1,'2025-11-10 21:06:28',13.99),(4,1,1,'2025-11-10 21:06:28',5.99),(5,9,1,'2025-11-10 21:06:28',8.99),(6,10,48,'2025-01-08 12:15:00',12.00),(7,11,36,'2025-01-09 13:05:00',9.50),(8,18,1,'2025-11-11 19:09:33',6.90),(9,15,1,'2025-11-11 19:09:33',7.99),(10,18,1,'2025-11-12 02:34:35',6.90),(11,15,1,'2025-11-12 02:34:35',7.99),(12,17,1,'2025-11-12 02:34:35',9.99),(13,6,1,'2025-11-12 02:34:35',8.99),(14,18,1,'2025-11-12 02:34:53',6.90);
 /*!40000 ALTER TABLE `menu_sales` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -406,7 +404,7 @@ CREATE TABLE `parking_lot` (
   PRIMARY KEY (`parking_lot_id`),
   UNIQUE KEY `uq_lot_name` (`lot_name`),
   CONSTRAINT `chk_base_price_0_500` CHECK ((`base_price` between 0 and 500))
-) ENGINE=InnoDB AUTO_INCREMENT=16 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=17 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -415,7 +413,7 @@ CREATE TABLE `parking_lot` (
 
 LOCK TABLES `parking_lot` WRITE;
 /*!40000 ALTER TABLE `parking_lot` DISABLE KEYS */;
-INSERT INTO `parking_lot` VALUES (1,'Lot A',200.00),(2,'Lot B',180.00),(3,'Lot C',160.00),(4,'Lot D',140.00),(5,'Lot E',120.00);
+INSERT INTO `parking_lot` VALUES (1,'Lot A',200.00),(2,'Lot B',180.00),(3,'Lot C',160.00),(4,'Lot D',140.00),(5,'Lot E',120.00),(16,'lot f',500.00);
 /*!40000 ALTER TABLE `parking_lot` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -516,7 +514,7 @@ CREATE TABLE `ride_log` (
   UNIQUE KEY `uq_attr_day` (`AttractionID`,`log_date`),
   CONSTRAINT `fk_ridelog_attraction` FOREIGN KEY (`AttractionID`) REFERENCES `attraction` (`AttractionID`) ON DELETE RESTRICT ON UPDATE CASCADE,
   CONSTRAINT `ride_log_chk_1` CHECK ((`riders_count` >= 0))
-) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -525,7 +523,7 @@ CREATE TABLE `ride_log` (
 
 LOCK TABLES `ride_log` WRITE;
 /*!40000 ALTER TABLE `ride_log` DISABLE KEYS */;
-INSERT INTO `ride_log` VALUES (1,1,'2025-11-10',1320),(2,2,'2025-11-10',910),(3,3,'2025-11-10',640),(4,1,'2025-11-11',1415),(5,2,'2025-11-11',940),(6,4,'2025-11-11',780);
+INSERT INTO `ride_log` VALUES (1,1,'2025-11-10',1320),(2,2,'2025-11-10',910),(3,3,'2025-11-10',640),(4,1,'2025-11-11',1415),(5,2,'2025-11-11',940),(6,4,'2025-11-11',780),(7,1,'2025-01-08',1280),(8,1,'2025-01-09',940),(9,2,'2025-01-08',820),(10,2,'2025-01-09',0),(11,3,'2025-01-08',1510),(12,4,'2025-01-08',670),(13,4,'2025-01-10',715);
 /*!40000 ALTER TABLE `ride_log` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -677,7 +675,7 @@ CREATE TABLE `ticket_catalog` (
 
 LOCK TABLES `ticket_catalog` WRITE;
 /*!40000 ALTER TABLE `ticket_catalog` DISABLE KEYS */;
-INSERT INTO `ticket_catalog` VALUES ('Adult',79.00),('Child',29.00),('Senior',49.00),('Student',35.00);
+INSERT INTO `ticket_catalog` VALUES ('Adult',79.00),('Child',29.00),('Senior',49.00),('Student',35.00),('vip',50.00);
 /*!40000 ALTER TABLE `ticket_catalog` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -701,7 +699,7 @@ CREATE TABLE `ticket_purchase` (
   PRIMARY KEY (`purchase_id`),
   KEY `idx_ticket_purchase_user` (`user_id`),
   CONSTRAINT `fk_ticket_purchase_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=26 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=50 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -710,7 +708,7 @@ CREATE TABLE `ticket_purchase` (
 
 LOCK TABLES `ticket_purchase` WRITE;
 /*!40000 ALTER TABLE `ticket_purchase` DISABLE KEYS */;
-INSERT INTO `ticket_purchase` VALUES (1,7,'Adult','ticket',1,89.00,NULL,'{\"category\":\"day\"}','2025-11-09 03:10:47'),(2,7,'Parking - Lot B','parking',1,180.00,NULL,'{\"lot\":\"Lot B\"}','2025-11-09 03:10:47'),(3,7,'Adult','ticket',1,89.00,NULL,'{\"category\":\"day\",\"visitDate\":\"2025-11-12\"}','2025-11-09 04:30:16'),(4,7,'Child','ticket',1,59.00,NULL,'{\"category\":\"day\",\"visitDate\":\"2025-11-12\"}','2025-11-09 04:30:16'),(5,7,'Parking - Lot A','parking',1,200.00,NULL,'{\"lot\":\"Lot A\",\"visitDate\":\"2025-11-12\"}','2025-11-09 04:30:16'),(6,7,'Adult','ticket',2,89.00,NULL,'{\"category\":\"day\",\"visitDate\":\"2025-11-11\"}','2025-11-09 05:08:49'),(7,7,'Parking - Lot A','parking',1,200.00,NULL,'{\"lot\":\"Lot A\",\"visitDate\":\"2025-11-11\"}','2025-11-09 05:08:49'),(8,7,'Adult','ticket',1,89.00,NULL,'{\"category\":\"day\",\"visitDate\":\"2025-11-20\"}','2025-11-09 05:16:04'),(9,7,'Adult','ticket',1,89.00,NULL,'{\"category\":\"day\",\"visitDate\":\"2025-11-21\"}','2025-11-09 05:16:04'),(10,7,'Adult','ticket',1,89.00,NULL,'{\"category\":\"day\",\"visitDate\":\"2025-11-12\"}','2025-11-09 05:19:27'),(11,7,'Adult','ticket',1,89.00,NULL,'{\"category\":\"day\",\"visitDate\":\"2025-11-14\"}','2025-11-09 05:28:42'),(12,7,'Adult','ticket',1,89.00,'2025-11-13','{\"category\":\"day\",\"visitDate\":\"2025-11-13\"}','2025-11-09 05:56:10'),(13,7,'Adult','ticket',1,89.00,'2025-11-11','{\"category\":\"day\",\"visitDate\":\"2025-11-11\"}','2025-11-09 16:50:46'),(14,22,'Adult','ticket',1,79.00,'2025-11-11','{\"category\":\"day\",\"visitDate\":\"2025-11-11\"}','2025-11-10 19:30:49'),(15,23,'Adult','ticket',3,79.00,'2025-11-30','{\"category\":\"day\",\"visitDate\":\"2025-11-30\"}','2025-11-10 21:06:04'),(16,23,'Child','ticket',1,29.00,'2025-11-30','{\"category\":\"day\",\"visitDate\":\"2025-11-30\"}','2025-11-10 21:06:04'),(17,23,'Senior','ticket',7,49.00,'2025-11-30','{\"category\":\"day\",\"visitDate\":\"2025-11-30\"}','2025-11-10 21:06:04'),(18,23,'Student','ticket',1,35.00,'2025-11-30','{\"category\":\"day\",\"visitDate\":\"2025-11-30\"}','2025-11-10 21:06:04'),(19,23,'Parking - Lot A','parking',1,200.00,'2025-11-30','{\"lot\":\"Lot A\",\"visitDate\":\"2025-11-30\"}','2025-11-10 21:06:04'),(20,23,'Campfire Chili Cup','food',1,6.90,NULL,NULL,'2025-11-10 21:06:28'),(21,23,'Cosmic Cooler','food',1,7.99,NULL,NULL,'2025-11-10 21:06:28'),(22,23,'Frontier Brisket Sandwich','food',1,13.99,NULL,NULL,'2025-11-10 21:06:28'),(23,23,'dino nuggies','food',1,5.99,NULL,NULL,'2025-11-10 21:06:28'),(24,23,'DragonFire Dippers','food',1,8.99,NULL,NULL,'2025-11-10 21:06:28'),(25,23,'snow globe','gift',1,5.00,NULL,NULL,'2025-11-10 21:06:28');
+INSERT INTO `ticket_purchase` VALUES (1,7,'Adult','ticket',1,89.00,NULL,'{\"category\":\"day\"}','2025-11-09 03:10:47'),(2,7,'Parking - Lot B','parking',1,180.00,NULL,'{\"lot\":\"Lot B\"}','2025-11-09 03:10:47'),(3,7,'Adult','ticket',1,89.00,NULL,'{\"category\":\"day\",\"visitDate\":\"2025-11-12\"}','2025-11-09 04:30:16'),(4,7,'Child','ticket',1,59.00,NULL,'{\"category\":\"day\",\"visitDate\":\"2025-11-12\"}','2025-11-09 04:30:16'),(5,7,'Parking - Lot A','parking',1,200.00,NULL,'{\"lot\":\"Lot A\",\"visitDate\":\"2025-11-12\"}','2025-11-09 04:30:16'),(6,7,'Adult','ticket',2,89.00,NULL,'{\"category\":\"day\",\"visitDate\":\"2025-11-11\"}','2025-11-09 05:08:49'),(7,7,'Parking - Lot A','parking',1,200.00,NULL,'{\"lot\":\"Lot A\",\"visitDate\":\"2025-11-11\"}','2025-11-09 05:08:49'),(8,7,'Adult','ticket',1,89.00,NULL,'{\"category\":\"day\",\"visitDate\":\"2025-11-20\"}','2025-11-09 05:16:04'),(9,7,'Adult','ticket',1,89.00,NULL,'{\"category\":\"day\",\"visitDate\":\"2025-11-21\"}','2025-11-09 05:16:04'),(10,7,'Adult','ticket',1,89.00,NULL,'{\"category\":\"day\",\"visitDate\":\"2025-11-12\"}','2025-11-09 05:19:27'),(11,7,'Adult','ticket',1,89.00,NULL,'{\"category\":\"day\",\"visitDate\":\"2025-11-14\"}','2025-11-09 05:28:42'),(12,7,'Adult','ticket',1,89.00,'2025-11-13','{\"category\":\"day\",\"visitDate\":\"2025-11-13\"}','2025-11-09 05:56:10'),(13,7,'Adult','ticket',1,89.00,'2025-11-11','{\"category\":\"day\",\"visitDate\":\"2025-11-11\"}','2025-11-09 16:50:46'),(14,22,'Adult','ticket',1,79.00,'2025-11-11','{\"category\":\"day\",\"visitDate\":\"2025-11-11\"}','2025-11-10 19:30:49'),(15,23,'Adult','ticket',3,79.00,'2025-11-30','{\"category\":\"day\",\"visitDate\":\"2025-11-30\"}','2025-11-10 21:06:04'),(16,23,'Child','ticket',1,29.00,'2025-11-30','{\"category\":\"day\",\"visitDate\":\"2025-11-30\"}','2025-11-10 21:06:04'),(17,23,'Senior','ticket',7,49.00,'2025-11-30','{\"category\":\"day\",\"visitDate\":\"2025-11-30\"}','2025-11-10 21:06:04'),(18,23,'Student','ticket',1,35.00,'2025-11-30','{\"category\":\"day\",\"visitDate\":\"2025-11-30\"}','2025-11-10 21:06:04'),(19,23,'Parking - Lot A','parking',1,200.00,'2025-11-30','{\"lot\":\"Lot A\",\"visitDate\":\"2025-11-30\"}','2025-11-10 21:06:04'),(20,23,'Campfire Chili Cup','food',1,6.90,NULL,NULL,'2025-11-10 21:06:28'),(21,23,'Cosmic Cooler','food',1,7.99,NULL,NULL,'2025-11-10 21:06:28'),(22,23,'Frontier Brisket Sandwich','food',1,13.99,NULL,NULL,'2025-11-10 21:06:28'),(23,23,'dino nuggies','food',1,5.99,NULL,NULL,'2025-11-10 21:06:28'),(24,23,'DragonFire Dippers','food',1,8.99,NULL,NULL,'2025-11-10 21:06:28'),(25,23,'snow globe','gift',1,5.00,NULL,NULL,'2025-11-10 21:06:28'),(30,2,'Adult','ticket',2,158.00,'2025-01-12','Weekend duo bundle','2025-01-05 15:12:00'),(31,7,'Child','ticket',3,87.00,'2025-01-13','Field trip group','2025-01-06 20:45:00'),(32,22,'Senior','ticket',1,49.00,'2025-01-10','Morning entry','2025-01-07 16:05:00'),(33,23,'Student','ticket',2,70.00,'2025-01-09','College promo code','2025-01-08 00:22:00'),(34,23,'Adult','ticket',1,79.00,'2025-11-13','{\"category\":\"day\",\"visitDate\":\"2025-11-13\"}','2025-11-11 19:09:33'),(35,23,'Parking - Lot A','parking',1,200.00,'2025-11-13','{\"lot\":\"Lot A\",\"visitDate\":\"2025-11-13\"}','2025-11-11 19:09:33'),(36,23,'Campfire Chili Cup','food',1,6.90,NULL,NULL,'2025-11-11 19:09:33'),(37,23,'Cosmic Cooler','food',1,7.99,NULL,NULL,'2025-11-11 19:09:33'),(38,23,'snow globe','gift',1,5.00,NULL,NULL,'2025-11-11 19:09:33'),(39,24,'Adult','ticket',5,79.00,'2025-11-14','{\"category\":\"day\",\"visitDate\":\"2025-11-14\"}','2025-11-12 02:30:40'),(40,24,'Child','ticket',1,29.00,'2025-11-14','{\"category\":\"day\",\"visitDate\":\"2025-11-14\"}','2025-11-12 02:30:40'),(41,24,'Student','ticket',1,35.00,'2025-11-14','{\"category\":\"day\",\"visitDate\":\"2025-11-14\"}','2025-11-12 02:30:40'),(42,24,'Parking - Lot A','parking',1,200.00,'2025-11-14','{\"lot\":\"Lot A\",\"visitDate\":\"2025-11-14\"}','2025-11-12 02:30:40'),(43,24,'Campfire Chili Cup','food',1,6.90,NULL,NULL,'2025-11-12 02:34:36'),(44,24,'Cosmic Cooler','food',1,7.99,NULL,NULL,'2025-11-12 02:34:36'),(45,24,'CowPoke Tater Tot Nachos','food',1,9.99,NULL,NULL,'2025-11-12 02:34:36'),(46,24,'Magma Fries','food',1,8.99,NULL,NULL,'2025-11-12 02:34:36'),(47,24,'snow globe','gift',1,5.00,NULL,NULL,'2025-11-12 02:34:36'),(48,24,'Adult','ticket',1,79.00,'2025-11-13','{\"category\":\"day\",\"visitDate\":\"2025-11-13\"}','2025-11-12 02:34:53'),(49,24,'Campfire Chili Cup','food',1,6.90,NULL,NULL,'2025-11-12 02:34:53');
 /*!40000 ALTER TABLE `ticket_purchase` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -758,7 +756,7 @@ CREATE TABLE `users` (
   UNIQUE KEY `email` (`email`),
   KEY `fk_users_employee` (`employeeID`),
   CONSTRAINT `fk_users_employee` FOREIGN KEY (`employeeID`) REFERENCES `employee` (`employeeID`) ON DELETE SET NULL ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=24 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=25 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -767,7 +765,7 @@ CREATE TABLE `users` (
 
 LOCK TABLES `users` WRITE;
 /*!40000 ALTER TABLE `users` DISABLE KEYS */;
-INSERT INTO `users` VALUES (1,'owner@example.com',_binary '\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0','owner',NULL,'2025-10-22 09:32:25'),(2,'cathy.customer@timejump.test',_binary '�	\�iG�V\�\�ğ���٧��\r��\�\�s��\�','customer',NULL,'2025-10-28 04:56:03'),(7,'jane.customer@timejump.test',_binary '�]�\�K0�)�\���D�7@O\�e\�@J\�R}��W<\�u�S�\�%ꐱmB�>PV%�G.g|�I�z0\�4\��A(��','customer',NULL,'2025-10-28 04:58:21'),(8,'ava.reynolds@timejumppark.com',_binary '�����;8?\�\�\�\�NVrj�{\�=�!/\�M\�ڳ\���\�\�>>\�\�j\�&Ӡ��\�)�\�u}p�q\�aed\�\�\�\�/�Bl؇ߚUG�','employee',10000004,'2025-11-10 03:56:01'),(9,'diego.patel@timejumppark.com',_binary '\�I�_u�\�镊��\���i��\n<\��w8\��\�\�+��ڵjoJg �Uo\�Kr��储=~�^Nn\�ك9\�t�%0\'դ\0���','employee',10000005,'2025-11-10 03:58:23'),(10,'maya.chen@timejumppark.com',_binary 'a�\�w����_w�\�\�#%pS��&\�J�\�`�6AEK\�߹\r�8\��?\\G\��O�4\��\�{[A7\��Vd�`p\�kIpR��\�','employee',10000006,'2025-11-10 03:59:02'),(11,'liam.brooks@timejumppark.com',_binary '��\�u[��P�\��\�R\�9\��\�\�i`i\�n�\"�\�/\�D����Z�\�	�@E/��T\']q��2~NHf����8͑B�%���\�k��','employee',10000007,'2025-11-10 03:59:46'),(12,'sophia.nguyen@timejumppark.com',_binary '��>\��\�>�H�\�D\��1�\�a#�w\�˶�f/J��^�\�}O\�R\�q��\�)F6�\�4��ʺ1��\���# V9T!]�Դ�','employee',10000008,'2025-11-10 04:00:30'),(13,'jonah.morales@timejumppark.com',_binary '!\0hR\'C\�\�ݤ ce(���,b.�:cU�4�[\�4\�\�3eMYBW��x�@e\�84> �\�]�\�i��Ri�S�\�\�','employee',10000009,'2025-11-10 04:02:42'),(14,'ethan.park@timejumppark.com',_binary 'W�x#0j\�qږoɡ\�W1R�׮�Nz�K:[I\�$f�e� O�B��^�\�o���<�O��6-\�\�B�h��\�\�F.s��-g','employee',10000010,'2025-11-10 04:03:17'),(15,'priya.shah@timejumppark.com',_binary '\�H_�=\�(����ʯ\�\�O�!�S:��\�~���}��:���\��\�%�Ѿ\� \����������q\�\�x]F\�\r�\��J�7\�','manager',10000011,'2025-11-10 04:03:53'),(16,'marcus.greene@timejumppark.com',_binary 'W�hD�]8��6��\rhɑ󒖌���v�u\�\"�+\�W \�͘EMW^9.Ŭ\�п\�ty\�\0Wr\�AD\\\�:r��l�\�\�\��(\��?7	�','manager',10000012,'2025-11-10 04:08:59'),(17,'kendall.ortiz@timejumppark.com',_binary '�\�{�G�xG�KriF���\\I��z�z�Jg�!\�g��e.��\n.Ha+\�Y�n\�\�g�\0\�q�\�+(�\�\�7��[u\�Or\�','manager',10000013,'2025-11-10 04:10:20'),(18,'helena.foster@timejumppark.com',_binary 'gk�p\�\��v)\�\�B\ZI��})nY�q\"LU�;�(���P\�`M\�B�+2J���\�\�4��͌�15�!��\r\�tA�b*O','admin',10000014,'2025-11-10 04:11:08'),(19,'noah.alvarez@timejumppark.com',_binary '\�yi�-�ӆ,��l[���Q\ru�=\�wUI�o��\�t\��#��\�\'�n\���9r��_[�ퟋIF�\�O3\�PZ<d/\�\��rQ','admin',10000015,'2025-11-10 04:11:34'),(20,'jane.admin@example.com',_binary '6K�돷\�\�vmT0\�5���\�#=�מD�9ܢ�73\��4����P\�\r\��)	\�R\��\�����_��Y�_�s S\�\�~{fH�i�','admin',10000016,'2025-11-10 04:36:40'),(22,'newuser@gmail.com',_binary '�?\�2\�hL�6�\��\�튜�T\�e�}��h�&�\�.OY	\�~���`qg+q\�7�P�@\�\�QDQ\�}\�ov$\0�E\�\�|Ɇ�p�a','customer',NULL,'2025-11-10 19:30:31'),(23,'jane.customer@gmail.com',_binary '�\�^�\��<�����Ћ¯}k\Z\'|_.\�;�qV��O�\��k���\���!,�\���s2�9�\��\���Z�Z��\�\�?','customer',NULL,'2025-11-10 21:04:19');
+INSERT INTO `users` VALUES (1,'owner@example.com',_binary '\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0','owner',NULL,'2025-10-22 09:32:25'),(2,'cathy.customer@timejump.test',_binary '�	\�iG�V\�\�ğ���٧��\r��\�\�s��\�','customer',NULL,'2025-10-28 04:56:03'),(7,'jane.customer@timejump.test',_binary '�]�\�K0�)�\���D�7@O\�e\�@J\�R}��W<\�u�S�\�%ꐱmB�>PV%�G.g|�I�z0\�4\��A(��','customer',NULL,'2025-10-28 04:58:21'),(8,'ava.reynolds@timejumppark.com',_binary '�����;8?\�\�\�\�NVrj�{\�=�!/\�M\�ڳ\���\�\�>>\�\�j\�&Ӡ��\�)�\�u}p�q\�aed\�\�\�\�/�Bl؇ߚUG�','employee',10000004,'2025-11-10 03:56:01'),(9,'diego.patel@timejumppark.com',_binary '\�I�_u�\�镊��\���i��\n<\��w8\��\�\�+��ڵjoJg �Uo\�Kr��储=~�^Nn\�ك9\�t�%0\'դ\0���','employee',10000005,'2025-11-10 03:58:23'),(10,'maya.chen@timejumppark.com',_binary 'a�\�w����_w�\�\�#%pS��&\�J�\�`�6AEK\�߹\r�8\��?\\G\��O�4\��\�{[A7\��Vd�`p\�kIpR��\�','employee',10000006,'2025-11-10 03:59:02'),(11,'liam.brooks@timejumppark.com',_binary '��\�u[��P�\��\�R\�9\��\�\�i`i\�n�\"�\�/\�D����Z�\�	�@E/��T\']q��2~NHf����8͑B�%���\�k��','employee',10000007,'2025-11-10 03:59:46'),(12,'sophia.nguyen@timejumppark.com',_binary '��>\��\�>�H�\�D\��1�\�a#�w\�˶�f/J��^�\�}O\�R\�q��\�)F6�\�4��ʺ1��\���# V9T!]�Դ�','employee',10000008,'2025-11-10 04:00:30'),(13,'jonah.morales@timejumppark.com',_binary '!\0hR\'C\�\�ݤ ce(���,b.�:cU�4�[\�4\�\�3eMYBW��x�@e\�84> �\�]�\�i��Ri�S�\�\�','employee',10000009,'2025-11-10 04:02:42'),(14,'ethan.park@timejumppark.com',_binary 'W�x#0j\�qږoɡ\�W1R�׮�Nz�K:[I\�$f�e� O�B��^�\�o���<�O��6-\�\�B�h��\�\�F.s��-g','employee',10000010,'2025-11-10 04:03:17'),(15,'priya.shah@timejumppark.com',_binary '\�H_�=\�(����ʯ\�\�O�!�S:��\�~���}��:���\��\�%�Ѿ\� \����������q\�\�x]F\�\r�\��J�7\�','manager',10000011,'2025-11-10 04:03:53'),(16,'marcus.greene@timejumppark.com',_binary 'W�hD�]8��6��\rhɑ󒖌���v�u\�\"�+\�W \�͘EMW^9.Ŭ\�п\�ty\�\0Wr\�AD\\\�:r��l�\�\�\��(\��?7	�','manager',10000012,'2025-11-10 04:08:59'),(17,'kendall.ortiz@timejumppark.com',_binary '�\�{�G�xG�KriF���\\I��z�z�Jg�!\�g��e.��\n.Ha+\�Y�n\�\�g�\0\�q�\�+(�\�\�7��[u\�Or\�','manager',10000013,'2025-11-10 04:10:20'),(18,'helena.foster@timejumppark.com',_binary 'gk�p\�\��v)\�\�B\ZI��})nY�q\"LU�;�(���P\�`M\�B�+2J���\�\�4��͌�15�!��\r\�tA�b*O','admin',10000014,'2025-11-10 04:11:08'),(19,'noah.alvarez@timejumppark.com',_binary '\�yi�-�ӆ,��l[���Q\ru�=\�wUI�o��\�t\��#��\�\'�n\���9r��_[�ퟋIF�\�O3\�PZ<d/\�\��rQ','admin',10000015,'2025-11-10 04:11:34'),(20,'jane.admin@example.com',_binary '6K�돷\�\�vmT0\�5���\�#=�מD�9ܢ�73\��4����P\�\r\��)	\�R\��\�����_��Y�_�s S\�\�~{fH�i�','admin',10000016,'2025-11-10 04:36:40'),(22,'newuser@gmail.com',_binary '�?\�2\�hL�6�\��\�튜�T\�e�}��h�&�\�.OY	\�~���`qg+q\�7�P�@\�\�QDQ\�}\�ov$\0�E\�\�|Ɇ�p�a','customer',NULL,'2025-11-10 19:30:31'),(23,'jane.customer@gmail.com',_binary '�\�^�\��<�����Ћ¯}k\Z\'|_.\�;�qV��O�\��k���\���!,�\���s2�9�\��\���Z�Z��\�\�?','customer',NULL,'2025-11-10 21:04:19'),(24,'umazooma@gmail.com',_binary '\�jȸ#���k�ZE\"\�\��`HH�\�W�@N�O�6 T@|K�)��,�H\01\�\�ֈ�)��\�w9V\\	~\�G\�P3\�!��J��\�\�\�','customer',NULL,'2025-11-12 02:28:17');
 /*!40000 ALTER TABLE `users` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!50003 SET @saved_cs_client      = @@character_set_client */ ;
@@ -901,6 +899,10 @@ DELIMITER ;
 /*!50003 SET character_set_client  = @saved_cs_client */ ;
 /*!50003 SET character_set_results = @saved_cs_results */ ;
 /*!50003 SET collation_connection  = @saved_col_connection */ ;
+
+--
+-- Dumping events for database 'timejumpdb'
+--
 
 --
 -- Dumping routines for database 'timejumpdb'
@@ -1077,4 +1079,4 @@ DELIMITER ;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-11-10 22:34:27
+-- Dump completed on 2025-11-11 22:51:01
