@@ -235,3 +235,41 @@ export async function ensureUserProfileTable() {
   `);
   cache.set('userProfiles', true);
 }
+
+export async function ensureMenuSalesTable() {
+  if (cache.has('menuSales')) return;
+  await query(`
+    CREATE TABLE IF NOT EXISTS menu_sales (
+      SaleID INT UNSIGNED NOT NULL AUTO_INCREMENT,
+      menu_item_id INT UNSIGNED NOT NULL,
+      quantity INT UNSIGNED NOT NULL DEFAULT 1,
+      sale_date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      price_each DECIMAL(10,2) NOT NULL,
+      PRIMARY KEY (SaleID),
+      KEY idx_menu_sales_date (sale_date),
+      CONSTRAINT fk_menu_sales_item FOREIGN KEY (menu_item_id)
+        REFERENCES menu_item (item_id)
+        ON DELETE RESTRICT ON UPDATE CASCADE
+    )
+  `);
+  cache.set('menuSales', true);
+}
+
+export async function ensureGiftSalesTable() {
+  if (cache.has('giftSales')) return;
+  await query(`
+    CREATE TABLE IF NOT EXISTS gift_sales (
+      SaleID INT UNSIGNED NOT NULL AUTO_INCREMENT,
+      gift_item_id INT UNSIGNED NOT NULL,
+      quantity INT UNSIGNED NOT NULL DEFAULT 1,
+      sale_date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      price_each DECIMAL(10,2) NOT NULL,
+      PRIMARY KEY (SaleID),
+      KEY idx_gift_sales_date (sale_date),
+      CONSTRAINT fk_gift_sales_item FOREIGN KEY (gift_item_id)
+        REFERENCES gift_item (item_id)
+        ON DELETE RESTRICT ON UPDATE CASCADE
+    )
+  `);
+  cache.set('giftSales', true);
+}

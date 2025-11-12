@@ -566,24 +566,93 @@ export function registerOperationsRoutes(router) {
     }
   }));
 
-  router.post('/incidents', requireRole(['employee', 'manager', 'admin', 'owner'])(async ctx => {
-    const employeeId = pick(ctx.body, 'employeeId', 'EmployeeID') ?? ctx.authUser.EmployeeID;
-    const { incidentType, ticketId, details, occurredAt, location, severity } = ctx.body;
+  router.get('/ride-log', requireRole(['employee', 'manager', 'admin', 'owner'])(async ctx => {
+    const attractionId = Number(pick(ctx.query, 'attractionId', 'AttractionID'));
+    const daysParam = Number(pick(ctx.query, 'days'));
+    const limitParam = Number(pick(ctx.query, 'limit'));
+    const days = Number.isFinite(daysParam) && daysParam > 0 ? daysParam : 14;
+    const limit = Number.isFinite(limitParam) && limitParam > 0 && limitParam <= 200 ? limitParam : 50;
 
-    if (!incidentType || !details || !occurredAt || !location || !severity) {
-      ctx.error(400, 'Missing required fields for incident report.');
+    let whereClause = 'WHERE rl.log_date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)';
+    const params = [days];
+
+    if (attractionId) {
+      whereClause += ' AND rl.AttractionID = ?';
+      params.push(attractionId);
+    }
+
+    if (ctx.authUser.role === 'employee') {
+      if (!ctx.authUser.employeeId) {
+        ctx.error(400, 'Employee profile is missing.');
+        return;
+      }
+      whereClause += ' AND EXISTS (SELECT 1 FROM schedules s WHERE s.EmployeeID = ? AND s.AttractionID = rl.AttractionID AND s.Shift_date = rl.log_date)';
+      params.push(ctx.authUser.employeeId);
+    }
+
+    const rows = await query(
+      `
+        SELECT rl.AttractionID, a.Name AS attraction_name, rl.log_date, rl.riders_count
+        FROM ride_log rl
+        LEFT JOIN attraction a ON a.AttractionID = rl.AttractionID
+        ${whereClause}
+        ORDER BY rl.log_date DESC, rl.AttractionID ASC
+        LIMIT ?
+      `,
+      [...params, limit],
+    ).catch(() => []);
+
+    ctx.ok({
+      data: rows.map(row => ({
+        AttractionID: row.AttractionID,
+        attraction_name: row.attraction_name || '',
+        log_date: row.log_date,
+        riders_count: Number(row.riders_count || 0),
+      })),
+    });
+  }));
+
+  router.post('/ride-log', requireRole(['employee', 'manager', 'admin', 'owner'])(async ctx => {
+    const attractionId = Number(pick(ctx.body, 'attractionId', 'AttractionID'));
+    const logDate = String(pick(ctx.body, 'logDate', 'date', 'log_date') || '').trim();
+    const ridersRaw = pick(ctx.body, 'riders', 'ridersCount', 'riders_count');
+    const ridersCount = Number(ridersRaw);
+
+    if (!attractionId || !logDate) {
+      ctx.error(400, 'Attraction and date are required.');
+      return;
+    }
+    if (!Number.isFinite(ridersCount) || ridersCount < 0) {
+      ctx.error(400, 'Rider count must be a non-negative number.');
       return;
     }
 
-    if (!employeeId) {
-      ctx.error(403, 'Could not determine employee for incident report.');
-      return;
+    if (ctx.authUser.role === 'employee') {
+      if (!ctx.authUser.employeeId) {
+        ctx.error(400, 'Employee profile is missing.');
+        return;
+      }
+      const [assignment] = await query(
+        'SELECT ScheduleID FROM schedules WHERE EmployeeID = ? AND AttractionID = ? AND Shift_date = ? LIMIT 1',
+        [ctx.authUser.employeeId, attractionId, logDate],
+      ).catch(() => []);
+      if (!assignment) {
+        ctx.error(403, 'You are not scheduled on that attraction for the selected date.');
+        return;
+      }
     }
 
-    const result = await query(
-      'INSERT INTO incidents (IncidentType, EmployeeID, TicketID, Details, occurred_at, location, severity) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [incidentType, employeeId, ticketId || null, details, occurredAt, location, severity]
+    await query(
+      'INSERT INTO ride_log (AttractionID, log_date, riders_count) VALUES (?, ?, ?) ' +
+      'ON DUPLICATE KEY UPDATE riders_count = VALUES(riders_count)',
+      [attractionId, logDate, ridersCount],
     );
-    ctx.created({ data: { id: result.insertId } });
+    ctx.ok({
+      data: {
+        AttractionID: attractionId,
+        log_date: logDate,
+        riders_count: ridersCount,
+      },
+    });
   }));
 }

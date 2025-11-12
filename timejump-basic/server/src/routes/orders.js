@@ -1,6 +1,10 @@
 import { query } from '../db.js';
 import { requireRole } from '../middleware/auth.js';
-import { ensureTicketPurchaseTables } from '../services/ensure.js';
+import {
+  ensureGiftSalesTable,
+  ensureMenuSalesTable,
+  ensureTicketPurchaseTables,
+} from '../services/ensure.js';
 
 function normalizeItems(rawItems) {
   if (!Array.isArray(rawItems)) return [];
@@ -35,9 +39,14 @@ export function registerOrderRoutes(router) {
       ctx.error(400, 'Your cart is empty.');
       return;
     }
-    await ensureTicketPurchaseTables();
+    await Promise.all([
+      ensureTicketPurchaseTables(),
+      ensureMenuSalesTable(),
+      ensureGiftSalesTable(),
+    ]);
     const userId = ctx.authUser.id;
     const now = new Date();
+    const saleDate = now.toISOString().slice(0, 19).replace('T', ' ');
     const total = items.reduce((sum, item) => sum + item.price * item.qty, 0);
     for (const item of items) {
       const visitDate = normalizeVisitDate(item.meta);
@@ -54,6 +63,19 @@ export function registerOrderRoutes(router) {
           now,
         ],
       );
+      const numericId = Number(item.id);
+      if (item.kind === 'food' && Number.isInteger(numericId) && numericId > 0) {
+        await query(
+          'INSERT INTO menu_sales (menu_item_id, quantity, sale_date, price_each) VALUES (?, ?, ?, ?)',
+          [numericId, item.qty, saleDate, item.price],
+        ).catch(() => {});
+      }
+      if (item.kind === 'gift' && Number.isInteger(numericId) && numericId > 0) {
+        await query(
+          'INSERT INTO gift_sales (gift_item_id, quantity, sale_date, price_each) VALUES (?, ?, ?, ?)',
+          [numericId, item.qty, saleDate, item.price],
+        ).catch(() => {});
+      }
     }
     ctx.ok({
       message: 'Thanks! Your purchase is confirmed and the details have been saved to your account.',
