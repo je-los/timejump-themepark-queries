@@ -93,6 +93,7 @@ function Planner() {
     }
     setSaving(true); setSaveMessage('');
     try {
+      console.log("Here in manager page");
       await api('/schedules', {
         method: 'POST',
         body: JSON.stringify({
