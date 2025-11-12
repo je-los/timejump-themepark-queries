@@ -393,6 +393,7 @@ export function registerOperationsRoutes(router) {
   }));
 
   router.get('/schedules', requireRole(['employee', 'manager', 'admin', 'owner'])(async ctx => {
+    console.log("in the first schedules one")
     await ensureScheduleNotesTable();
     const isEmployee = ctx.authUser.role === 'employee';
     let whereClause = '';
