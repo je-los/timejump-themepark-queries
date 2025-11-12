@@ -11,10 +11,7 @@ export default function Account() {
   const [status, setStatus] = useState('');
   const [statusTone, setStatusTone] = useState('info');
   const [orders, setOrders] = useState([]);
-  const [schedules, setSchedules] = useState([]);
-  const [attractions, setAttractions] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
-  const [scheduleLoading, setScheduleLoading] = useState(false);
   const [hoursWorked, setHoursWorked] = useState(0);
   const isCustomer = user?.role === 'customer';
   const isEmployee = useMemo(() => ['employee', 'manager'].includes(user?.role) && (user?.EmployeeID || user?.employeeID), [user]);
@@ -77,44 +74,12 @@ export default function Account() {
   useEffect(() => {
     if (!isEmployee) return;
     let cancelled = false;
-    setScheduleLoading(true);
-    Promise.all([
-      api('/schedules/me'),
-      api('/attractions'),
-    ]).then(([schedulesRes, attractionsRes]) => {
-      if (cancelled) return;
-      setSchedules(Array.isArray(schedulesRes?.data) ? schedulesRes.data : []);
-      setAttractions(Array.isArray(attractionsRes?.data) ? attractionsRes.data : []);
-    }).catch(() => {
-      if (cancelled) return;
-      setSchedules([]);
-      setAttractions([]);
-    }).finally(() => {
-      if (!cancelled) setScheduleLoading(false);
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isEmployee]);
-
-  useEffect(() => {
-    if (!isEmployee) return;
-    let cancelled = false;
     api('/schedules/hours').then(res => {
       if (!cancelled) setHoursWorked(res.data?.total_hours ?? 0);
     }).catch(() => {
       if (!cancelled) setHoursWorked(0);
     });
   }, [isEmployee]);
-
-  
-
-  const attractionNameMap = useMemo(() => {
-    const map = new Map();
-    attractions.forEach(a => map.set(a.AttractionID, a.Name));
-    return map;
-  }, [attractions]);
 
   async function handleSave(e) {
     e.preventDefault();
@@ -163,7 +128,7 @@ export default function Account() {
           
           {isEmployee && hoursWorked !== null && (
             <div style={{ marginTop: 16 }}>
-              <h3 style={{ marginTop: 0, marginBottom: 4, fontSize: '1rem' }}>Biweekly Hours Worked</h3>
+              <h3 style={{ marginTop: 0, marginBottom: 4, fontSize: '1rem' }}>Hours Worked</h3>
               <div className="muted" style={{ fontSize: '0.75rem', marginBottom: 4 }}>
                 {biweeklyDateRange}
               </div>
@@ -260,41 +225,7 @@ export default function Account() {
           </section>
         )}
       </div>
-      {isEmployee && (
-        <div className="page-box page-box--wide" style={{ marginTop: 24 }}>
-          <section className="panel">
-            <h2 style={{ marginTop: 0 }}>Work Schedule</h2>
-            {scheduleLoading && <div className="muted">Loading schedule...</div>}
-            {!scheduleLoading && schedules.length === 0 && (
-              <div className="muted" style={{ fontSize: 14 }}>
-                You have no upcoming shifts.
-              </div>
-            )}
-            {!scheduleLoading && schedules.length > 0 && (
-              <div className="manager-shift-grid">
-                {schedules.map((s, idx) => {
-                  const attrName = attractionNameMap.get(s.AttractionID) || 'Unknown Attraction';
-                  return (
-                    <div key={s.ScheduleID ?? idx} className="manager-shift-card">
-                      <div className="manager-shift-card__header">
-                        <h4>{attrName}</h4>
-                        <span>{formatDate(s.ShiftDate)}</span>
-                      </div>
-                      <div className="manager-shift-card__body">
-                        <div>
-                          <label>Shift</label>
-                          <strong>{formatTime(s.StartTime)} – {formatTime(s.EndTime)}</strong>
-                        </div>
-                      </div>
-                      {s.Notes && <p className="manager-shift-card__notes">{s.Notes}</p>}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </section>
-        </div>
-      )}
+
     </div>
   );
 }

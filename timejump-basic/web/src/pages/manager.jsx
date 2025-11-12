@@ -31,6 +31,8 @@ function Planner() {
   });
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
+  const [saveTone, setSaveTone] = useState('info');
+  const [missingFields, setMissingFields] = useState({ employee: false, attraction: false, shiftDate: false, startTime: false, endTime: false });
 
   useEffect(() => {
     let active = true;
@@ -87,11 +89,101 @@ function Planner() {
   async function submit(e) {
     e.preventDefault();
     if (saving) return;
-    if (!form.employeeId || !form.attractionId || !form.shiftDate) {
-      setSaveMessage('Please choose an employee, attraction, and date.');
+    const missing = {
+      employee: !form.employeeId,
+      attraction: !form.attractionId,
+      shiftDate: !form.shiftDate,
+      startTime: !form.startTime,
+      endTime: !form.endTime,
+    };
+    if (missing.employee || missing.attraction || missing.shiftDate || missing.startTime || missing.endTime) {
+      setMissingFields(missing);
+      setSaveTone('error');
+      const names = [];
+      const map = { employee: 'Employee', attraction: 'Attraction', shiftDate: 'Shift Date', startTime: 'Start Time', endTime: 'End Time' };
+      Object.keys(missing).forEach(k => { if (missing[k]) names.push(map[k]); });
+      setSaveMessage(`Please provide: ${names.join(', ')}`);
       return;
     }
-    setSaving(true); setSaveMessage('');
+
+    // Validate that shift date is not in the past
+    const shiftDate = new Date(form.shiftDate);
+    const today = new Date();
+    const todayStart = new Date(today);
+    todayStart.setHours(0, 0, 0, 0);
+    // Parse the input date (YYYY-MM-DD) as a local date to avoid timezone shifts
+    const [yStr, mStr, dStr] = String(form.shiftDate || '').split('-');
+    const y = Number(yStr || 0);
+    const m = Number(mStr || 1) - 1;
+    const d = Number(dStr || 1);
+    const shiftDateStart = new Date(y, m, d);
+    shiftDateStart.setHours(0, 0, 0, 0);
+
+    if (shiftDateStart < todayStart) {
+      setSaveTone('error');
+      setSaveMessage('Unable to assign shift on a previous date');
+      setMissingFields({ employee: false, attraction: false, shiftDate: true, startTime: false, endTime: false });
+      return;
+    }
+
+    // Build start/end Date objects on the selected shift date (local time)
+    const startParts = String(form.startTime || '').split(':');
+    const startHour = Number(startParts[0] || 0);
+    const startMin = Number(startParts[1] || 0);
+    const endParts = String(form.endTime || '').split(':');
+    const endHour = Number(endParts[0] || 0);
+    const endMin = Number(endParts[1] || 0);
+    const startTimeDate = new Date(y, m, d, startHour, startMin, 0, 0);
+    const endTimeDate = new Date(y, m, d, endHour, endMin, 0, 0);
+
+    // Ensure end is after start for any date
+    if (endTimeDate <= startTimeDate) {
+      setSaveTone('error');
+      setSaveMessage('\"End Time\" cannot be before the \"Start Time\"');
+      setMissingFields({ employee: false, attraction: false, shiftDate: false, startTime: false, endTime: true });
+      return;
+    }
+
+    // If shift is today, validate that the start/end times are not in the past
+    if (shiftDateStart.getTime() === todayStart.getTime()) {
+      const now = new Date();
+      if (startTimeDate < now) {
+        setSaveTone('error');
+        setSaveMessage('Unable to assign shift \"Start Time\" at selected time.');
+        setMissingFields({ employee: false, attraction: false, shiftDate: false, startTime: true, endTime: false });
+        return;
+      }
+      if (endTimeDate < now) {
+        setSaveTone('error');
+        setSaveMessage('Unable to assign shift \"End Time\" at selected time.');
+        setMissingFields({ employee: false, attraction: false, shiftDate: false, startTime: false, endTime: true });
+        return;
+      }
+    }
+
+   // Check for any overlapping shifts for the same employee and block if found
+    const overlappingShift = schedules.find(s => {
+      const sDateStr = s.shiftDate ?? s.date ?? '';
+      if (s.employeeId !== form.employeeId && String(s.EmployeeID ?? '') !== String(form.employeeId)) return false;
+      if (sDateStr !== form.shiftDate) return false;
+      const sStartParts = String(s.startTime ?? s.StartTime ?? '').split(':');
+      const sStartHour = Number(sStartParts[0] || 0);
+      const sStartMin = Number(sStartParts[1] || 0);
+      const sEndParts = String(s.endTime ?? s.EndTime ?? '').split(':');
+      const sEndHour = Number(sEndParts[0] || 0);
+      const sEndMin = Number(sEndParts[1] || 0);
+      const sStartDate = new Date(y, m, d, sStartHour, sStartMin, 0, 0);
+      const sEndDate = new Date(y, m, d, sEndHour, sEndMin, 0, 0);
+      return (startTimeDate < sEndDate) && (endTimeDate > sStartDate);
+    });
+    if (overlappingShift) {
+      setSaveTone('error');
+      setSaveMessage('Employee has an overlapping shift at the selected time.');
+      setMissingFields({ employee: true, attraction: false, shiftDate: false, startTime: false, endTime: false });
+      return;
+    }
+
+  setSaving(true); setSaveMessage(''); setSaveTone('info'); setMissingFields({ employee: false, attraction: false, shiftDate: false, startTime: false, endTime: false });
     try {
       await api('/schedules', {
         method: 'POST',
@@ -104,14 +196,17 @@ function Planner() {
           notes: form.notes,
         }),
       });
-      setSaveMessage('Shift assigned.');
-      setForm(prev => ({ ...prev, shiftDate: '', notes: '' }));
+  setSaveTone('success');
+  setSaveMessage('Shift assigned.');
+  setForm(prev => ({ ...prev, shiftDate: '', notes: '' }));
+  setMissingFields({ employee: false, attraction: false, shiftDate: false, startTime: false, endTime: false });
       const schedRes = await api('/schedules').catch(err => {
         if (err?.status === 403) return { data: [] };
         throw err;
       });
       setSchedules(Array.isArray(schedRes?.data) ? schedRes.data : (schedRes?.schedules || []));
     } catch (err) {
+      setSaveTone('error');
       setSaveMessage(err?.message || 'Unable to save schedule.');
     } finally {
       setSaving(false);
@@ -149,31 +244,31 @@ function Planner() {
           </p>
           <form onSubmit={submit} className="manager-form">
             <div className="field">
-              <span>Employee</span>
-              <select className="border rounded-xl p-2" value={form.employeeId} onChange={e=>setForm(f=>({ ...f, employeeId: e.target.value }))}>
+              <span>Employee{missingFields.employee && <span className="missing-asterisk">*</span>}</span>
+              <select className="border rounded-xl p-2" value={form.employeeId} onChange={e=>{ setForm(f=>({ ...f, employeeId: e.target.value })); setMissingFields(m=>({ ...m, employee: false })); }}>
                 <option value="">Select employee...</option>
                 {employeeOptions.map(opt=> <option key={opt.id} value={opt.id}>{opt.name}</option>)}
               </select>
             </div>
             <div className="field">
-              <span>Attraction</span>
-              <select className="border rounded-xl p-2" value={form.attractionId} onChange={e=>setForm(f=>({ ...f, attractionId: e.target.value }))}>
+              <span>Attraction{missingFields.attraction && <span className="missing-asterisk">*</span>}</span>
+              <select className="border rounded-xl p-2" value={form.attractionId} onChange={e=>{ setForm(f=>({ ...f, attractionId: e.target.value })); setMissingFields(m=>({ ...m, attraction: false })); }}>
                 <option value="">Select attraction...</option>
                 {attractionOptions.map(opt=> <option key={opt.id} value={opt.id}>{opt.name}</option>)}
               </select>
             </div>
             <div className="manager-form__row">
               <label className="field" style={{flex:1, minWidth:140}}>
-                <span>Shift Date</span>
-                <input className="input" type="date" value={form.shiftDate} onChange={e=>setForm(f=>({ ...f, shiftDate: e.target.value }))} />
+                <span>Shift Date{missingFields.shiftDate && <span className="missing-asterisk">*</span>}</span>
+                <input className="input" type="date" value={form.shiftDate} onChange={e=>{ setForm(f=>({ ...f, shiftDate: e.target.value })); setMissingFields(m=>({ ...m, shiftDate: false })); }} />
               </label>
               <label className="field" style={{flex:1, minWidth:140}}>
-                <span>Start Time</span>
-                <input className="input" type="time" value={form.startTime} onChange={e=>setForm(f=>({ ...f, startTime: e.target.value }))} />
+                <span>Start Time{missingFields.startTime && <span className="missing-asterisk">*</span>}</span>
+                  <input className="input" type="time" value={form.startTime} onChange={e=>{ setForm(f=>({ ...f, startTime: e.target.value })); setMissingFields(m=>({ ...m, startTime: false })); }} />
               </label>
               <label className="field" style={{flex:1, minWidth:140}}>
-                <span>End Time</span>
-                <input className="input" type="time" value={form.endTime} onChange={e=>setForm(f=>({ ...f, endTime: e.target.value }))} />
+                  <span>End Time{missingFields.endTime && <span className="missing-asterisk">*</span>}</span>
+                  <input className="input" type="time" value={form.endTime} onChange={e=>{ setForm(f=>({ ...f, endTime: e.target.value })); setMissingFields(m=>({ ...m, endTime: false })); }} />
               </label>
             </div>
             <label className="field">
@@ -182,7 +277,15 @@ function Planner() {
             </label>
             <div className="manager-form__actions">
               <button className="btn primary" type="submit" disabled={saving}>{saving ? 'Saving...' : 'Assign Shift'}</button>
-              {saveMessage && <div className="text-sm text-gray-700">{saveMessage}</div>}
+              {saveMessage && (
+                saveTone === 'error' ? (
+                  <div className="alert error" style={{ marginLeft: 6 }}>{saveMessage}</div>
+                ) : saveTone === 'success' ? (
+                  <div className="alert success" style={{ marginLeft: 6 }}>{saveMessage}</div>
+                ) : (
+                  <div className="text-sm text-gray-700" style={{ marginLeft: 6 }}>{saveMessage}</div>
+                )
+              )}
             </div>
           </form>
         </div>

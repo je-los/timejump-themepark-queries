@@ -398,12 +398,12 @@ export function registerOperationsRoutes(router) {
     let whereClause = '';
     const params = [];
     if (isEmployee) {
-      if (!ctx.authUser.employeeId) {
+      if (!ctx.authUser.EmployeeID) {
         ctx.error(400, 'Employee profile is missing.');
         return;
       }
       whereClause = 'WHERE s.EmployeeID = ?';
-      params.push(ctx.authUser.employeeId);
+      params.push(ctx.authUser.EmployeeID);
     } else if (ctx.query?.employeeId) {
       const filterId = Number(ctx.query.employeeId);
       if (Number.isInteger(filterId) && filterId > 0) {
