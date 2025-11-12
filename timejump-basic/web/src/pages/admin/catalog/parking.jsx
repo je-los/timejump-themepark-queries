@@ -10,23 +10,22 @@ export default function ParkingPage() {
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState('');
   const [formError, setFormError] = useState('');
+  const [editLot, setEditLot] = useState(null);
+  const [editForm, setEditForm] = useState({ lot: '', price: '' });
+  const [editBusy, setEditBusy] = useState(false);
+  const [deleteLot, setDeleteLot] = useState(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
 
   const loadParking = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
       const res = await api('/parking-lots');
-      const list = (res?.data || []).map(item => {
-        const serviceDate = item.serviceDate ?? item.service_date ?? null;
-        const passes = item.passesToday ?? item.passes_today ?? null;
-        return {
-          lotId: item.lotId ?? item.parking_lot_id ?? null,
-          lot: item.lot ?? item.lot_name ?? '',
-          price: Number(item.price ?? item.base_price ?? 0),
-          serviceDate: serviceDate ? String(serviceDate) : null,
-          passesToday: passes !== null && passes !== undefined ? Number(passes) : null,
-        };
-      });
+      const list = (res?.data || []).map(item => ({
+        lotId: item.lotId ?? item.parking_lot_id ?? null,
+        lot: item.lot ?? item.lot_name ?? '',
+        price: Number(item.price ?? item.base_price ?? 0),
+      }));
       setParking(list);
     } catch (err) {
       setError(err?.message || 'Unable to load parking lots.');
@@ -40,8 +39,8 @@ export default function ParkingPage() {
     loadParking();
   }, [loadParking]);
 
-  async function handleSubmit(e) {
-    e.preventDefault();
+  async function handleSubmit(event) {
+    event.preventDefault();
     if (busy) return;
     if (!form.lot.trim()) {
       setFormError('Parking lot name is required.');
@@ -70,6 +69,66 @@ export default function ParkingPage() {
       setFormError(err?.message || 'Request failed.');
     } finally {
       setBusy(false);
+    }
+  }
+
+  function openEditModal(lot) {
+    setEditLot(lot);
+    setEditForm({
+      lot: lot.lot || '',
+      price: lot.price ?? '',
+    });
+    setEditBusy(false);
+  }
+
+  async function handleEditSubmit(event) {
+    event.preventDefault();
+    if (!editLot || editBusy) return;
+    if (!editForm.lot.trim()) {
+      setFormError('Lot name is required.');
+      return;
+    }
+    const priceValue = editForm.price === '' ? null : Number(editForm.price);
+    if (priceValue !== null && (!Number.isFinite(priceValue) || priceValue < 0)) {
+      setFormError('Base price must be a non-negative number.');
+      return;
+    }
+    setEditBusy(true);
+    setFormError('');
+    try {
+      await api(`/parking-lots/${editLot.lotId}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          lot_name: editForm.lot.trim(),
+          base_price: priceValue,
+        }),
+      });
+      setEditLot(null);
+      loadParking();
+    } catch (err) {
+      setFormError(err?.message || 'Unable to update parking lot.');
+    } finally {
+      setEditBusy(false);
+    }
+  }
+
+  function openDeleteModal(lot) {
+    setDeleteLot(lot);
+    setDeleteBusy(false);
+  }
+
+  async function handleDeleteConfirm() {
+    if (!deleteLot || deleteBusy) return;
+    setDeleteBusy(true);
+    setFormError('');
+    try {
+      await api(`/parking-lots/${deleteLot.lotId}`, { method: 'DELETE' });
+      setDeleteLot(null);
+      loadParking();
+    } catch (err) {
+      setFormError(err?.message || 'Unable to delete parking lot.');
+    } finally {
+      setDeleteBusy(false);
     }
   }
 
@@ -123,15 +182,85 @@ export default function ParkingPage() {
         columns={[
           { key: 'lot', label: 'Lot' },
           { key: 'price', label: 'Base Price', render: val => `$${Number(val || 0).toFixed(2)}` },
-          { key: 'serviceDate', label: 'Last Serviced' },
-          { key: 'passesToday', label: 'Passes Today' },
+          {
+            key: 'actions',
+            label: 'Actions',
+            render: (_, row) => (
+              <div className="table-actions">
+                <button type="button" className="btn btn-text" onClick={() => openEditModal(row)}>
+                  Edit
+                </button>
+                <button type="button" className="btn btn-text danger" onClick={() => openDeleteModal(row)}>
+                  Delete
+                </button>
+              </div>
+            ),
+          },
         ]}
         loading={loading}
         error={error}
         emptyMessage="No parking lots yet."
         searchPlaceholder="Search parking lots..."
-        sortableKeys={['lot', 'price', 'passesToday']}
+        sortableKeys={['lot', 'price']}
       />
+
+      {editLot && (
+        <div className="table-modal">
+          <div className="table-modal__card">
+            <h4>Edit Parking Lot</h4>
+            <form className="admin-form-grid" onSubmit={handleEditSubmit}>
+              <label className="field">
+                <span>Lot name</span>
+                <input
+                  className="input"
+                  value={editForm.lot}
+                  onChange={e => setEditForm(f => ({ ...f, lot: e.target.value }))}
+                  disabled={editBusy}
+                />
+              </label>
+              <label className="field">
+                <span>Base price</span>
+                <input
+                  className="input"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={editForm.price}
+                  onChange={e => setEditForm(f => ({ ...f, price: e.target.value }))}
+                  disabled={editBusy}
+                />
+              </label>
+              <div className="table-modal__actions">
+                <button type="button" className="btn" onClick={() => setEditLot(null)} disabled={editBusy}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn primary" disabled={editBusy}>
+                  {editBusy ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {deleteLot && (
+        <div className="table-modal">
+          <div className="table-modal__card">
+            <h4>Delete Parking Lot</h4>
+            <p>
+              Are you sure you want to remove <strong>{deleteLot.lot}</strong>?
+            </p>
+            <div className="table-modal__actions">
+              <button type="button" className="btn" onClick={() => setDeleteLot(null)} disabled={deleteBusy}>
+                Cancel
+              </button>
+              <button type="button" className="btn danger" onClick={handleDeleteConfirm} disabled={deleteBusy}>
+                {deleteBusy ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

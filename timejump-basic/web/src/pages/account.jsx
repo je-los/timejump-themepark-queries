@@ -16,7 +16,6 @@ export default function Account() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [scheduleLoading, setScheduleLoading] = useState(false);
   const [hoursWorked, setHoursWorked] = useState(0);
-  const [totalHoursWorked, setTotalHoursWorked] = useState(0);
   const isCustomer = user?.role === 'customer';
   const isEmployee = useMemo(() => ['employee', 'manager'].includes(user?.role) && (user?.EmployeeID || user?.employeeID), [user]);
   const biweeklyDateRange = useMemo(() => {
@@ -109,15 +108,7 @@ export default function Account() {
     });
   }, [isEmployee]);
 
-  useEffect(() => {
-    if (!isEmployee) return;
-    let cancelled = false;
-    api('/schedules/total-hours').then(res => {
-      if (!cancelled) setTotalHoursWorked(res.data?.total_hours ?? 0);
-    }).catch(() => {
-      if (!cancelled) setTotalHoursWorked(0);
-    });
-  }, [isEmployee]);
+  
 
   const attractionNameMap = useMemo(() => {
     const map = new Map();
@@ -169,14 +160,7 @@ export default function Account() {
           <div className="muted" style={{ fontSize: 14 }}>
             Signed in as <strong>{user.email || '—'}</strong> ({user.role})
           </div>
-          {isEmployee && totalHoursWorked !== null && (
-            <div style={{ marginTop: 16 }}>
-              <h3 style={{ marginTop: 0, marginBottom: 4, fontSize: '1rem' }}>Total Hours Worked</h3>
-              <p style={{ margin: 0, fontSize: '1.5rem', fontWeight: 700 }}>
-                {totalHoursWorked} <span style={{ fontSize: '1rem', fontWeight: 400, color: '#666' }}>hours</span>
-              </p>
-            </div>
-          )}
+          
           {isEmployee && hoursWorked !== null && (
             <div style={{ marginTop: 16 }}>
               <h3 style={{ marginTop: 0, marginBottom: 4, fontSize: '1rem' }}>Biweekly Hours Worked</h3>
@@ -232,15 +216,15 @@ export default function Account() {
         {isCustomer && (
           <section className="panel">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: 12 }}>
-              <h2 style={{ margin: 0 }}>Ticket History</h2>
+              <h2 style={{ margin: 0 }}>Purchase History</h2>
               <span className="muted" style={{ fontSize: 12 }}>
-                Latest 200 purchases
+                Latest 200 orders (tickets, parking, dining, gifts)
               </span>
             </div>
             {historyLoading && <div className="muted">Loading history…</div>}
             {!historyLoading && orders.length === 0 && (
               <div className="muted" style={{ fontSize: 14 }}>
-                You have not purchased any tickets yet.
+                You have not completed any purchases yet.
               </div>
             )}
             {!historyLoading && orders.length > 0 && (
@@ -250,21 +234,25 @@ export default function Account() {
                     <tr>
                       <th>Item</th>
                       <th>Type</th>
+                      <th>Visit Date</th>
                       <th>Quantity</th>
                       <th>Price</th>
                       <th>Purchased</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {orders.map(order => (
+                    {orders.map(order => {
+                      const visitValue = order.visit_date || order.details?.visitDate;
+                      return (
                       <tr key={order.purchase_id}>
                         <td>{order.item_name}</td>
                         <td>{order.item_type}</td>
+                        <td>{formatVisitDate(visitValue)}</td>
                         <td>{order.quantity}</td>
                         <td>${Number(order.price || 0).toFixed(2)}</td>
                         <td>{formatDateTime(order.created_at)}</td>
                       </tr>
-                    ))}
+                    );})}
                   </tbody>
                 </table>
               </div>
@@ -315,14 +303,26 @@ function formatDateTime(value) {
   if (!value) return '—';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return String(value);
-  return date.toLocaleString();
+  return date.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+}
+
+function formatVisitDate(value) {
+  if (!value) return '—';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const [year, month, day] = value.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+    return date.toLocaleDateString(undefined, { dateStyle: 'medium' });
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleDateString(undefined, { dateStyle: 'medium' });
 }
 
 function formatDate(value) {
   if (!value) return 'Date TBD';
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return value;
-  return new Date(d.getTime() + d.getTimezoneOffset() * 60000).toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' });
+  return d.toLocaleDateString();
 }
 
 function formatTime(value) {
@@ -335,3 +335,4 @@ function formatTime(value) {
   }
   return String(value);
 }
+

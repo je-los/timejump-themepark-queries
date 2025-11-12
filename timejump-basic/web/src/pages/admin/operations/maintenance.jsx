@@ -1,17 +1,30 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { api } from '../../../auth';
+import { useAuth } from '../../../context/authcontext.jsx';
 import { Panel, TableList } from '../shared.jsx';
 
+const DEFAULT_SEVERITIES = ['low', 'medium', 'high', 'critical'];
+
+function formatDateOnly(value) {
+  if (!value) return '--';
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString();
+}
+
 export default function MaintenancePage() {
+  const { user } = useAuth();
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState('');
   const [formError, setFormError] = useState('');
+  const [actionStatus, setActionStatus] = useState('');
+  const [actionError, setActionError] = useState('');
+  const [confirmingId, setConfirmingId] = useState(null);
   const [form, setForm] = useState({
     attractionId: '',
-    employeeId: '',
     dateBroken: '',
     dateFixed: '',
     type: '',
@@ -20,8 +33,9 @@ export default function MaintenancePage() {
   });
 
   const [attractions, setAttractions] = useState([]);
-  const [employees, setEmployees] = useState([]);
   const [types, setTypes] = useState([]);
+  const [severities, setSeverities] = useState(DEFAULT_SEVERITIES);
+  const canApprove = ['manager', 'admin', 'owner'].includes(user?.role);
 
   const loadRecords = useCallback(async () => {
     setLoading(true);
@@ -39,29 +53,49 @@ export default function MaintenancePage() {
 
   const loadMetadata = useCallback(async () => {
     try {
-      const [attractionRes, employeeRes, typeRes] = await Promise.all([
+      const [attractionRes, metaRes] = await Promise.all([
         api('/attractions').catch(() => ({ data: [] })),
-        api('/employees').catch(() => ({ data: [] })),
-        api('/maintenance/types').catch(() => ({ data: [] })),
+        api('/maintenance/meta').catch(() => ({ data: {} })),
       ]);
       setAttractions((attractionRes.data || []).map(item => ({
         id: item.AttractionID ?? item.id ?? item.attractionID,
         name: item.Name ?? item.name,
       })));
-      setEmployees((employeeRes.data || []).map(item => ({
-        id: item.employeeID ?? item.id,
-        name: item.name ?? `${item.first_name ?? ''} ${item.last_name ?? ''}`.trim(),
-      })));
-      setTypes((typeRes.data || []).map(item => ({
-        id: item.id ?? item.code ?? item.type,
-        name: item.label ?? item.name ?? item.type_name ?? item.type,
-      })));
+      const meta = metaRes.data || {};
+      const normalizedTypes = (meta.types || []).map(value => {
+        const label = typeof value === 'string'
+          ? value.replace(/_/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase())
+          : String(value);
+        return { id: value, name: label };
+      });
+      setTypes(normalizedTypes);
+      const normalizedSeverities = (meta.severities || []).length
+        ? (meta.severities || []).map(value => String(value).toLowerCase())
+        : DEFAULT_SEVERITIES;
+      setSeverities(normalizedSeverities);
     } catch {
       setAttractions([]);
       setEmployees([]);
       setTypes([]);
+      setSeverities(DEFAULT_SEVERITIES);
     }
   }, []);
+
+  const handleApprove = useCallback(async (recordId) => {
+    if (!canApprove || !recordId) return;
+    setActionStatus('');
+    setActionError('');
+    setConfirmingId(recordId);
+    try {
+      await api(`/maintenance/${recordId}/confirm`, { method: 'POST' });
+      setActionStatus('Maintenance record approved.');
+      await loadRecords();
+    } catch (err) {
+      setActionError(err?.message || 'Unable to confirm maintenance record.');
+    } finally {
+      setConfirmingId(null);
+    }
+  }, [canApprove, loadRecords]);
 
   useEffect(() => {
     loadRecords();
@@ -98,7 +132,6 @@ export default function MaintenancePage() {
         method: 'POST',
         body: JSON.stringify({
           attractionId: form.attractionId,
-          employeeId: form.employeeId || null,
           dateBroken: form.dateBroken || null,
           dateFixed: form.dateFixed || null,
           type: form.type,
@@ -109,7 +142,6 @@ export default function MaintenancePage() {
       setStatus('Maintenance record logged.');
       setForm({
         attractionId: '',
-        employeeId: '',
         dateBroken: '',
         dateFixed: '',
         type: '',
@@ -142,22 +174,6 @@ export default function MaintenancePage() {
                 {attractions.map(attraction => (
                   <option key={attraction.id} value={attraction.id}>
                     {attraction.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="field">
-              <span>Assigned employee (optional)</span>
-              <select
-                className="input"
-                value={form.employeeId}
-                onChange={e => setForm(f => ({ ...f, employeeId: e.target.value }))}
-                disabled={saving}
-              >
-                <option value="">Unassigned</option>
-                {employees.map(employee => (
-                  <option key={employee.id} value={employee.id}>
-                    {employee.name || employee.id}
                   </option>
                 ))}
               </select>
@@ -207,10 +223,11 @@ export default function MaintenancePage() {
                 disabled={saving}
               >
                 <option value="">Select severity...</option>
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
-                <option value="critical">Critical</option>
+                {severities.map(severity => (
+                  <option key={severity} value={severity}>
+                    {severity.replace(/\b\w/g, ch => ch.toUpperCase())}
+                  </option>
+                ))}
               </select>
             </label>
             <label className="field" style={{ gridColumn: '1 / -1' }}>
@@ -248,17 +265,70 @@ export default function MaintenancePage() {
               rows={records}
               columns={[
                 { key: 'attraction_name', label: 'Attraction' },
-                { key: 'type_name', label: 'Type' },
-                { key: 'severity', label: 'Severity' },
-                { key: 'date_reported', label: 'Reported' },
-                { key: 'date_resolved', label: 'Resolved' },
-                { key: 'employee_name', label: 'Assigned To' },
+                { key: 'type_of_maintenance', label: 'Type' },
+                { key: 'Severity_of_report', label: 'Severity' },
+                {
+                  key: 'Date_broken_down',
+                  label: 'Reported',
+                  render: value => formatDateOnly(value),
+                },
+                {
+                  key: 'Date_fixed',
+                  label: 'Resolved',
+                  render: value => formatDateOnly(value),
+                },
+                {
+                  key: 'status_label',
+                  label: 'Status',
+                  render: (value, row) => (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          padding: '2px 8px',
+                          borderRadius: 999,
+                          background: '#eef2ff',
+                          fontSize: 12,
+                          fontWeight: 500,
+                          textTransform: 'capitalize',
+                        }}
+                      >
+                        {value || 'Unknown'}
+                      </span>
+                      {canApprove && row.can_confirm && (
+                        <button
+                          type="button"
+                          className="btn"
+                          style={{ padding: '2px 8px', fontSize: 12, alignSelf: 'flex-start' }}
+                          onClick={() => handleApprove(row.RecordID)}
+                          disabled={confirmingId === row.RecordID}
+                        >
+                          {confirmingId === row.RecordID ? 'Confirming...' : 'Confirm'}
+                        </button>
+                      )}
+                    </div>
+                  ),
+                },
+                {
+                  key: 'approved_by_supervisor_name',
+                  label: 'Approved By',
+                  render: (val, row) => val || row.Approved_by_supervisor || 'Pending',
+                },
               ]}
               emptyMessage="No maintenance records yet."
             />
+          )}
+          {(actionStatus || actionError) && (
+            <div style={{ marginTop: 12 }}>
+              {actionStatus && <div className="alert success">{actionStatus}</div>}
+              {actionError && <div className="alert error">{actionError}</div>}
+            </div>
           )}
         </Panel>
       </div>
     </div>
   );
 }
+
+

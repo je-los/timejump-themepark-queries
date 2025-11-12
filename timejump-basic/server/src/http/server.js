@@ -16,9 +16,22 @@ function parseOrigins(value) {
   if (!value) return null;
   const list = value
     .split(',')
-    .map(v => v.trim())
+    .map(normalizeOrigin)
     .filter(Boolean);
   return list.length ? list : null;
+}
+
+function normalizeOrigin(value) {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (trimmed === '*') return '*';
+  try {
+    const parsed = new URL(trimmed);
+    return parsed.origin;
+  } catch {
+    return trimmed.replace(/\/+$/, '');
+  }
 }
 
 export function createServer() {
@@ -33,7 +46,7 @@ export function createServer() {
     const { method = 'GET', url = '/' } = req;
     const requestId = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
-    const origin = req.headers.origin || '*';
+    const origin = req.headers.origin;
     applyCors(res, origin, allowedOrigins);
 
     if (method === 'OPTIONS') {
@@ -120,11 +133,19 @@ export function createServer() {
 
 function applyCors(res, origin, allowList) {
   let value = '*';
-  if (allowList) {
-    if (allowList.includes(origin)) value = origin;
-    else if (allowList.includes('*')) value = '*';
-    else value = allowList[0];
+  const rawOrigin = typeof origin === 'string' ? origin.trim() : '';
+  const normalizedOrigin = normalizeOrigin(rawOrigin);
+
+  if (Array.isArray(allowList) && allowList.length) {
+    if (normalizedOrigin && allowList.includes(normalizedOrigin)) {
+      value = rawOrigin || normalizedOrigin;
+    } else if (allowList.includes('*')) {
+      value = '*';
+    } else {
+      [value] = allowList;
+    }
   }
+
   res.setHeader('Access-Control-Allow-Origin', value);
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');

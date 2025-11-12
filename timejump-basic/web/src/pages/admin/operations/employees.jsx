@@ -36,6 +36,9 @@ export default function EmployeesPage() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [positions, setPositions] = useState([]);
+  const [positionsLoading, setPositionsLoading] = useState(true);
+  const [positionsError, setPositionsError] = useState('');
 
   const [form, setForm] = useState({
     name: '',
@@ -43,14 +46,19 @@ export default function EmployeesPage() {
     salary: '',
     startDate: todayIso(),
     password: '',
+    positionId: '',
   });
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState('');
   const [status, setStatus] = useState('');
 
-  const [deletingId, setDeletingId] = useState(null);
+  const [deleteEmployee, setDeleteEmployee] = useState(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState('');
   const [deleteStatus, setDeleteStatus] = useState('');
+  const [editEmployee, setEditEmployee] = useState(null);
+  const [editForm, setEditForm] = useState({ name: '', salary: '', positionId: '' });
+  const [editBusy, setEditBusy] = useState(false);
 
   const loadEmployees = useCallback(async () => {
     setLoading(true);
@@ -70,27 +78,111 @@ export default function EmployeesPage() {
     loadEmployees();
   }, [loadEmployees]);
 
-  const handleDelete = useCallback(async employeeID => {
-    if (!canCreate || !employeeID || deletingId === employeeID) return;
-    setDeletingId(employeeID);
+  const loadPositions = useCallback(async () => {
+    setPositionsLoading(true);
+    setPositionsError('');
+    try {
+      const res = await api('/positions');
+      setPositions(Array.isArray(res?.data) ? res.data : []);
+    } catch (err) {
+      setPositions([]);
+      setPositionsError(err?.message || 'Unable to load positions.');
+    } finally {
+      setPositionsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadPositions();
+  }, [loadPositions]);
+
+  useEffect(() => {
+    if (!positions.length) return;
+    setForm(prev => {
+      if (prev.positionId) return prev;
+      return { ...prev, positionId: String(positions[0].id) };
+    });
+  }, [positions]);
+
+  const confirmDelete = useCallback((employee) => {
+    if (!canCreate) return;
+    setDeleteEmployee(employee);
+    setDeleteError('');
+    setDeleteStatus('');
+    setDeleteBusy(false);
+  }, [canCreate]);
+
+  const handleDeleteConfirm = useCallback(async () => {
+    if (!deleteEmployee || deleteBusy) return;
+    setDeleteBusy(true);
     setDeleteError('');
     setDeleteStatus('');
     try {
-      await api(`/employees/${employeeID}`, {
-        method: 'DELETE',
-      });
+      await api(`/employees/${deleteEmployee.employeeID}`, { method: 'DELETE' });
       setDeleteStatus('Employee deleted.');
+      setDeleteEmployee(null);
       loadEmployees();
     } catch (err) {
       setDeleteError(err?.message || 'Unable to delete employee.');
     } finally {
-      setDeletingId(null);
+      setDeleteBusy(false);
     }
-  }, [canCreate, deletingId, loadEmployees]);
+  }, [deleteEmployee, deleteBusy, loadEmployees]);
+
+  const openEditModal = useCallback((employee) => {
+    setEditEmployee(employee);
+    setEditForm({
+      name: employee.name || '',
+      salary: employee.salary ?? '',
+      positionId: employee.role ? String(employee.role) : (positions[0] ? String(positions[0].id) : ''),
+    });
+    setFormError('');
+    setStatus('');
+    setEditBusy(false);
+  }, [positions]);
+
+  const handleEditSubmit = async event => {
+    event.preventDefault();
+    if (!editEmployee || editBusy) return;
+    if (!editForm.name.trim()) {
+      setFormError('Employee name is required.');
+      return;
+    }
+    const salaryValue = editForm.salary === '' ? null : Number(editForm.salary);
+    if (salaryValue !== null && (!Number.isFinite(salaryValue) || salaryValue <= 0)) {
+      setFormError('Salary must be greater than zero.');
+      return;
+    }
+    if (salaryValue !== null && salaryValue > 200000) {
+      setFormError('Salary must be $200,000 or less.');
+      return;
+    }
+    if (!editForm.positionId) {
+      setFormError('Role must be selected.');
+      return;
+    }
+    setEditBusy(true);
+    setFormError('');
+    try {
+      await api(`/employees/${editEmployee.employeeID}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          name: editForm.name.trim(),
+          salary: salaryValue,
+          positionId: Number(editForm.positionId),
+        }),
+      });
+      setEditEmployee(null);
+      loadEmployees();
+    } catch (err) {
+      setFormError(err?.message || 'Unable to update employee.');
+    } finally {
+      setEditBusy(false);
+    }
+  };
 
   const columns = useMemo(() => {
     const list = [
-      { key: 'employeeID', label: 'ID' },
       { key: 'name', label: 'Name' },
       { key: 'role_name', label: 'Role' },
       { key: 'email', label: 'Email' },
@@ -101,24 +193,20 @@ export default function EmployeesPage() {
       list.push({
         key: 'actions',
         label: 'Actions',
-        render: (_, row) => {
-          if (!row || !row.employeeID) return '--';
-          const busy = deletingId === row.employeeID;
-          return (
-            <button
-              type="button"
-              className="btn danger"
-              onClick={() => handleDelete(row.employeeID)}
-              disabled={busy}
-            >
-              {busy ? 'Removing...' : 'Delete'}
+        render: (_, row) => (
+          <div className="table-actions">
+            <button type="button" className="btn btn-text" onClick={() => openEditModal(row)}>
+              Edit
             </button>
-          );
-        },
+            <button type="button" className="btn btn-text danger" onClick={() => confirmDelete(row)}>
+              Delete
+            </button>
+          </div>
+        ),
       });
     }
     return list;
-  }, [canCreate, handleDelete, deletingId]);
+  }, [canCreate, confirmDelete, openEditModal]);
 
   const handleChange = (field, value) => {
     setForm(prev => ({ ...prev, [field]: value }));
@@ -150,8 +238,16 @@ export default function EmployeesPage() {
       setFormError('Start date must be provided in YYYY-MM-DD format.');
       return;
     }
-    if (!form.salary || Number.isNaN(salaryValue) || salaryValue < 0) {
-      setFormError('Salary must be a positive number.');
+    if (!form.salary || Number.isNaN(salaryValue) || salaryValue <= 0) {
+      setFormError('Salary must be greater than zero.');
+      return;
+    }
+    if (salaryValue > 200000) {
+      setFormError('Salary must be $200,000 or less.');
+      return;
+    }
+    if (!form.positionId) {
+      setFormError('Role must be selected.');
       return;
     }
     setSaving(true);
@@ -166,6 +262,7 @@ export default function EmployeesPage() {
           password,
           salary: salaryValue,
           startDate,
+          positionId: Number(form.positionId),
         }),
       });
       setStatus('Employee created successfully.');
@@ -175,6 +272,7 @@ export default function EmployeesPage() {
         salary: '',
         startDate: todayIso(),
         password: '',
+        positionId: positions[0] ? String(positions[0].id) : '',
       });
       loadEmployees();
     } catch (err) {
@@ -239,6 +337,27 @@ export default function EmployeesPage() {
                 disabled={saving}
               />
             </label>
+            <label className="field">
+              <span>Role</span>
+              <select
+                className="input"
+                value={form.positionId || ''}
+                onChange={e => handleChange('positionId', e.target.value)}
+                disabled={saving || positionsLoading || !positions.length}
+              >
+                {!positions.length && <option value="">No roles available</option>}
+                {positions.map(position => (
+                  <option key={position.id} value={position.id}>
+                    {position.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {positionsError && (
+              <div className="alert error" style={{ gridColumn: '1 / -1' }}>
+                {positionsError}
+              </div>
+            )}
             <label className="field field--full">
               <span>Temporary Password</span>
               <input
@@ -282,6 +401,82 @@ export default function EmployeesPage() {
           {deleteError && <div className="alert error">{deleteError}</div>}
         </div>
       )}
+
+      {editEmployee && (
+        <div className="table-modal">
+          <div className="table-modal__card">
+            <h4>Edit Employee</h4>
+            <form className="admin-form-grid admin-form-grid--cols" onSubmit={handleEditSubmit}>
+              <label className="field">
+                <span>Full name</span>
+                <input
+                  className="input"
+                  value={editForm.name}
+                  onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))}
+                  disabled={editBusy}
+                />
+              </label>
+              <label className="field">
+                <span>Salary (USD)</span>
+                <input
+                  className="input"
+                  type="number"
+                  min="0"
+                  step="100"
+                  value={editForm.salary}
+                  onChange={e => setEditForm(f => ({ ...f, salary: e.target.value }))}
+                  disabled={editBusy}
+                />
+              </label>
+              <label className="field">
+                <span>Role</span>
+                <select
+                  className="input"
+                  value={editForm.positionId || ''}
+                  onChange={e => setEditForm(f => ({ ...f, positionId: e.target.value }))}
+                  disabled={editBusy || positionsLoading || !positions.length}
+                >
+                  {!positions.length && <option value="">No roles available</option>}
+                  {positions.map(position => (
+                    <option key={position.id} value={position.id}>
+                      {position.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="table-modal__actions">
+                <button type="button" className="btn" onClick={() => setEditEmployee(null)} disabled={editBusy}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn primary" disabled={editBusy}>
+                  {editBusy ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {deleteEmployee && (
+        <div className="table-modal">
+          <div className="table-modal__card">
+            <h4>Delete Employee</h4>
+            <p>
+              Are you sure you want to remove <strong>{deleteEmployee.name}</strong>?
+            </p>
+            <div className="table-modal__actions">
+              <button type="button" className="btn" onClick={() => setDeleteEmployee(null)} disabled={deleteBusy}>
+                Cancel
+              </button>
+              <button type="button" className="btn danger" onClick={handleDeleteConfirm} disabled={deleteBusy}>
+                {deleteBusy ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
+

@@ -1,51 +1,133 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useCart } from '../context/cartcontext.jsx';
 
-export default function GiftShop(){
+export default function GiftShop() {
   const { add } = useCart();
   const [items, setItems] = useState([]);
-  const [q, setQ] = useState('');
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
+  const [query, setQuery] = useState('');
+  const [activeTheme, setActiveTheme] = useState('all');
+  const [sortDir, setSortDir] = useState('asc');
 
-  useEffect(()=>{
+  useEffect(() => {
     let alive = true;
-    (async ()=>{
-      setLoading(true); setErr('');
-      try{
-        const r = await fetch(import.meta.env.VITE_API_URL + '/giftshop/items');
-        const j = await r.json();
-        if(!r.ok) throw new Error(j?.error || 'Failed to load gift shop items');
-        if(alive) setItems(Array.isArray(j) ? j : (j.items || []));
-      }catch(e){ if(alive) setErr(e.message||'Failed to load gift shop items'); }
-      finally{ if(alive) setLoading(false); }
+    (async () => {
+      setLoading(true);
+      setErr('');
+      try {
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/giftshop/items`);
+        const json = await res.json();
+        if (!res.ok) throw new Error(json?.error || 'Failed to load gift shop items');
+        if (alive) setItems(Array.isArray(json) ? json : json.items || []);
+      } catch (error) {
+        if (alive) setErr(error.message || 'Failed to load gift shop items');
+      } finally {
+        if (alive) setLoading(false);
+      }
     })();
-    return ()=>{ alive=false; };
-  },[]);
+    return () => {
+      alive = false;
+    };
+  }, []);
 
-  const rows = items.filter(i => i.name.toLowerCase().includes(q.toLowerCase()));
+  const themes = useMemo(() => {
+    const set = new Set(items.map(item => item.theme_name || 'Other'));
+    return ['all', ...Array.from(set).sort((a, b) => a.localeCompare(b))];
+  }, [items]);
+
+  const filtered = useMemo(() => {
+    return items
+      .filter(item => item.name.toLowerCase().includes(query.toLowerCase()))
+      .filter(item => activeTheme === 'all' || (item.theme_name || 'Other') === activeTheme);
+  }, [items, query, activeTheme]);
+
+  const sortedItems = useMemo(() => {
+    return [...filtered].sort((a, b) => {
+      const cmp = (a.name || '').localeCompare(b.name || '');
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+  }, [filtered, sortDir]);
 
   return (
-    <div className="max-w-5xl mx-auto p-6">
-      <div className="rounded-2xl border bg-white card-padding shadow-sm">
-        <div className="mb-4">
-          <input className="border rounded-xl p-2 w-full md:w-80"
-                 placeholder="Search souvenirs…"
-                 value={q} onChange={e=>setQ(e.target.value)} />
+    <div className="page">
+      <div className="page-box page-box--wide dining-page">
+        <section className="dining-hero">
+          <div className="dining-hero__content">
+            <p className="dining-eyebrow">Marketplace</p>
+            <h1>Souvenirs from every timeline.</h1>
+            <p>Pair each land with its signature keepsakes and keep your cart synced while you explore.</p>
+          </div>
+        </section>
+
+        <div className="dining-tools">
+          <input
+            className="input input--compact"
+            placeholder="Search souvenirs..."
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+          />
+          <div className="dining-filters">
+            {themes.map(theme => (
+              <button
+                key={theme}
+                className={`dining-filter ${activeTheme === theme ? 'dining-filter--active' : ''}`}
+                onClick={() => setActiveTheme(theme)}
+              >
+                {theme === 'all' ? 'All Lands' : theme}
+              </button>
+            ))}
+          </div>
         </div>
 
-        {loading && <div className="text-sm text-gray-600">Loading…</div>}
-        {err && !loading && <div className="alert error">{err}</div>}
-        {!loading && !err && rows.length===0 && <div className="text-sm text-gray-600">No items found.</div>}
+        <div className="dining-sort-bar">
+          <span>Sort by name:</span>
+          <div className="dining-sort-buttons">
+            <button
+              type="button"
+              className={`dining-sort-btn ${sortDir === 'asc' ? 'active' : ''}`}
+              onClick={() => setSortDir('asc')}
+            >
+              A-Z
+            </button>
+            <button
+              type="button"
+              className={`dining-sort-btn ${sortDir === 'desc' ? 'active' : ''}`}
+              onClick={() => setSortDir('desc')}
+            >
+              Z-A
+            </button>
+          </div>
+        </div>
 
-        {!loading && !err && rows.length>0 && (
+        {loading && <div className="text-sm text-gray-600">Loading...</div>}
+        {err && !loading && <div className="alert error">{err}</div>}
+        {!loading && !err && sortedItems.length === 0 && (
+          <div className="text-sm text-gray-600">No items match that filter.</div>
+        )}
+
+        {!loading && !err && sortedItems.length > 0 && (
           <div className="items-grid">
-            {rows.map(i=>(
-              <div key={i.id} className="item-card">
-                <div className="item-name">{i.name}</div>
-                <div className="item-price">${Number(i.price||0).toFixed(2)}</div>
-                <button className="btn" onClick={()=>add({ kind:'gift', id:i.id, name:i.name, price:i.price })}>Add to Cart</button>
-              </div>
+            {sortedItems.map(item => (
+              <article key={item.id} className="item-card">
+                {item.image_url ? (
+                  <div className="item-card__image">
+                    <img src={item.image_url} alt={item.name} loading="lazy" />
+                  </div>
+                ) : (
+                  <div className="item-card__image item-card__image--placeholder">Gift preview</div>
+                )}
+                <div className="item-name">{item.name}</div>
+                <div className="item-card__footer">
+                  <span className="item-card__price">${Number(item.price || 0).toFixed(2)}</span>
+                  <button
+                    className="btn item-card__add"
+                    onClick={() => add({ kind: 'gift', id: item.id, name: item.name, price: item.price })}
+                  >
+                    Add to Cart
+                  </button>
+                </div>
+              </article>
             ))}
           </div>
         )}
@@ -53,3 +135,5 @@ export default function GiftShop(){
     </div>
   );
 }
+
+
