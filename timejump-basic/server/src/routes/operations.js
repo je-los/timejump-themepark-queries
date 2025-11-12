@@ -398,6 +398,7 @@ export function registerOperationsRoutes(router) {
     let whereClause = '';
     const params = [];
     if (isEmployee) {
+      console.log("Employee id:" + ctx.authUser.employeeId);
       if (!ctx.authUser.employeeId) {
         ctx.error(400, 'Employee profile is missing.');
         return;
