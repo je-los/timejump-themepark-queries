@@ -44,27 +44,6 @@ export default function Nav({ themes = [] }) {
   const [showCart, setShowCart] = useState(false);
   const { authToast, dismissToast } = useAuthToast(user);
   const navRef = useRef(null);
-  const prevUserRef = useRef(user);
-  const firstUserCheckRef = useRef(true);
-  useEffect(() => {
-    if (firstUserCheckRef.current) {
-      firstUserCheckRef.current = false;
-      prevUserRef.current = user;
-      return;
-    }
-    const prevUser = prevUserRef.current;
-    if (!prevUser && user) {
-      if (consumeLoginToastFlag()) {
-        setAuthToast({ type: 'in', message: 'Signed in successfully.' });
-      }
-    }
-    prevUserRef.current = user;
-  }, [user]);
-  useEffect(() => {
-    if (!authToast) return;
-    const id = window.setTimeout(() => setAuthToast(null), 3500);
-    return () => window.clearTimeout(id);
-  }, [authToast]);
 
   useEffect(() => {
     function handleDocumentClick(evt) {
@@ -117,7 +96,6 @@ export default function Nav({ themes = [] }) {
   function handleSignOut() {
     queueAuthToast('out');
     signOut();
-    setAuthToast({ type: 'out', message: 'Signed out. See you soon!' });
     setShowCart(false);
     navigate('/', { replace: true });
   }
