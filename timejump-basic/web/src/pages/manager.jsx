@@ -191,6 +191,30 @@ function Planner() {
       }
     }
 
+    const PARK_OPENING_HOUR = 10;
+    const PARK_CLOSING_HOUR = 20;
+    
+    if (startHour < PARK_OPENING_HOUR) {
+      setSaveTone('error');
+      setSaveMessage('Cannot assign shift before park\'s opening!');
+      setMissingFields({ employee: false, attraction: false, shiftDate: false, startTime: true, endTime: false });
+      return;
+    }
+    
+    if (startHour >= PARK_CLOSING_HOUR) {
+      setSaveTone('error');
+      setSaveMessage('Cannot assign shift after the park\'s closing!');
+      setMissingFields({ employee: false, attraction: false, shiftDate: false, startTime: true, endTime: false });
+      return;
+    }
+
+    if (endHour > PARK_CLOSING_HOUR) {
+      setSaveTone('error');
+      setSaveMessage('Cannot assign shift after the park\'s closing!');
+      setMissingFields({ employee: false, attraction: false, shiftDate: false, startTime: false, endTime: true });
+      return;
+    }
+
    // Check for any overlapping shifts for the same employee and block if found
     const overlappingShift = schedules.find(s => {
       const sDateStr = s.shiftDate ?? s.date ?? '';
