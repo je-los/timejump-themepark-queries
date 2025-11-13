@@ -482,13 +482,13 @@ export function registerOperationsRoutes(router) {
     }
     try {
       const rows = await query(`
-        SELECT SUM(TIME_TO_SEC(TIMEDIFF(End_time, Start_time))) / 3600 AS total_hours
+        SELECT ROUND(SUM(TIME_TO_SEC(TIMEDIFF(End_time, Start_time))) / 3600) AS total_hours
         FROM schedules
-        WHERE EmployeeID = ? AND Shift_date BETWEEN CURDATE() - INTERVAL 13 DAY AND CURDATE()
+        WHERE EmployeeID = ? AND Shift_date BETWEEN CURDATE() - INTERVAL 13 DAY AND CURDATE() AND Shift_date < CURDATE()
       `, [employeeId]);
 
       const totalHours = rows[0]?.total_hours || 0;
-      ctx.ok({ data: { total_hours: parseFloat(totalHours).toFixed(2) } });
+      ctx.ok({ data: { total_hours: totalHours } });
     } catch (err) {
       ctx.error(500, 'Could not retrieve hours worked.');
     }
@@ -558,8 +558,12 @@ export function registerOperationsRoutes(router) {
         },
       });
     } catch (err) {
+      if (err && err.sqlState === '45000') {
+        ctx.error(400, err.message || 'Invalid schedule.');
+        return;
+      }
       if (err?.code === 'ER_DUP_ENTRY') {
-        ctx.error(409, 'A shift already exists for that employee, attraction, and start time.');
+        ctx.error(409, 'A shift already exists for that employee during this timeframe.');
         return;
       }
       throw err;
