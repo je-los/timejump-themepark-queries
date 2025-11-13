@@ -97,6 +97,7 @@ export default function Tickets() {
   const parkingPrice = Number(selectedParking?.price ?? 0);
 
   function addTicketAndParking() {
+    console.log("right here");
     if (!selectedTicket) return;
     add({
       kind: 'ticket',
