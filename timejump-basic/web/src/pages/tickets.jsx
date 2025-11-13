@@ -116,7 +116,9 @@ export default function Tickets() {
         meta: { lot: selectedParking.name },
       });
     }
+    console.log("Before Reset form in addTicket and Parking");
     resetForm();
+    console.log("After Reset form in addTicket and Parking");
   }
 
   function addParkingOnly() {
@@ -129,7 +131,9 @@ export default function Tickets() {
       qty: parkingQty,
       meta: { lot: selectedParking.name },
     });
+    console.log("Before Reset form in Parking");
     resetForm();
+    console.log("After Reset form in Parking");
   }
 
   return (
