@@ -832,6 +832,45 @@ nav button.font-semibold.underline { text-decoration: underline; }
   background:#ede9fe;
   color:#5b21b6;
 }
+.ride-status{
+  font-size:.7rem;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+  border-radius:999px;
+  padding:4px 12px;
+  font-weight:700;
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+}
+.ride-status--open{
+  background:#dcfce7;
+  color:#166534;
+}
+.ride-status--maintenance{
+  background:#fef3c7;
+  color:#92400e;
+}
+.ride-status--closed{
+  background:#fee2e2;
+  color:#b91c1c;
+}
+.ride-status__note{
+  font-size:.8rem;
+  color:#b91c1c;
+  margin:4px 0 0;
+  display:block;
+}
+.ride-status__note--maintenance{
+  color:#b45309;
+}
+.ride-status-row{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  flex-wrap:wrap;
+  margin:8px 0;
+}
 .ride-card__header {
   display:flex;
   align-items:center;

@@ -124,6 +124,18 @@ export default function RidesAndAttractions({ library, loading, error }) {
                       descriptionRaw && descriptionRaw.trim().toLowerCase() === 'seated or street performance with scheduled times.'
                         ? ''
                         : descriptionRaw;
+                    const statusName = (ride.status_name || '').toLowerCase();
+                    const derivedClosed = statusName ? statusName !== 'active' : false;
+                    const isMaintenance = statusName === 'closed_for_maintenance';
+                    const isClosed = ride.is_closed ?? derivedClosed;
+                    const statusClass = isMaintenance
+                      ? 'ride-status--maintenance'
+                      : isClosed
+                        ? 'ride-status--closed'
+                        : 'ride-status--open';
+                    const statusLabel = ride.status_label
+                      || (isMaintenance ? 'Closed for Maintenance' : isClosed ? 'Closed' : 'Open');
+                    const statusNote = ride.status_note || ride.maintenance_note || ride.closure_note || null;
                     return (
                       <article key={ride.slug || ride.name} className="ride-feature-card ride-feature-card--show">
                         {ride.image_url && (
@@ -131,8 +143,16 @@ export default function RidesAndAttractions({ library, loading, error }) {
                         )}
                         <div className="ride-feature-card__meta">
                           <span>{ride.themeName}</span>
+                          <span className={`ride-status ${statusClass}`}>
+                            {statusLabel}
+                          </span>
                         </div>
                         <h3>{ride.name}</h3>
+                        {isClosed && statusNote && (
+                          <p className={`ride-status__note ${isMaintenance ? 'ride-status__note--maintenance' : ''}`}>
+                            {statusNote}
+                          </p>
+                        )}
                         {description && <p>{description}</p>}
                         <div className="ride-feature-card__stats">
                           {ride.capacity && (
@@ -177,4 +197,3 @@ export default function RidesAndAttractions({ library, loading, error }) {
     </div>
   );
 }
-

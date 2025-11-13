@@ -40,6 +40,18 @@ export default function RideView() {
   const bestTime = ride?.best_time_to_visit ?? ride?.best_time ?? null;
   const restrictions = ride?.additional_restrictions ?? ride?.restrictions ?? null;
   const highlights = normalizeList(ride?.highlights);
+  const statusName = (ride?.status_name || '').toLowerCase();
+  const derivedClosed = statusName ? statusName !== 'active' : false;
+  const rideIsMaintenance = statusName === 'closed_for_maintenance';
+  const rideIsClosed = ride?.is_closed ?? derivedClosed;
+  const rideStatusClass = rideIsMaintenance
+    ? 'ride-status--maintenance'
+    : rideIsClosed
+      ? 'ride-status--closed'
+      : 'ride-status--open';
+  const rideStatusLabel = ride?.status_label
+    || (rideIsMaintenance ? 'Closed for Maintenance' : rideIsClosed ? 'Closed' : 'Open');
+  const rideStatusNote = ride?.status_note || ride?.maintenance_note || ride?.closure_note || null;
 
   return (
     <div className="page">
@@ -49,6 +61,16 @@ export default function RideView() {
         {!loading && !error && ride && (
           <>
             <h1>{ride.Name || ride.name || 'Ride'}</h1>
+            <div className="ride-status-row">
+              <span className={`ride-status ${rideStatusClass}`}>
+                {rideStatusLabel}
+              </span>
+              {rideIsClosed && rideStatusNote && (
+                <span className={`ride-status__note ${rideIsMaintenance ? 'ride-status__note--maintenance' : ''}`}>
+                  {rideStatusNote}
+                </span>
+              )}
+            </div>
             <p className="text-sm text-gray-700">
               Experience {ride.Name || ride.name || 'this attraction'}.
             </p>
