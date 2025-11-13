@@ -525,7 +525,7 @@
   font-size: .8rem;
   color: #1d4ed8;
 }
-.ride-feature-card__meta span{
+.ride-feature-card__meta span:not(.ride-status){
   background:#e0f2fe;
   color:#0f172a;
   border-radius:999px;

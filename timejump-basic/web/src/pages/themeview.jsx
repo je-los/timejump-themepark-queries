@@ -60,6 +60,18 @@ export default function ThemeView() {
                 const audience = ride.target_audience ?? ride.audience ?? null;
                 const thrill = ride.experience_level ?? ride.thrill_level ?? ride.type_description ?? ride.type;
                 const duration = ride.duration_minutes ?? ride.duration ?? null;
+                const statusName = (ride.status_name || '').toLowerCase();
+                const derivedClosed = statusName ? statusName !== 'active' : false;
+                const isMaintenance = statusName === 'closed_for_maintenance';
+                const isClosed = ride.is_closed ?? derivedClosed;
+                const statusClass = isMaintenance
+                  ? 'ride-status--maintenance'
+                  : isClosed
+                    ? 'ride-status--closed'
+                    : 'ride-status--open';
+                const statusLabel = ride.status_label
+                  || (isMaintenance ? 'Closed for Maintenance' : isClosed ? 'Closed' : 'Open');
+                const statusNote = ride.status_note || ride.maintenance_note || ride.closure_note || null;
                 const description =
                   ride.description && ride.description.trim().toLowerCase() === 'seated or street performance with scheduled times.'
                     ? ''
@@ -68,7 +80,15 @@ export default function ThemeView() {
                   <article key={ride.slug || ride.id} className="ride-card ride-card--theme">
                     <header className="ride-card__header">
                       <h2>{ride.name}</h2>
+                      <span className={`ride-status ${statusClass}`}>
+                        {statusLabel}
+                      </span>
                     </header>
+                    {isClosed && statusNote && (
+                      <p className={`ride-status__note ${isMaintenance ? 'ride-status__note--maintenance' : ''}`}>
+                        {statusNote}
+                      </p>
+                    )}
                     <div className="ride-card__meta">
                       {typeLabel && <span className="ride-card__chip">{typeLabel}</span>}
                       {thrill && <span className="ride-card__chip ride-card__chip--accent">{thrill}</span>}

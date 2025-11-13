@@ -5,6 +5,17 @@ import { Panel, TableList } from '../shared.jsx';
 
 const DEFAULT_SEVERITIES = ['low', 'medium', 'high', 'critical'];
 
+function createEmptyForm() {
+  return {
+    attractionId: '',
+    dateBroken: '',
+    dateFixed: '',
+    type: '',
+    severity: '',
+    description: '',
+  };
+}
+
 function formatDateOnly(value) {
   if (!value) return '--';
   const date = new Date(`${value}T00:00:00`);
@@ -25,19 +36,12 @@ export default function MaintenancePage() {
   const [resolveError, setResolveError] = useState('');
   const [confirmingId, setConfirmingId] = useState(null);
   const [resolvingId, setResolvingId] = useState(null);
-  const [form, setForm] = useState({
-    attractionId: '',
-    dateBroken: '',
-    dateFixed: '',
-    type: '',
-    severity: '',
-    description: '',
-  });
+  const [form, setForm] = useState(() => createEmptyForm());
+  const [editingRecord, setEditingRecord] = useState(null);
 
   const [attractions, setAttractions] = useState([]);
   const [types, setTypes] = useState([]);
   const [severities, setSeverities] = useState(DEFAULT_SEVERITIES);
-  const canApprove = ['manager', 'admin', 'owner'].includes(user?.role);
   const [missingFields, setMissingFields] = useState({
     attractionId: false,
     dateBroken: false,
@@ -45,6 +49,10 @@ export default function MaintenancePage() {
     severity: false,
     description: false,
   });
+  const canManageRecords = ['manager', 'admin', 'owner'].includes(user?.role);
+  const canApprove = canManageRecords;
+  const canEdit = canManageRecords;
+  const isEditing = Boolean(editingRecord);
 
   const loadRecords = useCallback(async () => {
     setLoading(true);
@@ -142,6 +150,42 @@ export default function MaintenancePage() {
     loadMetadata();
   }, [loadMetadata]);
 
+  function beginEdit(record) {
+    if (!record) return;
+    setEditingRecord(record);
+    setForm({
+      attractionId: String(record.AttractionID ?? record.attraction_id ?? record.attractionId ?? ''),
+      dateBroken: record.Date_broken_down || '',
+      dateFixed: record.Date_fixed || '',
+      type: record.type_of_maintenance || '',
+      severity: String(record.Severity_of_report || '').toLowerCase(),
+      description: record.Description_of_work || '',
+    });
+    setStatus('');
+    setFormError('');
+    setMissingFields({
+      attractionId: false,
+      dateBroken: false,
+      type: false,
+      severity: false,
+      description: false,
+    });
+  }
+
+  function cancelEdit() {
+    setEditingRecord(null);
+    setForm(createEmptyForm());
+    setStatus('');
+    setFormError('');
+    setMissingFields({
+      attractionId: false,
+      dateBroken: false,
+      type: false,
+      severity: false,
+      description: false,
+    });
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     if (saving) return;
@@ -163,27 +207,35 @@ export default function MaintenancePage() {
     try {
       const attractionId = form.attractionId ? Number(form.attractionId) : null;
       const dateReported = form.dateBroken || null;
-      await api('/maintenance', {
-        method: 'POST',
-        body: JSON.stringify({
-          attractionId,
-          dateBroken: dateReported,
-          dateBrokenDown: dateReported,
-          dateFixed: form.dateFixed || null,
-          type: form.type,
-          severity: form.severity,
-          description: form.description.trim(),
-        }),
-      });
-      setStatus('Maintenance record logged.');
-      setForm({
-        attractionId: '',
-        dateBroken: '',
-        dateFixed: '',
-        type: '',
-        severity: '',
-        description: '',
-      });
+      const description = form.description.trim();
+      const payload = {
+        attractionId,
+        dateBroken: dateReported,
+        dateBrokenDown: dateReported,
+        dateFixed: form.dateFixed || null,
+        typeOfMaintenance: form.type || null,
+        type_of_maintenance: form.type || null,
+        severityOfReport: form.severity || null,
+        Severity_of_report: form.severity || null,
+        descriptionOfWork: description,
+        Description_of_work: description,
+      };
+
+      if (isEditing && editingRecord?.RecordID) {
+        await api(`/maintenance/${editingRecord.RecordID}`, {
+          method: 'PUT',
+          body: JSON.stringify(payload),
+        });
+        setStatus('Maintenance record updated.');
+      } else {
+        await api('/maintenance', {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
+        setStatus('Maintenance record logged.');
+      }
+      setForm(createEmptyForm());
+      setEditingRecord(null);
       setMissingFields({
         attractionId: false,
         dateBroken: false,
@@ -191,9 +243,9 @@ export default function MaintenancePage() {
         severity: false,
         description: false,
       });
-      loadRecords();
+      await loadRecords();
     } catch (err) {
-      setFormError(err?.message || 'Failed to save maintenance record.');
+      setFormError(err?.message || (isEditing ? 'Failed to update maintenance record.' : 'Failed to save maintenance record.'));
     } finally {
       setSaving(false);
     }
@@ -204,6 +256,19 @@ export default function MaintenancePage() {
       <div className="admin-maintenance__layout">
         <Panel className="admin-maintenance__panel">
           <h3 style={{ marginTop: 0 }}>Log Maintenance</h3>
+          {isEditing && (
+            <div className="alert" style={{ marginBottom: 12 }}>
+              Editing record #{editingRecord?.RecordID} for {editingRecord?.attraction_name || 'selected attraction'}.
+              <button
+                type="button"
+                className="btn"
+                style={{ marginLeft: 12, padding: '2px 10px', fontSize: 12 }}
+                onClick={cancelEdit}
+              >
+                Cancel edit
+              </button>
+            </div>
+          )}
           <form className="admin-form-grid" onSubmit={handleSubmit}>
             <label className="field">
               <span>Attraction{missingFields.attractionId && <span className="missing-asterisk">*</span>}</span>
@@ -290,8 +355,19 @@ export default function MaintenancePage() {
               disabled={saving}
               style={{ justifySelf: 'flex-start', width: 'auto' }}
             >
-              {saving ? 'Saving...' : 'Log Maintenance'}
+              {saving ? 'Saving...' : isEditing ? 'Update Maintenance' : 'Log Maintenance'}
             </button>
+            {isEditing && (
+              <button
+                type="button"
+                className="btn"
+                style={{ justifySelf: 'flex-start', width: 'auto' }}
+                onClick={cancelEdit}
+                disabled={saving}
+              >
+                Cancel
+              </button>
+            )}
           </form>
           <div style={{ marginTop: 12 }}>
             {status && <div className="alert success">{status}</div>}
@@ -363,6 +439,17 @@ export default function MaintenancePage() {
                           {confirmingId === row.RecordID ? 'Confirming...' : 'Confirm'}
                         </button>
                       )}
+                      {canEdit && (
+                        <button
+                          type="button"
+                          className="btn"
+                          style={{ padding: '2px 8px', fontSize: 12 }}
+                          onClick={() => beginEdit(row)}
+                          disabled={editingRecord?.RecordID === row.RecordID}
+                        >
+                          {editingRecord?.RecordID === row.RecordID ? 'Editing...' : 'Edit'}
+                        </button>
+                      )}
                     </div>
                   ),
                 },
@@ -386,4 +473,3 @@ export default function MaintenancePage() {
     </div>
   );
 }
-

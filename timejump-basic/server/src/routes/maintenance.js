@@ -1,6 +1,7 @@
 import { query } from '../db.js';
 import { requireRole } from '../middleware/auth.js';
 import { getEnumValues } from '../services/dbUtils.js';
+import { ensureScheduleCompletionColumn } from '../services/ensure.js';
 import { pick } from '../utils/object.js';
 
 const FALLBACK_MAINTENANCE_ROWS = [
@@ -109,6 +110,32 @@ const FALLBACK_MAINTENANCE_ROWS = [
     Status: 'fixed',
   },
 ];
+
+async function syncMaintenanceShiftStatuses(attractionId) {
+  if (!attractionId) return;
+  await ensureScheduleCompletionColumn();
+  await query(
+    'UPDATE schedules SET ShiftStatus = 0 WHERE AttractionID = ? AND ShiftStatus = 2 AND is_completed = 0',
+    [attractionId],
+  ).catch(() => {});
+  const activeWindows = await query(
+    `SELECT Date_broken_down AS startDate
+     FROM maintenance_records
+     WHERE AttractionID = ?
+       AND Date_broken_down IS NOT NULL
+       AND Date_broken_down <= CURRENT_DATE()
+       AND Date_fixed IS NULL`,
+    [attractionId],
+  ).catch(() => []);
+  for (const window of activeWindows) {
+    const startDate = window.startDate;
+    if (!startDate) continue;
+    await query(
+      'UPDATE schedules SET ShiftStatus = 2 WHERE AttractionID = ? AND Shift_date >= ? AND is_completed = 0 AND ShiftStatus = 0',
+      [attractionId, startDate],
+    ).catch(() => {});
+  }
+}
 
 function filterFallbackRows(rows, { start, end, severities, maintenanceTypes, attractionParam, search, statusFilters = [], approvedFilters = [] }) {
   const likeSearch = search ? search.toLowerCase() : '';
@@ -423,6 +450,7 @@ export function registerMaintenanceRoutes(router) {
         Approved_by_supervisor: approvedId || null,
       },
     });
+    await syncMaintenanceShiftStatuses(attractionId);
   }));
 
   router.put('/maintenance/:id', requireRole(['manager', 'admin', 'owner'])(async ctx => {
@@ -431,6 +459,15 @@ export function registerMaintenanceRoutes(router) {
       ctx.error(400, 'Maintenance record id is required.');
       return;
     }
+    const existingRows = await query(
+      'SELECT AttractionID FROM maintenance_records WHERE RecordID = ? LIMIT 1',
+      [id],
+    ).catch(() => []);
+    if (!existingRows.length) {
+      ctx.error(404, 'Maintenance record not found.');
+      return;
+    }
+    const originalAttractionId = existingRows[0]?.AttractionID || null;
 
     const fields = [];
     const values = [];
@@ -447,7 +484,8 @@ export function registerMaintenanceRoutes(router) {
 
     const attractionId = pick(ctx.body, 'attractionId', 'AttractionID');
     const dateBroken = pick(ctx.body, 'dateBroken', 'dateBrokenDown', 'Date_broken_down', 'date_broken_down');
-    const dateFixed = pick(ctx.body, 'dateFixed', 'Date_fixed', 'date_fixed');
+    const dateFixedRaw = pick(ctx.body, 'dateFixed', 'Date_fixed', 'date_fixed');
+    const normalizedDateFixed = dateFixedRaw ? String(dateFixedRaw).trim() : undefined;
     const type = pick(ctx.body, 'typeOfMaintenance', 'type_of_maintenance');
     const description = pick(ctx.body, 'descriptionOfWork', 'Description_of_work', 'description');
     const severity = pick(ctx.body, 'severityOfReport', 'Severity_of_report');
@@ -471,7 +509,7 @@ export function registerMaintenanceRoutes(router) {
     }
     if (attractionId !== undefined) setField('AttractionID', attractionId ? Number(attractionId) : null);
     if (dateBroken !== undefined) setField('Date_broken_down', dateBroken ? String(dateBroken).trim() : null);
-    if (dateFixed !== undefined) setField('Date_fixed', dateFixed ? String(dateFixed).trim() : null);
+    if (dateFixedRaw !== undefined) setField('Date_fixed', normalizedDateFixed || null);
     if (description !== undefined) setField('Description_of_work', description ? String(description) : null);
     if (approved !== undefined) setField('Approved_by_supervisor', approved ? Number(approved) : null);
 
@@ -484,9 +522,25 @@ export function registerMaintenanceRoutes(router) {
       `UPDATE maintenance_records SET ${fields.join(', ')} WHERE RecordID = ?`,
       [...values, id],
     );
-    if (!result.affectedRows) {
-      ctx.error(404, 'Maintenance record not found.');
-      return;
+    const needsSync = fields.some(field =>
+      field.startsWith('AttractionID')
+      || field.startsWith('Date_broken_down')
+      || field.startsWith('Date_fixed'),
+    );
+    if (needsSync) {
+      const [updated] = await query(
+        'SELECT AttractionID FROM maintenance_records WHERE RecordID = ? LIMIT 1',
+        [id],
+      ).catch(() => []);
+      const targets = new Set([
+        originalAttractionId,
+        updated?.AttractionID || null,
+      ]);
+      for (const target of targets) {
+        if (target) {
+          await syncMaintenanceShiftStatuses(target);
+        }
+      }
     }
     ctx.ok({ data: { RecordID: id } });
   }));

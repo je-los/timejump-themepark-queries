@@ -438,7 +438,8 @@ export function registerOperationsRoutes(router) {
                  SELECT 1
                  FROM maintenance_records mr
                  WHERE mr.AttractionID = s.AttractionID
-                   AND s.Shift_date BETWEEN mr.Date_broken_down AND COALESCE(mr.Date_fixed, '9999-12-31')
+                   AND mr.Date_broken_down <= s.Shift_date
+                   AND (mr.Date_fixed IS NULL OR mr.Date_fixed > s.Shift_date)
                ) THEN 1
                ELSE 0
              END AS maintenance_overlap,
@@ -446,7 +447,8 @@ export function registerOperationsRoutes(router) {
                SELECT mr.Description_of_work
                FROM maintenance_records mr
                WHERE mr.AttractionID = s.AttractionID
-                 AND s.Shift_date BETWEEN mr.Date_broken_down AND COALESCE(mr.Date_fixed, '9999-12-31')
+                 AND mr.Date_broken_down <= s.Shift_date
+                 AND (mr.Date_fixed IS NULL OR mr.Date_fixed > s.Shift_date)
                ORDER BY (mr.Date_fixed IS NULL) DESC, mr.Date_broken_down DESC
                LIMIT 1
              ) AS maintenance_description
@@ -462,11 +464,20 @@ export function registerOperationsRoutes(router) {
     data: rows.map(row => {
       const maintenanceOverlap = row.maintenance_overlap === 1 || row.maintenance_overlap === true;
       const baseStatusRaw = Number(row.ShiftStatus ?? 0);
-      const shiftStatus = baseStatusRaw === 0 && maintenanceOverlap ? 2 : baseStatusRaw;
-      const fallbackName = shiftStatus === 2 ? 'cancelled_for_maintenance'
-        : shiftStatus === 1 ? 'cancelled'
-          : 'scheduled';
-      const shiftStatusName = row.shift_status_name || fallbackName;
+      let shiftStatus = baseStatusRaw;
+      if (maintenanceOverlap && shiftStatus === 0) {
+        shiftStatus = 2;
+      } else if (!maintenanceOverlap && shiftStatus === 2 && (!row.shift_status_name || row.shift_status_name === 'cancelled_for_maintenance')) {
+        shiftStatus = 0;
+      }
+      let shiftStatusName = row.shift_status_name;
+      if (shiftStatus === 2) {
+        shiftStatusName = 'cancelled_for_maintenance';
+      } else if (shiftStatus === 1) {
+        shiftStatusName = 'cancelled';
+      } else {
+        shiftStatusName = 'scheduled';
+      }
       const isCancelled = shiftStatus !== 0;
       const maintenanceNote = row.maintenance_description || null;
       return {
