@@ -397,6 +397,7 @@ export function registerOperationsRoutes(router) {
   }));
 
   router.get('/schedules', requireRole(['employee', 'manager', 'admin', 'owner'])(async ctx => {
+    console.log('authUser:', ctx.authUser);
     await ensureScheduleCompletionColumn();
     const isEmployee = ctx.authUser.role === 'employee';
     let whereClause = '';
