@@ -5,15 +5,10 @@ import {
   ensureAttractionExperienceColumns,
   ensureAttractionImageColumn,
   ensureScheduleCompletionColumn,
-  ensureScheduleNotesTable,
 } from '../services/ensure.js';
 import { pick } from '../utils/object.js';
 
 const EMPLOYEE_POSITION_ID = 1;
-
-function todayISO() {
-  return new Date().toISOString().slice(0, 10);
-}
 
 function normalizeDate(value) {
   if (!value && value !== 0) return null;
@@ -94,26 +89,6 @@ export function registerOperationsRoutes(router) {
     });
   }));
 
-  router.get('/employees', requireRole(['manager', 'admin', 'owner'])(async ctx => {
-    const rows = await query(`
-      SELECT e.employeeID, e.name, e.salary, e.role, e.start_date, e.email, p.RoleName AS role_name
-      FROM employee e
-      LEFT JOIN positions p ON p.PositionID = e.role
-      ORDER BY e.name ASC
-    `).catch(() => []);
-    ctx.ok({
-      data: rows.map(row => ({
-        employeeID: row.employeeID,
-        name: row.name,
-        salary: row.salary,
-        role: row.role,
-        role_name: row.role_name,
-        start_date: row.start_date,
-        email: row.email,
-      })),
-    });
-  }));
-
   router.post('/employees', requireRole(['admin', 'owner'])(async ctx => {
     const name = String(pick(ctx.body, 'name') || '').trim();
     const email = String(pick(ctx.body, 'email') || '').trim().toLowerCase();
@@ -122,11 +97,12 @@ export function registerOperationsRoutes(router) {
     const startDateRaw = pick(ctx.body, 'startDate', 'start_date');
     const startDate = normalizeDate(startDateRaw);
     const positionIdRaw = pick(ctx.body, 'positionId', 'position_id', 'role', 'roleId', 'role_id');
-    const requestedPosition = pick(ctx.body, 'positionId', 'position_id', 'roleId', 'role_id');
-
-    if (!name) {
-      ctx.error(400, 'Employee name is required.');
-      return;
+             s.is_completed,
+             sn.notes
+      FROM schedules s
+      LEFT JOIN employee e ON e.employeeID = s.EmployeeID
+      LEFT JOIN attraction a ON a.AttractionID = s.AttractionID
+      LEFT JOIN schedule_notes sn ON sn.ScheduleID = s.ScheduleID
     }
     if (!email) {
       ctx.error(400, 'Employee email is required.');
@@ -146,7 +122,8 @@ export function registerOperationsRoutes(router) {
     }
 
     let salary = null;
-    if (salaryInput !== undefined && salaryInput !== null && String(salaryInput).trim() !== '') {
+        is_completed: row.is_completed === 1,
+        notes: row.notes || '',
       salary = Number(salaryInput);
       if (!Number.isFinite(salary) || salary <= 0 || salary > 200000) {
         ctx.error(400, 'Salary must be between 0 and 200,000.');
@@ -297,25 +274,25 @@ export function registerOperationsRoutes(router) {
     }
     values.push(employeeId);
 
-    const result = await query(
-      `UPDATE employee SET ${fields.join(', ')} WHERE employeeID = ?`,
-      values,
-    );
-    if (!result.affectedRows) {
-      ctx.error(404, 'Employee not found.');
-      return;
-    }
-
-    const [updated] = await query(
-      `
-        SELECT e.employeeID, e.name, e.salary, e.start_date, e.email, e.role, p.RoleName AS role_name
-        FROM employee e
-        LEFT JOIN positions p ON p.PositionID = e.role
-        WHERE e.employeeID = ?
-        LIMIT 1
-      `,
-      [employeeId],
-    );
+    const rows = await query(`
+      SELECT s.ScheduleID,
+             s.EmployeeID,
+             e.name AS employee_name,
+             s.AttractionID,
+             a.Name AS attraction_name,
+             s.Shift_date,
+             s.Start_time,
+             s.End_time,
+             s.is_completed,
+             sn.notes
+      FROM schedules s
+      LEFT JOIN employee e ON e.employeeID = s.EmployeeID
+      LEFT JOIN attraction a ON a.AttractionID = s.AttractionID
+      LEFT JOIN schedule_notes sn ON sn.ScheduleID = s.ScheduleID
+      ${whereClause}
+      ORDER BY s.Shift_date DESC, s.Start_time ASC
+      LIMIT 500
+    `, params).catch(() => []);
 
     ctx.ok({
       data: {
@@ -399,17 +376,17 @@ export function registerOperationsRoutes(router) {
 
   router.get('/schedules', requireRole(['employee', 'manager', 'admin', 'owner'])(async ctx => {
     await ensureScheduleCompletionColumn();
-    await ensureScheduleNotesTable();
     const isEmployee = ctx.authUser.role === 'employee';
     let whereClause = '';
     const params = [];
     if (isEmployee) {
-      if (!ctx.authUser.employeeId) {
+      if (!ctx.authUser.EmployeeID) {
         ctx.error(400, 'Employee profile is missing.');
         return;
       }
+      // Employees see only their incomplete/upcoming shifts; managers can query any employee (all shifts)
       whereClause = 'WHERE s.EmployeeID = ? AND s.is_completed = 0';
-      params.push(ctx.authUser.employeeId);
+      params.push(ctx.authUser.EmployeeID);
     } else if (ctx.query?.employeeId) {
       const filterId = Number(ctx.query.employeeId);
       if (Number.isInteger(filterId) && filterId > 0) {
@@ -417,6 +394,7 @@ export function registerOperationsRoutes(router) {
         params.push(filterId);
       }
     }
+
     const rows = await query(`
       SELECT s.ScheduleID,
              s.EmployeeID,
@@ -429,13 +407,14 @@ export function registerOperationsRoutes(router) {
              s.is_completed,
              sn.notes
       FROM schedules s
-      LEFT JOIN schedule_notes sn ON sn.ScheduleID = s.ScheduleID
       LEFT JOIN employee e ON e.employeeID = s.EmployeeID
       LEFT JOIN attraction a ON a.AttractionID = s.AttractionID
+      LEFT JOIN schedule_notes sn ON sn.ScheduleID = s.ScheduleID
       ${whereClause}
       ORDER BY s.Shift_date DESC, s.Start_time ASC
       LIMIT 500
     `, params).catch(() => []);
+
     ctx.ok({
       data: rows.map(row => ({
         ScheduleID: row.ScheduleID,
@@ -463,9 +442,9 @@ export function registerOperationsRoutes(router) {
       ctx.error(403, 'Only employees can view their schedule.');
       return;
     }
-    await ensureScheduleNotesTable();
+    await ensureScheduleCompletionColumn();
     const rows = await query(`
-      SELECT s.ScheduleID, s.EmployeeID, s.AttractionID, s.Shift_date, s.Start_time, s.End_time, sn.notes
+      SELECT s.ScheduleID, s.EmployeeID, s.AttractionID, s.Shift_date, s.Start_time, s.End_time, s.is_completed, sn.notes
       FROM schedules s
       LEFT JOIN schedule_notes sn ON sn.ScheduleID = s.ScheduleID
       WHERE s.EmployeeID = ?
@@ -525,7 +504,6 @@ export function registerOperationsRoutes(router) {
 
 
   router.post('/schedules', requireRole(['manager', 'admin', 'owner'])(async ctx => {
-    console.log("You are in here, the second schedules");
     const employeeId = Number(pick(ctx.body, 'employeeId', 'EmployeeID'));
     const attractionId = Number(pick(ctx.body, 'attractionId', 'AttractionID'));
     const shiftDate = String(pick(ctx.body, 'shiftDate', 'Shift_date') || '').trim();
@@ -634,13 +612,13 @@ export function registerOperationsRoutes(router) {
     }
 
     if (ctx.authUser.role === 'employee') {
-      if (!ctx.authUser.employeeId) {
+      if (!ctx.authUser.EmployeeID) {
         ctx.error(400, 'Employee profile is missing.');
         return;
       }
       const [assignment] = await query(
         'SELECT ScheduleID FROM schedules WHERE EmployeeID = ? AND AttractionID = ? AND Shift_date = ? AND is_completed = 0 LIMIT 1',
-        [ctx.authUser.employeeId, attractionId, logDate],
+        [ctx.authUser.EmployeeID, attractionId, logDate],
       ).catch(() => []);
       if (!assignment) {
         ctx.error(403, 'You are not scheduled on that attraction for the selected date.');
@@ -672,74 +650,11 @@ export function registerOperationsRoutes(router) {
         [targetScheduleId],
       ).catch(() => {});
     }
-
     ctx.ok({
       data: {
         AttractionID: attractionId,
         log_date: logDate,
         riders_count: ridersCount,
-      },
-    });
-  }));
-
-  router.get('/ride-cancellations', requireRole(['manager', 'admin', 'owner'])(async ctx => {
-    const limitParam = Number(ctx.query?.limit);
-    const limit = Number.isFinite(limitParam) ? Math.min(Math.max(limitParam, 1), 200) : 50;
-    const rows = await query(`
-      SELECT rc.cancel_id,
-             rc.AttractionID,
-             DATE(rc.cancel_date) AS cancel_date,
-             rc.reason,
-             a.Name AS attraction_name
-      FROM ride_cancellation rc
-      LEFT JOIN attraction a ON a.AttractionID = rc.AttractionID
-      ORDER BY rc.cancel_date DESC, rc.cancel_id DESC
-      LIMIT ${limit}
-    `).catch(() => []);
-    ctx.ok({
-      data: rows.map(row => ({
-        cancel_id: row.cancel_id,
-        attraction_id: row.AttractionID,
-        attraction_name: row.attraction_name || `Attraction ${row.AttractionID}`,
-        cancel_date: row.cancel_date,
-        reason: row.reason || '',
-      })),
-    });
-  }));
-
-  router.post('/ride-cancellations', requireRole(['manager', 'admin', 'owner'])(async ctx => {
-    const attractionId = Number(ctx.body?.attractionId || ctx.body?.AttractionID);
-    const cancelDateRaw = ctx.body?.cancelDate || ctx.body?.cancel_date || ctx.body?.date;
-    const cancelDate = normalizeDate(cancelDateRaw) || todayISO();
-    const reason = String(ctx.body?.reason || '').trim();
-
-    if (!attractionId) {
-      ctx.error(400, 'Attraction is required.');
-      return;
-    }
-    if (!reason) {
-      ctx.error(400, 'Reason is required.');
-      return;
-    }
-    const [exists] = await query(
-      'SELECT AttractionID FROM attraction WHERE AttractionID = ? LIMIT 1',
-      [attractionId],
-    ).catch(() => []);
-    if (!exists) {
-      ctx.error(400, 'Attraction not found.');
-      return;
-    }
-    const trimmedReason = reason.slice(0, 255);
-    const result = await query(
-      'INSERT INTO ride_cancellation (AttractionID, cancel_date, reason) VALUES (?, ?, ?)',
-      [attractionId, cancelDate, trimmedReason],
-    );
-    ctx.created({
-      data: {
-        cancel_id: result.insertId,
-        attraction_id: attractionId,
-        cancel_date: cancelDate,
-        reason: trimmedReason,
       },
     });
   }));

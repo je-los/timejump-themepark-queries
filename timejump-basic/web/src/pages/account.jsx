@@ -32,12 +32,8 @@ export default function Account() {
   const [status, setStatus] = useState('');
   const [statusTone, setStatusTone] = useState('info');
   const [orders, setOrders] = useState([]);
-  const [schedules, setSchedules] = useState([]);
-  const [attractions, setAttractions] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
-  const [scheduleLoading, setScheduleLoading] = useState(false);
   const [hoursWorked, setHoursWorked] = useState(0);
-  const [totalHoursWorked, setTotalHoursWorked] = useState(0);
   const isCustomer = user?.role === 'customer';
   const isEmployee = useMemo(
     () => ['employee', 'manager'].includes(user?.role) && (user?.EmployeeID || user?.employeeID),
@@ -113,30 +109,6 @@ export default function Account() {
       cancelled = true;
     };
   }, [user, isCustomer]);
-
-  useEffect(() => {
-    if (!isEmployee) return;
-    let cancelled = false;
-    setScheduleLoading(true);
-    Promise.all([
-      api('/schedules/me'),
-      api('/attractions'),
-    ]).then(([schedulesRes, attractionsRes]) => {
-      if (cancelled) return;
-      setSchedules(Array.isArray(schedulesRes?.data) ? schedulesRes.data : []);
-      setAttractions(Array.isArray(attractionsRes?.data) ? attractionsRes.data : []);
-    }).catch(() => {
-      if (cancelled) return;
-      setSchedules([]);
-      setAttractions([]);
-    }).finally(() => {
-      if (!cancelled) setScheduleLoading(false);
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isEmployee]);
 
   useEffect(() => {
     if (!isEmployee) return;
@@ -589,3 +561,4 @@ function formatVisitDate(value) {
   if (Number.isNaN(date.getTime())) return '—';
   return date.toLocaleDateString(undefined, { dateStyle: 'medium' });
 }
+

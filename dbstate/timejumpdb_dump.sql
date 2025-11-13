@@ -674,7 +674,7 @@ CREATE TABLE `ticket_purchase` (
   PRIMARY KEY (`purchase_id`),
   KEY `idx_ticket_purchase_user` (`user_id`),
   CONSTRAINT `fk_ticket_purchase_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=50 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=26 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -683,7 +683,7 @@ CREATE TABLE `ticket_purchase` (
 
 LOCK TABLES `ticket_purchase` WRITE;
 /*!40000 ALTER TABLE `ticket_purchase` DISABLE KEYS */;
-INSERT INTO `ticket_purchase` VALUES (1,7,'Adult','ticket',1,89.00,NULL,'{\"category\":\"day\"}','2025-11-09 03:10:47'),(2,7,'Parking - Lot B','parking',1,180.00,NULL,'{\"lot\":\"Lot B\"}','2025-11-09 03:10:47'),(3,7,'Adult','ticket',1,89.00,NULL,'{\"category\":\"day\",\"visitDate\":\"2025-11-12\"}','2025-11-09 04:30:16'),(4,7,'Child','ticket',1,59.00,NULL,'{\"category\":\"day\",\"visitDate\":\"2025-11-12\"}','2025-11-09 04:30:16'),(5,7,'Parking - Lot A','parking',1,200.00,NULL,'{\"lot\":\"Lot A\",\"visitDate\":\"2025-11-12\"}','2025-11-09 04:30:16'),(6,7,'Adult','ticket',2,89.00,NULL,'{\"category\":\"day\",\"visitDate\":\"2025-11-11\"}','2025-11-09 05:08:49'),(7,7,'Parking - Lot A','parking',1,200.00,NULL,'{\"lot\":\"Lot A\",\"visitDate\":\"2025-11-11\"}','2025-11-09 05:08:49'),(8,7,'Adult','ticket',1,89.00,NULL,'{\"category\":\"day\",\"visitDate\":\"2025-11-20\"}','2025-11-09 05:16:04'),(9,7,'Adult','ticket',1,89.00,NULL,'{\"category\":\"day\",\"visitDate\":\"2025-11-21\"}','2025-11-09 05:16:04'),(10,7,'Adult','ticket',1,89.00,NULL,'{\"category\":\"day\",\"visitDate\":\"2025-11-12\"}','2025-11-09 05:19:27'),(11,7,'Adult','ticket',1,89.00,NULL,'{\"category\":\"day\",\"visitDate\":\"2025-11-14\"}','2025-11-09 05:28:42'),(12,7,'Adult','ticket',1,89.00,'2025-11-13','{\"category\":\"day\",\"visitDate\":\"2025-11-13\"}','2025-11-09 05:56:10'),(13,7,'Adult','ticket',1,89.00,'2025-11-11','{\"category\":\"day\",\"visitDate\":\"2025-11-11\"}','2025-11-09 16:50:46'),(14,22,'Adult','ticket',1,79.00,'2025-11-11','{\"category\":\"day\",\"visitDate\":\"2025-11-11\"}','2025-11-10 19:30:49'),(15,23,'Adult','ticket',3,79.00,'2025-11-30','{\"category\":\"day\",\"visitDate\":\"2025-11-30\"}','2025-11-10 21:06:04'),(16,23,'Child','ticket',1,29.00,'2025-11-30','{\"category\":\"day\",\"visitDate\":\"2025-11-30\"}','2025-11-10 21:06:04'),(17,23,'Senior','ticket',7,49.00,'2025-11-30','{\"category\":\"day\",\"visitDate\":\"2025-11-30\"}','2025-11-10 21:06:04'),(18,23,'Student','ticket',1,35.00,'2025-11-30','{\"category\":\"day\",\"visitDate\":\"2025-11-30\"}','2025-11-10 21:06:04'),(19,23,'Parking - Lot A','parking',1,200.00,'2025-11-30','{\"lot\":\"Lot A\",\"visitDate\":\"2025-11-30\"}','2025-11-10 21:06:04'),(20,23,'Campfire Chili Cup','food',1,6.90,NULL,NULL,'2025-11-10 21:06:28'),(21,23,'Cosmic Cooler','food',1,7.99,NULL,NULL,'2025-11-10 21:06:28'),(22,23,'Frontier Brisket Sandwich','food',1,13.99,NULL,NULL,'2025-11-10 21:06:28'),(23,23,'dino nuggies','food',1,5.99,NULL,NULL,'2025-11-10 21:06:28'),(24,23,'DragonFire Dippers','food',1,8.99,NULL,NULL,'2025-11-10 21:06:28'),(25,23,'snow globe','gift',1,5.00,NULL,NULL,'2025-11-10 21:06:28'),(30,2,'Adult','ticket',2,158.00,'2025-01-12','Weekend duo bundle','2025-01-05 15:12:00'),(31,7,'Child','ticket',3,87.00,'2025-01-13','Field trip group','2025-01-06 20:45:00'),(32,22,'Senior','ticket',1,49.00,'2025-01-10','Morning entry','2025-01-07 16:05:00'),(33,23,'Student','ticket',2,70.00,'2025-01-09','College promo code','2025-01-08 00:22:00'),(34,23,'Adult','ticket',1,79.00,'2025-11-13','{\"category\":\"day\",\"visitDate\":\"2025-11-13\"}','2025-11-11 19:09:33'),(35,23,'Parking - Lot A','parking',1,200.00,'2025-11-13','{\"lot\":\"Lot A\",\"visitDate\":\"2025-11-13\"}','2025-11-11 19:09:33'),(36,23,'Campfire Chili Cup','food',1,6.90,NULL,NULL,'2025-11-11 19:09:33'),(37,23,'Cosmic Cooler','food',1,7.99,NULL,NULL,'2025-11-11 19:09:33'),(38,23,'snow globe','gift',1,5.00,NULL,NULL,'2025-11-11 19:09:33');
+INSERT INTO `ticket_purchase` VALUES (1,7,'Adult','ticket',1,89.00,NULL,'{\"category\":\"day\"}','2025-11-09 03:10:47'),(2,7,'Parking - Lot B','parking',1,180.00,NULL,'{\"lot\":\"Lot B\"}','2025-11-09 03:10:47'),(3,7,'Adult','ticket',1,89.00,NULL,'{\"category\":\"day\",\"visitDate\":\"2025-11-12\"}','2025-11-09 04:30:16'),(4,7,'Child','ticket',1,59.00,NULL,'{\"category\":\"day\",\"visitDate\":\"2025-11-12\"}','2025-11-09 04:30:16'),(5,7,'Parking - Lot A','parking',1,200.00,NULL,'{\"lot\":\"Lot A\",\"visitDate\":\"2025-11-12\"}','2025-11-09 04:30:16'),(6,7,'Adult','ticket',2,89.00,NULL,'{\"category\":\"day\",\"visitDate\":\"2025-11-11\"}','2025-11-09 05:08:49'),(7,7,'Parking - Lot A','parking',1,200.00,NULL,'{\"lot\":\"Lot A\",\"visitDate\":\"2025-11-11\"}','2025-11-09 05:08:49'),(8,7,'Adult','ticket',1,89.00,NULL,'{\"category\":\"day\",\"visitDate\":\"2025-11-20\"}','2025-11-09 05:16:04'),(9,7,'Adult','ticket',1,89.00,NULL,'{\"category\":\"day\",\"visitDate\":\"2025-11-21\"}','2025-11-09 05:16:04'),(10,7,'Adult','ticket',1,89.00,NULL,'{\"category\":\"day\",\"visitDate\":\"2025-11-12\"}','2025-11-09 05:19:27'),(11,7,'Adult','ticket',1,89.00,NULL,'{\"category\":\"day\",\"visitDate\":\"2025-11-14\"}','2025-11-09 05:28:42'),(12,7,'Adult','ticket',1,89.00,'2025-11-13','{\"category\":\"day\",\"visitDate\":\"2025-11-13\"}','2025-11-09 05:56:10'),(13,7,'Adult','ticket',1,89.00,'2025-11-11','{\"category\":\"day\",\"visitDate\":\"2025-11-11\"}','2025-11-09 16:50:46'),(14,22,'Adult','ticket',1,79.00,'2025-11-11','{\"category\":\"day\",\"visitDate\":\"2025-11-11\"}','2025-11-10 19:30:49'),(15,23,'Adult','ticket',3,79.00,'2025-11-30','{\"category\":\"day\",\"visitDate\":\"2025-11-30\"}','2025-11-10 21:06:04'),(16,23,'Child','ticket',1,29.00,'2025-11-30','{\"category\":\"day\",\"visitDate\":\"2025-11-30\"}','2025-11-10 21:06:04'),(17,23,'Senior','ticket',7,49.00,'2025-11-30','{\"category\":\"day\",\"visitDate\":\"2025-11-30\"}','2025-11-10 21:06:04'),(18,23,'Student','ticket',1,35.00,'2025-11-30','{\"category\":\"day\",\"visitDate\":\"2025-11-30\"}','2025-11-10 21:06:04'),(19,23,'Parking - Lot A','parking',1,200.00,'2025-11-30','{\"lot\":\"Lot A\",\"visitDate\":\"2025-11-30\"}','2025-11-10 21:06:04'),(20,23,'Campfire Chili Cup','food',1,6.90,NULL,NULL,'2025-11-10 21:06:28'),(21,23,'Cosmic Cooler','food',1,7.99,NULL,NULL,'2025-11-10 21:06:28'),(22,23,'Frontier Brisket Sandwich','food',1,13.99,NULL,NULL,'2025-11-10 21:06:28'),(23,23,'dino nuggies','food',1,5.99,NULL,NULL,'2025-11-10 21:06:28'),(24,23,'DragonFire Dippers','food',1,8.99,NULL,NULL,'2025-11-10 21:06:28'),(25,23,'snow globe','gift',1,5.00,NULL,NULL,'2025-11-10 21:06:28');
 /*!40000 ALTER TABLE `ticket_purchase` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -735,7 +735,7 @@ CREATE TABLE `users` (
   UNIQUE KEY `email` (`email`),
   KEY `fk_users_employee` (`employeeID`),
   CONSTRAINT `fk_users_employee` FOREIGN KEY (`employeeID`) REFERENCES `employee` (`employeeID`) ON DELETE SET NULL ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=27 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=24 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -744,7 +744,7 @@ CREATE TABLE `users` (
 
 LOCK TABLES `users` WRITE;
 /*!40000 ALTER TABLE `users` DISABLE KEYS */;
-INSERT INTO `users` VALUES (2,'cathy.customer@timejump.test',_binary '°	\„iG≠V\ﬁ\ ƒü¯¨öŸß±™\rÙ≥\ƒ\Às¡ˇ\Í','customer',NULL,'2025-10-28 04:56:03'),(7,'jane.customer@timejump.test',_binary 'ã]Ø\ÓÉK0ü)â\Â˛≥D≥7@O\‘e\Â@J\·µR}øéW<\Ìu¢SÛ§ß\€%Íê±mB±>PV%ÜG.g|≠I¸z0\∆4\Á¿A(ΩÙ','customer',NULL,'2025-10-28 04:58:21'),(8,'ava.reynolds@timejumppark.com',_binary 'Æõ˚∞ü;8?\–\Ó\–\—NVrjø{\‰=¿!/\·M\⁄⁄≥\ƒ∑°\Ï\Î>>\Ëø\Ìj\ﬂ&”†ºé\Î)∏\…u}pπq\Ìaed\…\‚\…\◊/üBlÿáﬂöUG±','employee',10000004,'2025-11-10 03:56:01'),(9,'diego.patel@timejumppark.com',_binary '\…Iû_u≥\ÌÈïäòÑ\÷ıªiæÜ\n<\€πw8\‡å\Ê\Ô+Ü†⁄µjoJg ûUo\Í∑Kr¿óÂÇ®=~¸^Nn\Ê≤ŸÉ9\Ítò%0\'’§\0õºù','employee',10000005,'2025-11-10 03:58:23'),(10,'maya.chen@timejumppark.com',_binary 'a£\ÏwÙßÒ≤_wÉ\–\⁄#%pSππ&\ÀJµ\„`¸6AEK\∆ﬂπ\rø8\Ì≤?\\G\ËÜOØ4\‰¸\Ì{[A7\’ÚVd≥`p\ÀkIpR∫ª\È¨','employee',10000006,'2025-11-10 03:59:02'),(11,'liam.brooks@timejumppark.com',_binary 'Çã\‚u[˘•P¢\√Ò\”R\È9\¬ê\Ë\Ãi`i\„n∫\"Ñ\€/\ÊDùØ±êZ˙\Œ	Ü@E/˜ôT\']qπí2~NHfâ£≤Ä8ÕëB†%ëóê\–k≤ø','employee',10000007,'2025-11-10 03:59:46'),(12,'sophia.nguyen@timejumppark.com',_binary '∂§>\◊˜\»>´H™\’D\Ëº1ê\ÌÅa#äw\ÂÀ∂§f/JªØ^∑\÷}O\–R\ÔÜq∂∑\À)F6ö\Â4ùé ∫1àø\Ì¿Ä# V9T!]≥‘¥∫','employee',10000008,'2025-11-10 04:00:30'),(13,'jonah.morales@timejumppark.com',_binary '!\0hR\'C\È\Œ›§ Óæøce(ëˆ¶,b.©:cU˙4É[\≈4\◊\‘3eMYBWÇxø@e\Ôû84> ´\Ô]ü\Ái˛¡Ri∞S´\ \‘','employee',10000009,'2025-11-10 04:02:42'),(14,'ethan.park@timejumppark.com',_binary 'Wäx#0j\Èq⁄ño…°\«W1R°◊Æ¡Nz¶K:[I\‘$fÖe≥ OöB˚ó^≤\¬o˛∏ù<üOÑ¥6-\Ì\·íB∞Öh•ˆ\«\ÌF.sπˆ-g','employee',10000010,'2025-11-10 04:03:17'),(15,'priya.shah@timejumppark.com',_binary '\·¶H_¯=\Â(ê¡¢é Ø\¬\…Oú!îS:êÛ\Âë~õˆ∏}Ω∏:ï˚™\∆¸\∆%™—æ\◊ \Óˆ∞ë´äç©¶Äq\‘\√x]F\≈\r¢\ÃÒJ≥7\·≤','manager',10000011,'2025-11-10 04:03:53'),(16,'marcus.greene@timejumppark.com',_binary 'W¿hD†]8Å®6ˆ≥\rh…ëÛíñå®¸Ωvóu\·\"˘+\ÍW \ﬁÕòEMW^9.≈¨\√–ø\…ty\‡\0Wr\“AD\\\∆:rÉól¡\Á\Ã\«ˆ(\…¿?7	ô','manager',10000012,'2025-11-10 04:08:59'),(17,'kendall.ortiz@timejumppark.com',_binary 'ˆ\Î¢{ëGxGìKriF˜úı\\IÇñzåzÄJgˇ!\’gée.í´\n.Ha+\—Yãn\·\«g∏\0\Ôëq¥\÷+(Ø\∆\Œ7àı[u\ Or\◊','manager',10000013,'2025-11-10 04:10:20'),(18,'helena.foster@timejumppark.com',_binary 'gkïp\Ô\Ì∫v)\Ê\√B\ZIã˜})nYÉq\"LUÒ;ä(©âßP\Ë`M\”Bæ+2J∫∫˛\Õ\·4âÚöÕåè15π!ÛÒ\r\ÊtAÑb*O','admin',10000014,'2025-11-10 04:11:08'),(19,'noah.alvarez@timejumppark.com',_binary '\›yi•-π”Ü,Üûl[´•®Q\ruú=\ÕwUIõo£˜\◊t\’˚#°¿\œ\'Çn\‰∏©9rÄØ_[ÖÌüãIFá\ÔO3\ÌPZ<d/\⁄\ ¸rQ','admin',10000015,'2025-11-10 04:11:34'),(22,'newuser@gmail.com',_binary 'å?\Œ2\«hL¡6ˆ\ÔÒÇ\‚ÌäúºT\Ëe≠}è¶hí&©\›.OY	\Á~èúÉ`qg+q\¬7ãP@\ \‚QDQ\È}\ÿov$\0≠E\Î\Ë|…Ü´pîa','customer',NULL,'2025-11-10 19:30:31'),(23,'jane.customer@gmail.com',_binary 'á\≈^¿\¬ı<¿∑≥ãø–ã¬Ø}k\Z\'|_.\√;õqVóÇO¸\“¢k•ã±\—ı¬î°!,Ü\”ë˝s2í9µ\ÊÚ±\›º¢Z˛Z†à\Ï\”Ôàç?','customer',NULL,'2025-11-10 21:04:19'),(25,'customer@customer.com',_binary 'πKú\Ê>\'`A*I0±L\Ïb\‚:+ø\…\ﬂ\”\Í\”R\Á–ºP≥™Ä8Æ,hªD\ƒ5e[¢;¡c[Ä}\ ≠˙\Ÿ)ñù\‚ÚV3˛ØÄ˙\Ê≤\Ã\€\»Ò\"\ﬁ	','customer',NULL,'2025-11-12 21:01:05'),(26,'tom@gmail.com',_binary '/˛\Ô\Áj\Â1\‰A?˙C\“\„\·˝†WKÇ-\ lºëeÅò%u!V≠¯&õ†i\Áπ˙l.ôiÑﬁÄYâf@Rˇ˙¸\»_á\Ïh#NHº','customer',NULL,'2025-11-13 04:24:00');
+INSERT INTO `users` VALUES (1,'owner@example.com',_binary '\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0','owner',NULL,'2025-10-22 09:32:25'),(2,'cathy.customer@timejump.test',_binary 'ÔøΩ	\ÔøΩiGÔøΩV\ÔøΩ\ÔøΩƒüÔøΩÔøΩÔøΩŸßÔøΩÔøΩ\rÔøΩÔøΩ\ÔøΩ\ÔøΩsÔøΩÔøΩ\ÔøΩ','customer',NULL,'2025-10-28 04:56:03'),(7,'jane.customer@timejump.test',_binary 'ÔøΩ]ÔøΩ\ÔøΩK0ÔøΩ)ÔøΩ\ÔøΩÔøΩÔøΩDÔøΩ7@O\ÔøΩe\ÔøΩ@J\ÔøΩR}ÔøΩÔøΩW<\ÔøΩuÔøΩSÔøΩ\ÔøΩ%Íê±mBÔøΩ>PV%ÔøΩG.g|ÔøΩIÔøΩz0\ÔøΩ4\ÔøΩÔøΩA(ÔøΩÔøΩ','customer',NULL,'2025-10-28 04:58:21'),(8,'ava.reynolds@timejumppark.com',_binary 'ÔøΩÔøΩÔøΩÔøΩÔøΩ;8?\ÔøΩ\ÔøΩ\ÔøΩ\ÔøΩNVrjÔøΩ{\ÔøΩ=ÔøΩ!/\ÔøΩM\ÔøΩ⁄≥\ÔøΩÔøΩÔøΩ\ÔøΩ\ÔøΩ>>\ÔøΩ\ÔøΩj\ÔøΩ&”†ÔøΩÔøΩ\ÔøΩ)ÔøΩ\ÔøΩu}pÔøΩq\ÔøΩaed\ÔøΩ\ÔøΩ\ÔøΩ\ÔøΩ/ÔøΩBlÿáﬂöUGÔøΩ','employee',10000004,'2025-11-10 03:56:01'),(9,'diego.patel@timejumppark.com',_binary '\ÔøΩIÔøΩ_uÔøΩ\ÔøΩÈïäÔøΩÔøΩ\ÔøΩÔøΩÔøΩiÔøΩÔøΩ\n<\ÔøΩÔøΩw8\ÔøΩÔøΩ\ÔøΩ\ÔøΩ+ÔøΩÔøΩ⁄µjoJg ÔøΩUo\ÔøΩKrÔøΩÔøΩÂÇ®=~ÔøΩ^Nn\ÔøΩŸÉ9\ÔøΩtÔøΩ%0\'’§\0ÔøΩÔøΩÔøΩ','employee',10000005,'2025-11-10 03:58:23'),(10,'maya.chen@timejumppark.com',_binary 'aÔøΩ\ÔøΩwÔøΩÔøΩÔøΩÔøΩ_wÔøΩ\ÔøΩ\ÔøΩ#%pSÔøΩÔøΩ&\ÔøΩJÔøΩ\ÔøΩ`ÔøΩ6AEK\ÔøΩﬂπ\rÔøΩ8\ÔøΩÔøΩ?\\G\ÔøΩÔøΩOÔøΩ4\ÔøΩÔøΩ\ÔøΩ{[A7\ÔøΩÔøΩVdÔøΩ`p\ÔøΩkIpRÔøΩÔøΩ\ÔøΩ','employee',10000006,'2025-11-10 03:59:02'),(11,'liam.brooks@timejumppark.com',_binary 'ÔøΩÔøΩ\ÔøΩu[ÔøΩÔøΩPÔøΩ\ÔøΩÔøΩ\ÔøΩR\ÔøΩ9\ÔøΩÔøΩ\ÔøΩ\ÔøΩi`i\ÔøΩnÔøΩ\"ÔøΩ\ÔøΩ/\ÔøΩDÔøΩÔøΩÔøΩÔøΩZÔøΩ\ÔøΩ	ÔøΩ@E/ÔøΩÔøΩT\']qÔøΩÔøΩ2~NHfÔøΩÔøΩÔøΩÔøΩ8ÕëBÔøΩ%ÔøΩÔøΩÔøΩ\ÔøΩkÔøΩÔøΩ','employee',10000007,'2025-11-10 03:59:46'),(12,'sophia.nguyen@timejumppark.com',_binary 'ÔøΩÔøΩ>\ÔøΩÔøΩ\ÔøΩ>ÔøΩHÔøΩ\ÔøΩD\ÔøΩÔøΩ1ÔøΩ\ÔøΩa#ÔøΩw\ÔøΩÀ∂ÔøΩf/JÔøΩÔøΩ^ÔøΩ\ÔøΩ}O\ÔøΩR\ÔøΩqÔøΩÔøΩ\ÔøΩ)F6ÔøΩ\ÔøΩ4ÔøΩÔøΩ ∫1ÔøΩÔøΩ\ÔøΩÔøΩÔøΩ# V9T!]ÔøΩ‘¥ÔøΩ','employee',10000008,'2025-11-10 04:00:30'),(13,'jonah.morales@timejumppark.com',_binary '!\0hR\'C\ÔøΩ\ÔøΩ›§ Óæøce(ÔøΩÔøΩÔøΩ,b.ÔøΩ:cUÔøΩ4ÔøΩ[\ÔøΩ4\ÔøΩ\ÔøΩ3eMYBWÔøΩÔøΩxÔøΩ@e\ÔøΩ84> ÔøΩ\ÔøΩ]ÔøΩ\ÔøΩiÔøΩÔøΩRiÔøΩSÔøΩ\ÔøΩ\ÔøΩ','employee',10000009,'2025-11-10 04:02:42'),(14,'ethan.park@timejumppark.com',_binary 'WÔøΩx#0j\ÔøΩq⁄ño…°\ÔøΩW1RÔøΩ◊ÆÔøΩNzÔøΩK:[I\ÔøΩ$fÔøΩeÔøΩ OÔøΩBÔøΩÔøΩ^ÔøΩ\ÔøΩoÔøΩÔøΩÔøΩ<ÔøΩOÔøΩÔøΩ6-\ÔøΩ\ÔøΩBÔøΩhÔøΩÔøΩ\ÔøΩ\ÔøΩF.sÔøΩÔøΩ-g','employee',10000010,'2025-11-10 04:03:17'),(15,'priya.shah@timejumppark.com',_binary '\ÔøΩH_ÔøΩ=\ÔøΩ(ÔøΩÔøΩÔøΩÔøΩ Ø\ÔøΩ\ÔøΩOÔøΩ!ÔøΩS:ÔøΩÔøΩ\ÔøΩ~ÔøΩÔøΩÔøΩ}ÔøΩÔøΩ:ÔøΩÔøΩÔøΩ\ÔøΩÔøΩ\ÔøΩ%ÔøΩ—æ\ÔøΩ \ÔøΩÔøΩÔøΩÔøΩÔøΩÔøΩÔøΩÔøΩÔøΩÔøΩq\ÔøΩ\ÔøΩx]F\ÔøΩ\rÔøΩ\ÔøΩÔøΩJÔøΩ7\ÔøΩ','manager',10000011,'2025-11-10 04:03:53'),(16,'marcus.greene@timejumppark.com',_binary 'WÔøΩhDÔøΩ]8ÔøΩÔøΩ6ÔøΩÔøΩ\rh…ëÛíñåÔøΩÔøΩÔøΩvÔøΩu\ÔøΩ\"ÔøΩ+\ÔøΩW \ÔøΩÕòEMW^9.≈¨\ÔøΩ–ø\ÔøΩty\ÔøΩ\0Wr\ÔøΩAD\\\ÔøΩ:rÔøΩÔøΩlÔøΩ\ÔøΩ\ÔøΩ\ÔøΩÔøΩ(\ÔøΩÔøΩ?7	ÔøΩ','manager',10000012,'2025-11-10 04:08:59'),(17,'kendall.ortiz@timejumppark.com',_binary 'ÔøΩ\ÔøΩ{ÔøΩGÔøΩxGÔøΩKriFÔøΩÔøΩÔøΩ\\IÔøΩÔøΩzÔøΩzÔøΩJgÔøΩ!\ÔøΩgÔøΩÔøΩe.ÔøΩÔøΩ\n.Ha+\ÔøΩYÔøΩn\ÔøΩ\ÔøΩgÔøΩ\0\ÔøΩqÔøΩ\ÔøΩ+(ÔøΩ\ÔøΩ\ÔøΩ7ÔøΩÔøΩ[u\ÔøΩOr\ÔøΩ','manager',10000013,'2025-11-10 04:10:20'),(18,'helena.foster@timejumppark.com',_binary 'gkÔøΩp\ÔøΩ\ÔøΩÔøΩv)\ÔøΩ\ÔøΩB\ZIÔøΩÔøΩ})nYÔøΩq\"LUÔøΩ;ÔøΩ(ÔøΩÔøΩÔøΩP\ÔøΩ`M\ÔøΩBÔøΩ+2JÔøΩÔøΩÔøΩ\ÔøΩ\ÔøΩ4ÔøΩÔøΩÕåÔøΩ15ÔøΩ!ÔøΩÔøΩ\r\ÔøΩtAÔøΩb*O','admin',10000014,'2025-11-10 04:11:08'),(19,'noah.alvarez@timejumppark.com',_binary '\ÔøΩyiÔøΩ-ÔøΩ”Ü,ÔøΩÔøΩl[ÔøΩÔøΩÔøΩQ\ruÔøΩ=\ÔøΩwUIÔøΩoÔøΩÔøΩ\ÔøΩt\ÔøΩÔøΩ#ÔøΩÔøΩ\ÔøΩ\'ÔøΩn\ÔøΩÔøΩÔøΩ9rÔøΩÔøΩ_[ÔøΩÌüãIFÔøΩ\ÔøΩO3\ÔøΩPZ<d/\ÔøΩ\ÔøΩÔøΩrQ','admin',10000015,'2025-11-10 04:11:34'),(20,'jane.admin@example.com',_binary '6KÔøΩÎè∑\ÔøΩ\ÔøΩvmT0\ÔøΩ5ÔøΩÔøΩÔøΩ\ÔøΩ#=ÔøΩ◊ûDÔøΩ9‹¢ÔøΩ73\ÔøΩÔøΩ4ÔøΩÔøΩÔøΩÔøΩP\ÔøΩ\r\ÔøΩÔøΩ)	\ÔøΩR\ÔøΩÔøΩ\ÔøΩÔøΩÔøΩÔøΩÔøΩ_ÔøΩÔøΩYÔøΩ_ÔøΩs S\ÔøΩ\ÔøΩ~{fHÔøΩiÔøΩ','admin',10000016,'2025-11-10 04:36:40'),(22,'newuser@gmail.com',_binary 'ÔøΩ?\ÔøΩ2\ÔøΩhLÔøΩ6ÔøΩ\ÔøΩÔøΩ\ÔøΩÌäúÔøΩT\ÔøΩeÔøΩ}ÔøΩÔøΩhÔøΩ&ÔøΩ\ÔøΩ.OY	\ÔøΩ~ÔøΩÔøΩÔøΩ`qg+q\ÔøΩ7ÔøΩPÔøΩ@\ÔøΩ\ÔøΩQDQ\ÔøΩ}\ÔøΩov$\0ÔøΩE\ÔøΩ\ÔøΩ|…ÜÔøΩpÔøΩa','customer',NULL,'2025-11-10 19:30:31'),(23,'jane.customer@gmail.com',_binary 'ÔøΩ\ÔøΩ^ÔøΩ\ÔøΩÔøΩ<ÔøΩÔøΩÔøΩÔøΩÔøΩ–ã¬Ø}k\Z\'|_.\ÔøΩ;ÔøΩqVÔøΩÔøΩOÔøΩ\ÔøΩÔøΩkÔøΩÔøΩÔøΩ\ÔøΩÔøΩ¬îÔøΩ!,ÔøΩ\ÔøΩÔøΩÔøΩs2ÔøΩ9ÔøΩ\ÔøΩÔøΩ\ÔøΩÔøΩÔøΩZÔøΩZÔøΩÔøΩ\ÔøΩ\ÔøΩÔàç?','customer',NULL,'2025-11-10 21:04:19');
 /*!40000 ALTER TABLE `users` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!50003 SET @saved_cs_client      = @@character_set_client */ ;
@@ -813,6 +813,74 @@ SET character_set_client = @saved_cs_client;
 --
 -- Dumping events for database 'timejumpdb'
 --
+
+-- Temporary view structure for view `v_user_profile`
+--
+
+DROP TABLE IF EXISTS `v_user_profile`;
+/*!50001 DROP VIEW IF EXISTS `v_user_profile`*/;
+SET @saved_cs_client     = @@character_set_client;
+/*!50503 SET character_set_client = utf8mb4 */;
+/*!50001 CREATE VIEW `v_user_profile` AS SELECT 
+ 1 AS `user_id`,
+ 1 AS `email`,
+ 1 AS `role`,
+ 1 AS `employeeID`,
+ 1 AS `user_created_at`,
+ 1 AS `first_name`,
+ 1 AS `last_name`,
+ 1 AS `phone`,
+ 1 AS `birthdate`*/;
+SET character_set_client = @saved_cs_client;
+
+--
+-- Table structure for table `visitor`
+--
+
+DROP TABLE IF EXISTS `visitor`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `visitor` (
+  `user_id` int unsigned NOT NULL,
+  `first_name` varchar(50) NOT NULL,
+  `last_name` varchar(50) NOT NULL,
+  `phone` varchar(20) DEFAULT NULL,
+  `birthdate` date DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`user_id`),
+  CONSTRAINT `fk_visitor_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `visitor`
+--
+
+LOCK TABLES `visitor` WRITE;
+/*!40000 ALTER TABLE `visitor` DISABLE KEYS */;
+INSERT INTO `visitor` VALUES (7,'Jane','Customer','555-0101','2002-08-15','2025-10-28 04:58:27','2025-10-28 04:58:27');
+/*!40000 ALTER TABLE `visitor` ENABLE KEYS */;
+UNLOCK TABLES;
+/*!50003 SET @saved_cs_client      = @@character_set_client */ ;
+/*!50003 SET @saved_cs_results     = @@character_set_results */ ;
+/*!50003 SET @saved_col_connection = @@collation_connection */ ;
+/*!50003 SET character_set_client  = utf8mb4 */ ;
+/*!50003 SET character_set_results = utf8mb4 */ ;
+/*!50003 SET collation_connection  = utf8mb4_0900_ai_ci */ ;
+/*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
+/*!50003 SET sql_mode              = 'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION' */ ;
+DELIMITER ;;
+/*!50003 CREATE*/ /*!50017 DEFINER=`root`@`localhost`*/ /*!50003 TRIGGER `visitor_check_role` BEFORE INSERT ON `visitor` FOR EACH ROW BEGIN
+  IF (SELECT role FROM users WHERE user_id = NEW.user_id) <> 'customer' THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Only users with role=customer can have a visitor profile';
+  END IF;
+END */;;
+DELIMITER ;
+/*!50003 SET sql_mode              = @saved_sql_mode */ ;
+/*!50003 SET character_set_client  = @saved_cs_client */ ;
+/*!50003 SET character_set_results = @saved_cs_results */ ;
+/*!50003 SET collation_connection  = @saved_col_connection */ ;
 
 --
 -- Dumping routines for database 'timejumpdb'
@@ -961,6 +1029,24 @@ DELIMITER ;
 /*!50001 SET character_set_client      = @saved_cs_client */;
 /*!50001 SET character_set_results     = @saved_cs_results */;
 /*!50001 SET collation_connection      = @saved_col_connection */;
+
+--
+-- Final view structure for view `v_user_profile`
+--
+
+/*!50001 DROP VIEW IF EXISTS `v_user_profile`*/;
+/*!50001 SET @saved_cs_client          = @@character_set_client */;
+/*!50001 SET @saved_cs_results         = @@character_set_results */;
+/*!50001 SET @saved_col_connection     = @@collation_connection */;
+/*!50001 SET character_set_client      = utf8mb4 */;
+/*!50001 SET character_set_results     = utf8mb4 */;
+/*!50001 SET collation_connection      = utf8mb4_0900_ai_ci */;
+/*!50001 CREATE ALGORITHM=UNDEFINED */
+/*!50013 DEFINER=`root`@`localhost` SQL SECURITY INVOKER */
+/*!50001 VIEW `v_user_profile` AS select `u`.`user_id` AS `user_id`,`u`.`email` AS `email`,`u`.`role` AS `role`,`u`.`employeeID` AS `employeeID`,`u`.`created_at` AS `user_created_at`,`v`.`first_name` AS `first_name`,`v`.`last_name` AS `last_name`,`v`.`phone` AS `phone`,`v`.`birthdate` AS `birthdate` from (`users` `u` left join `visitor` `v` on((`v`.`user_id` = `u`.`user_id`))) */;
+/*!50001 SET character_set_client      = @saved_cs_client */;
+/*!50001 SET character_set_results     = @saved_cs_results */;
+/*!50001 SET collation_connection      = @saved_col_connection */;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
@@ -971,4 +1057,4 @@ DELIMITER ;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-11-12 22:28:47
+-- Dump completed on 2025-11-10 22:34:27
