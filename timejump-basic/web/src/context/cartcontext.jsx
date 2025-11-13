@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useMemo, useState, useEffect } from 'react';
+import { useAuth } from './authcontext';
 const CartContext = createContext();
 
 export function CartProvider({ children }) {
@@ -16,6 +17,11 @@ export function CartProvider({ children }) {
   useEffect(() => {
     localStorage.setItem('themeParkCart', JSON.stringify(items));
   }, [items]);
+  const { user } = useAuth();
+  useEffect(() => {
+    console.log("Auth state changed, clearing cart.");
+    setItems([]);
+  }, [user]);
   function add(item){
     setItems(prev=>{
       let next = prev;
