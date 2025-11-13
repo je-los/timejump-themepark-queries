@@ -25,7 +25,7 @@ function Planner() {
     employeeId: '',
     attractionId: '',
     shiftDate: '',
-    startTime: '09:00',
+    startTime: '10:00',
     endTime: '17:00',
     notes: '',
   });
