@@ -5,7 +5,6 @@ import {
   ensureAttractionExperienceColumns,
   ensureAttractionImageColumn,
   ensureScheduleCompletionColumn,
-  ensureScheduleNotesTable,
 } from '../services/ensure.js';
 import { pick } from '../utils/object.js';
 
@@ -399,7 +398,6 @@ export function registerOperationsRoutes(router) {
 
   router.get('/schedules', requireRole(['employee', 'manager', 'admin', 'owner'])(async ctx => {
     await ensureScheduleCompletionColumn();
-    await ensureScheduleNotesTable();
     const isEmployee = ctx.authUser.role === 'employee';
     let whereClause = '';
     const params = [];
@@ -426,10 +424,8 @@ export function registerOperationsRoutes(router) {
              s.Shift_date,
              s.Start_time,
              s.End_time,
-             s.is_completed,
-             sn.notes
+             s.is_completed
       FROM schedules s
-      LEFT JOIN schedule_notes sn ON sn.ScheduleID = s.ScheduleID
       LEFT JOIN employee e ON e.employeeID = s.EmployeeID
       LEFT JOIN attraction a ON a.AttractionID = s.AttractionID
       ${whereClause}
@@ -452,80 +448,11 @@ export function registerOperationsRoutes(router) {
         End_time: row.End_time,
         endTime: row.End_time,
         is_completed: row.is_completed === 1,
-        notes: row.notes || '',
       })),
     });
   }));
-
-  router.get('/schedules/me', requireRole(['employee', 'manager'])(async ctx => {
-    const employeeId = ctx.authUser.EmployeeID;
-    if (!employeeId) {
-      ctx.error(403, 'Only employees can view their schedule.');
-      return;
-    }
-    await ensureScheduleNotesTable();
-    const rows = await query(`
-      SELECT s.ScheduleID, s.EmployeeID, s.AttractionID, s.Shift_date, s.Start_time, s.End_time, sn.notes
-      FROM schedules s
-      LEFT JOIN schedule_notes sn ON sn.ScheduleID = s.ScheduleID
-      WHERE s.EmployeeID = ?
-      ORDER BY s.Shift_date DESC, s.Start_time ASC
-      LIMIT 100
-    `, [employeeId]).catch(() => []);
-    ctx.ok({
-      data: rows.map(row => ({
-        ...row,
-        ShiftDate: row.Shift_date,
-        StartTime: row.Start_time,
-        EndTime: row.End_time,
-      })),
-    });
-  }));
-
-  router.get('/schedules/hours', requireRole(['employee', 'manager'])(async ctx => {
-    const employeeId = ctx.authUser.EmployeeID;
-    if (!employeeId) {
-      ctx.error(403, 'Only employees can view their hours worked.');
-      return;
-    }
-    try {
-      const rows = await query(`
-        SELECT ROUND(SUM(TIME_TO_SEC(TIMEDIFF(End_time, Start_time))) / 3600) AS total_hours
-        FROM schedules
-        WHERE EmployeeID = ? AND Shift_date BETWEEN CURDATE() - INTERVAL 13 DAY AND CURDATE() AND Shift_date < CURDATE()
-      `, [employeeId]);
-
-      const totalHours = rows[0]?.total_hours || 0;
-      ctx.ok({ data: { total_hours: totalHours } });
-    } catch (err) {
-      ctx.error(500, 'Could not retrieve hours worked.');
-    }
-  }));
-
-  router.get('/schedules/total-hours', requireRole(['employee', 'manager'])(async ctx => {
-    const employeeId = ctx.authUser.EmployeeID;
-    if (!employeeId) {
-      ctx.error(403, 'Only employees can view their total hours worked.');
-      return;
-    }
-    try {
-      const rows = await query(`
-        SELECT SUM(TIME_TO_SEC(TIMEDIFF(End_time, Start_time))) / 3600 AS total_hours
-        FROM schedules
-        WHERE EmployeeID = ? AND Shift_date <= CURDATE()
-      `, [employeeId]);
-
-      const totalHours = rows[0]?.total_hours || 0;
-      ctx.ok({ data: { total_hours: parseFloat(totalHours).toFixed(2) } });
-    } catch (err) {
-      console.error(err);
-      ctx.error(500, 'Could not retrieve total hours worked.');
-    }
-  }));
-
 
   router.post('/schedules', requireRole(['manager', 'admin', 'owner'])(async ctx => {
-    console.log("You are in here, the second schedules");
     const employeeId = Number(pick(ctx.body, 'employeeId', 'EmployeeID'));
     const attractionId = Number(pick(ctx.body, 'attractionId', 'AttractionID'));
     const shiftDate = String(pick(ctx.body, 'shiftDate', 'Shift_date') || '').trim();
@@ -557,12 +484,8 @@ export function registerOperationsRoutes(router) {
         },
       });
     } catch (err) {
-      if (err && err.sqlState === '45000') {
-        ctx.error(400, err.message || 'Invalid schedule.');
-        return;
-      }
       if (err?.code === 'ER_DUP_ENTRY') {
-        ctx.error(409, 'A shift already exists for that employee during this timeframe.');
+        ctx.error(409, 'A shift already exists for that employee, attraction, and start time.');
         return;
       }
       throw err;
