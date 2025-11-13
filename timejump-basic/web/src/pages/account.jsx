@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { api } from '../auth.js';
 import { useAuth } from '../context/authcontext.jsx';
 
@@ -33,19 +33,7 @@ export default function Account() {
   const [statusTone, setStatusTone] = useState('info');
   const [orders, setOrders] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
-  const [hoursWorked, setHoursWorked] = useState(0);
   const isCustomer = user?.role === 'customer';
-  const isEmployee = useMemo(
-    () => ['employee', 'manager'].includes(user?.role) && (user?.EmployeeID || user?.employeeID),
-    [user],
-  );
-  const biweeklyDateRange = useMemo(() => {
-    if (!isEmployee) return '';
-    const today = new Date();
-    const priorDate = new Date(new Date().setDate(today.getDate() - 13));
-    const options = { month: 'short', day: 'numeric' };
-    return `${priorDate.toLocaleDateString(undefined, options)} - ${today.toLocaleDateString(undefined, options)}`;
-  }, [isEmployee]);
   const [editing, setEditing] = useState(false);
 
   function resetFormState(nextEditing = false) {
@@ -110,38 +98,6 @@ export default function Account() {
     };
   }, [user, isCustomer]);
 
-  useEffect(() => {
-    if (!isEmployee) return;
-    let cancelled = false;
-    api('/schedules/hours').then(res => {
-      if (!cancelled) setHoursWorked(res.data?.total_hours ?? 0);
-    }).catch(() => {
-      if (!cancelled) setHoursWorked(0);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [isEmployee]);
-
-  useEffect(() => {
-    if (!isEmployee) return;
-    let cancelled = false;
-    api('/schedules/total-hours').then(res => {
-      if (!cancelled) setTotalHoursWorked(res.data?.total_hours ?? 0);
-    }).catch(() => {
-      if (!cancelled) setTotalHoursWorked(0);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [isEmployee]);
-
-  const attractionNameMap = useMemo(() => {
-    const map = new Map();
-    attractions.forEach(a => map.set(a.AttractionID, a.Name));
-    return map;
-  }, [attractions]);
-
   async function handleSave(e) {
     e.preventDefault();
     if (!user || !editing) return;
@@ -202,27 +158,6 @@ export default function Account() {
           <div className="muted" style={{ fontSize: 14 }}>
             Signed in as <strong>{user.email || '—'}</strong> ({user.role})
           </div>
-          {isEmployee && (
-            <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', marginTop: 16 }}>
-              <div>
-                <h3 style={{ margin: 0, fontSize: '0.9rem', color: '#666' }}>Total Hours Worked</h3>
-                <p style={{ margin: 0, fontSize: '1.5rem', fontWeight: 700 }}>
-                  {totalHoursWorked}{' '}
-                  <span style={{ fontSize: '1rem', fontWeight: 400, color: '#999' }}>hours</span>
-                </p>
-              </div>
-              <div>
-                <h3 style={{ margin: 0, fontSize: '0.9rem', color: '#666' }}>Hours (last 14 days)</h3>
-                <div className="muted" style={{ fontSize: '0.75rem', marginBottom: 4 }}>
-                  {biweeklyDateRange}
-                </div>
-                <p style={{ margin: 0, fontSize: '1.5rem', fontWeight: 700 }}>
-                  {hoursWorked}{' '}
-                  <span style={{ fontSize: '1rem', fontWeight: 400, color: '#999' }}>hours</span>
-                </p>
-              </div>
-            </div>
-          )}
         </section>
 
         <section className="panel">
@@ -376,47 +311,6 @@ export default function Account() {
           </section>
         )}
       </div>
-      {isEmployee && (
-        <div className="page-box page-box--wide" style={{ marginTop: 24 }}>
-          <section className="panel">
-            <h2 style={{ marginTop: 0 }}>Work Schedule</h2>
-            {scheduleLoading && <div className="muted">Loading schedule…</div>}
-            {!scheduleLoading && schedules.length === 0 && (
-              <div className="muted" style={{ fontSize: 14 }}>
-                You have no upcoming shifts.
-              </div>
-            )}
-            {!scheduleLoading && schedules.length > 0 && (
-              <div className="manager-shift-grid">
-                {schedules.map((s, idx) => {
-                  const attrName = attractionNameMap.get(s.AttractionID) || 'Unknown Attraction';
-                  const shiftDate = s.Shift_date || s.shiftDate || s.ShiftDate;
-                  const startTime = s.Start_time || s.startTime || s.StartTime;
-                  const endTime = s.End_time || s.endTime || s.EndTime;
-                  const notes = s.notes || s.Notes;
-                  return (
-                    <div key={s.ScheduleID ?? idx} className="manager-shift-card">
-                      <div className="manager-shift-card__header">
-                        <h4>{attrName}</h4>
-                        <span>{formatDate(shiftDate)}</span>
-                      </div>
-                      <div className="manager-shift-card__body">
-                        <div>
-                          <label>Shift</label>
-                          <strong>
-                            {formatTime(startTime)} – {formatTime(endTime)}
-                          </strong>
-                        </div>
-                      </div>
-                      {notes && <p className="manager-shift-card__notes">{notes}</p>}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </section>
-        </div>
-      )}
     </div>
   );
 }
@@ -525,24 +419,6 @@ function PasswordForm() {
   );
 }
 
-function formatDate(value) {
-  if (!value) return '—';
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return String(value);
-  return parsed.toLocaleDateString(undefined, { dateStyle: 'medium' });
-}
-
-function formatTime(value) {
-  if (!value) return '—';
-  const [rawHours, rawMinutes] = String(value).split(':');
-  const hours = Number(rawHours);
-  const minutes = Number(rawMinutes);
-  if (!Number.isFinite(hours) || Number.isNaN(minutes)) return String(value);
-  const suffix = hours >= 12 ? 'PM' : 'AM';
-  const normalizedHour = hours % 12 || 12;
-  return `${normalizedHour}:${String(minutes).padStart(2, '0')} ${suffix}`;
-}
-
 function formatDateTime(value) {
   if (!value) return '—';
   const date = new Date(value);
@@ -561,4 +437,3 @@ function formatVisitDate(value) {
   if (Number.isNaN(date.getTime())) return '—';
   return date.toLocaleDateString(undefined, { dateStyle: 'medium' });
 }
-
