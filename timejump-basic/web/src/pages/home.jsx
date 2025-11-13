@@ -51,7 +51,7 @@ export default function Home() {
             <h1>Skip Through Time, One Thrill at a Time.</h1>
             <p>
               Journey from prehistoric jungles to neon skylines in a single day. Discover rides for families,
-              adventurers, and thrill seekers—plus dining, shows, and unforgettable souvenirs.
+              adventurers, and thrill seeker plus dining, shows, and unforgettable souvenirs.
             </p>
             <div className="home-hero__actions">
               <button className="btn primary" onClick={()=>go('/ticket-passes')}>
