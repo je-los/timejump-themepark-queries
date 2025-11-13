@@ -150,6 +150,22 @@ export default function TicketCatalog({ filter = 'all' }) {
     };
   }, []);
 
+  function resetForm() {
+    console.log("RESETTING FORM in TicketCatalog.jsx");
+
+    setVisitDate('');
+
+    setIncludeParking(false);
+    setSelectedParkingId('');
+    setTicketSelections(prevSelections => {
+      const resetSelections = {};
+      tickets.forEach(ticket => {
+        const key = ticketKey(ticket);
+        resetSelections[key] = { selected: false, qty: 1 };
+      });
+      return resetSelections;
+    });
+  }
   const grouped = useMemo(() => {
     const groups = { day: [], annual: [], birthday: [], other: [] };
     tickets.forEach(ticket => {
@@ -318,6 +334,7 @@ export default function TicketCatalog({ filter = 'all' }) {
     }
     const detailSummary = detailParts.join(' - ');
     showStatus('Items added to your cart.', 'success', detailSummary);
+    resetForm();
   }
 
   return (
