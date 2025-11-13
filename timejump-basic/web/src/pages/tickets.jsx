@@ -136,7 +136,11 @@ export default function Tickets() {
     resetForm();
     console.log("After Reset form in Parking");
   }
-
+  console.log("--- COMPONENT IS RENDERING ---");
+  console.log("ticketTypes state:", ticketTypes);
+  console.log("selectedTicket variable:", selectedTicket);
+  console.log("Is button disabled?", !selectedTicket);
+  console.log("Error state:", error);
   return (
     <div className="max-w-4xl mx-auto p-6">
       <div className="rounded-2xl border bg-white card-padding shadow-sm">
