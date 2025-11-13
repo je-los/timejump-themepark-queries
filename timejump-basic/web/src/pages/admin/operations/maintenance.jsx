@@ -142,6 +142,10 @@ export default function MaintenancePage() {
       setFormError('Attraction is required.');
       return;
     }
+    if (!form.dateBroken) {
+      setFormError('Date reported is required.');
+      return;
+    }
     if (!form.type) {
       setFormError('Repair type must be selected.');
       return;
@@ -158,11 +162,14 @@ export default function MaintenancePage() {
     setStatus('');
     setFormError('');
     try {
+      const attractionId = form.attractionId ? Number(form.attractionId) : null;
+      const dateReported = form.dateBroken || null;
       await api('/maintenance', {
         method: 'POST',
         body: JSON.stringify({
-          attractionId: form.attractionId,
-          dateBroken: form.dateBroken || null,
+          attractionId,
+          dateBroken: dateReported,
+          dateBrokenDown: dateReported,
           dateFixed: form.dateFixed || null,
           type: form.type,
           severity: form.severity,
@@ -373,5 +380,4 @@ export default function MaintenancePage() {
     </div>
   );
 }
-
 

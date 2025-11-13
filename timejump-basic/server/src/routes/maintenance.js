@@ -373,7 +373,7 @@ export function registerMaintenanceRoutes(router) {
 
   router.post('/maintenance', requireRole(['manager', 'admin', 'owner'])(async ctx => {
     const attractionId = Number(pick(ctx.body, 'attractionId', 'AttractionID'));
-    const dateBroken = String(pick(ctx.body, 'dateBrokenDown', 'Date_broken_down', 'date_broken_down') || '').trim();
+    const dateBroken = String(pick(ctx.body, 'dateBroken', 'dateBrokenDown', 'Date_broken_down', 'date_broken_down') || '').trim();
     const dateFixedRaw = pick(ctx.body, 'dateFixed', 'Date_fixed', 'date_fixed');
     const type = String(pick(ctx.body, 'typeOfMaintenance', 'type_of_maintenance') || '').trim() || null;
     const description = pick(ctx.body, 'descriptionOfWork', 'Description_of_work', 'description');
@@ -446,7 +446,7 @@ export function registerMaintenanceRoutes(router) {
     }
 
     const attractionId = pick(ctx.body, 'attractionId', 'AttractionID');
-    const dateBroken = pick(ctx.body, 'dateBrokenDown', 'Date_broken_down', 'date_broken_down');
+    const dateBroken = pick(ctx.body, 'dateBroken', 'dateBrokenDown', 'Date_broken_down', 'date_broken_down');
     const dateFixed = pick(ctx.body, 'dateFixed', 'Date_fixed', 'date_fixed');
     const type = pick(ctx.body, 'typeOfMaintenance', 'type_of_maintenance');
     const description = pick(ctx.body, 'descriptionOfWork', 'Description_of_work', 'description');

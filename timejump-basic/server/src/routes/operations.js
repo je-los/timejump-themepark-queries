@@ -415,7 +415,7 @@ export function registerOperationsRoutes(router) {
         params.push(filterId);
       }
     }
-    const rows = await query(`
+  const rows = await query(`
       SELECT s.ScheduleID,
              s.EmployeeID,
              e.name AS employee_name,
@@ -424,16 +424,52 @@ export function registerOperationsRoutes(router) {
              s.Shift_date,
              s.Start_time,
              s.End_time,
-             s.is_completed
+             s.is_completed,
+             s.ShiftStatus,
+             COALESCE(sst.StatusName,
+               CASE s.ShiftStatus
+                 WHEN 2 THEN 'cancelled_for_maintenance'
+                 WHEN 1 THEN 'cancelled'
+                 ELSE 'scheduled'
+               END
+             ) AS shift_status_name,
+             CASE
+               WHEN EXISTS (
+                 SELECT 1
+                 FROM maintenance_records mr
+                 WHERE mr.AttractionID = s.AttractionID
+                   AND s.Shift_date BETWEEN mr.Date_broken_down AND COALESCE(mr.Date_fixed, '9999-12-31')
+               ) THEN 1
+               ELSE 0
+             END AS maintenance_overlap,
+             (
+               SELECT mr.Description_of_work
+               FROM maintenance_records mr
+               WHERE mr.AttractionID = s.AttractionID
+                 AND s.Shift_date BETWEEN mr.Date_broken_down AND COALESCE(mr.Date_fixed, '9999-12-31')
+               ORDER BY (mr.Date_fixed IS NULL) DESC, mr.Date_broken_down DESC
+               LIMIT 1
+             ) AS maintenance_description
       FROM schedules s
       LEFT JOIN employee e ON e.employeeID = s.EmployeeID
       LEFT JOIN attraction a ON a.AttractionID = s.AttractionID
+      LEFT JOIN shift_status_type sst ON sst.StatusCode = s.ShiftStatus
       ${whereClause}
       ORDER BY s.Shift_date DESC, s.Start_time ASC
       LIMIT 500
     `, params).catch((err) => []);
-    ctx.ok({
-      data: rows.map(row => ({
+  ctx.ok({
+    data: rows.map(row => {
+      const maintenanceOverlap = row.maintenance_overlap === 1 || row.maintenance_overlap === true;
+      const baseStatusRaw = Number(row.ShiftStatus ?? 0);
+      const shiftStatus = baseStatusRaw === 0 && maintenanceOverlap ? 2 : baseStatusRaw;
+      const fallbackName = shiftStatus === 2 ? 'cancelled_for_maintenance'
+        : shiftStatus === 1 ? 'cancelled'
+          : 'scheduled';
+      const shiftStatusName = row.shift_status_name || fallbackName;
+      const isCancelled = shiftStatus !== 0;
+      const maintenanceNote = row.maintenance_description || null;
+      return {
         ScheduleID: row.ScheduleID,
         EmployeeID: row.EmployeeID,
         employee_name: row.employee_name || '',
@@ -448,8 +484,21 @@ export function registerOperationsRoutes(router) {
         End_time: row.End_time,
         endTime: row.End_time,
         is_completed: row.is_completed === 1,
-      })),
-    });
+        isCompleted: row.is_completed === 1,
+        ShiftStatus: shiftStatus,
+        shiftStatus,
+        shift_status: shiftStatus,
+        shiftStatusName,
+        shift_status_name: shiftStatusName,
+        is_cancelled: isCancelled,
+        isCancelled,
+        maintenanceOverlap,
+        maintenance_overlap: maintenanceOverlap,
+        maintenanceNote,
+        maintenance_note: maintenanceNote,
+      };
+    }),
+  });
   }));
 
   router.post('/schedules', requireRole(['manager', 'admin', 'owner'])(async ctx => {
@@ -566,7 +615,7 @@ export function registerOperationsRoutes(router) {
         return;
       }
       const [assignment] = await query(
-        'SELECT ScheduleID FROM schedules WHERE EmployeeID = ? AND AttractionID = ? AND Shift_date = ? AND is_completed = 0 LIMIT 1',
+        'SELECT ScheduleID FROM schedules WHERE EmployeeID = ? AND AttractionID = ? AND Shift_date = ? AND is_completed = 0 AND ShiftStatus = 0 LIMIT 1',
         [ctx.authUser.employeeId, attractionId, logDate],
       ).catch(() => []);
       if (!assignment) {
@@ -578,7 +627,7 @@ export function registerOperationsRoutes(router) {
       }
     } else if (targetScheduleId) {
       const [schedule] = await query(
-        'SELECT ScheduleID FROM schedules WHERE ScheduleID = ? AND AttractionID = ? AND Shift_date = ? LIMIT 1',
+        'SELECT ScheduleID FROM schedules WHERE ScheduleID = ? AND AttractionID = ? AND Shift_date = ? AND ShiftStatus = 0 LIMIT 1',
         [targetScheduleId, attractionId, logDate],
       ).catch(() => []);
       if (!schedule) {

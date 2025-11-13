@@ -5,6 +5,7 @@ import { useCart } from '../context/cartcontext.jsx';
 import CartModal from './cartmodal.jsx';
 import AuthToast from './authtoast.jsx';
 import { useAuthToast, queueAuthToast } from '../hooks/useauthtoast.js';
+import { BRAND_LOGO_URL, BRAND_NAME } from '../constants/brand.js';
 
 const MENU_CONFIG = [
   {
@@ -123,12 +124,12 @@ export default function Nav({ themes = [] }) {
             <Link className="nav-brand" to="/" onClick={() => setOpenMenu(null)}>
               <img
                 className="nav-brand__logo"
-                src="https://i.imgur.com/8JAUSLLh.jpg"
-                alt="Time Jump Theme Park logo"
+                src={BRAND_LOGO_URL}
+                alt={`${BRAND_NAME} logo`}
                 width={48}
                 height={48}
               />
-              <span className="nav-brand__text">Time Jump Theme Park</span>
+              <span className="nav-brand__text">{BRAND_NAME}</span>
             </Link>
           </div>
 

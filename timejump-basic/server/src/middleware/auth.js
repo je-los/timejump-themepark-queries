@@ -15,7 +15,21 @@ export async function resolveAuthUser(authHeader) {
   );
   if (!rows.length) return null;
   const row = rows[0];
-  const employeeId = row.employeeID ?? null;
+  let employeeId = row.employeeID ?? null;
+  const needsEmployeeLookup = !employeeId && row.role && row.role !== 'customer';
+  if (needsEmployeeLookup) {
+    const [employee] = await query(
+      'SELECT employeeID FROM employee WHERE email = ? LIMIT 1',
+      [row.email],
+    ).catch(() => []);
+    if (employee?.employeeID) {
+      employeeId = employee.employeeID;
+      await query(
+        'UPDATE users SET employeeID = ? WHERE user_id = ?',
+        [employeeId, row.user_id],
+      ).catch(() => {});
+    }
+  }
   return {
     id: row.user_id,
     email: row.email,

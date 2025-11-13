@@ -19,6 +19,7 @@ import { CartProvider } from './context/cartcontext.jsx';
 import { useAuth } from './context/authcontext.jsx';
 import RequireRole from './components/requirerole.jsx';
 import { useAuthToast, queueAuthToast } from './hooks/useauthtoast.js';
+import { BRAND_LOGO_URL, BRAND_NAME } from './constants/brand.js';
 
 export default function App() {
   const { user } = useAuth();
@@ -221,7 +222,14 @@ function StaffNav({ currentPath }) {
         <div className="nav-bar">
           <div className="nav-left">
             <button className="nav-brand" type="button" onClick={() => navigate('/')}>
-              Time Jump Staff
+              <img
+                className="nav-brand__logo"
+                src={BRAND_LOGO_URL}
+                alt={`${BRAND_NAME} logo`}
+                width={48}
+                height={48}
+              />
+              <span className="nav-brand__text">Time Jump Staff</span>
             </button>
             <span className="nav-role-pill">{role ? role.toUpperCase() : 'STAFF'}</span>
           </div>
