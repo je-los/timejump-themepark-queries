@@ -187,6 +187,17 @@ export async function ensureTicketCatalogTable() {
   cache.set('ticketCatalog', true);
 }
 
+export async function ensureScheduleCompletionColumn() {
+  if (cache.has('scheduleCompletion')) return;
+  await query(`
+    ALTER TABLE schedules
+    ADD COLUMN is_completed TINYINT(1) NOT NULL DEFAULT 0 AFTER End_time
+  `).catch(err => {
+    if (err?.code !== 'ER_DUP_FIELDNAME') throw err;
+  });
+  cache.set('scheduleCompletion', true);
+}
+
 export async function ensureScheduleNotesTable() {
   if (cache.has('scheduleNotes')) return;
   await query(`
@@ -227,12 +238,25 @@ export async function ensureUserProfileTable() {
   await query(`
     CREATE TABLE IF NOT EXISTS user_profile (
       user_id INT UNSIGNED PRIMARY KEY,
-      full_name VARCHAR(160),
+      first_name VARCHAR(120),
+      last_name VARCHAR(120),
+      full_name VARCHAR(240),
       phone VARCHAR(40),
+      date_of_birth DATE NULL,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       CONSTRAINT fk_user_profile_user FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE
     )
   `);
+  const addColumn = async (sql) => {
+    await query(sql).catch(err => {
+      if (err?.code !== 'ER_DUP_FIELDNAME') throw err;
+    });
+  };
+  await addColumn('ALTER TABLE user_profile ADD COLUMN first_name VARCHAR(120) NULL AFTER user_id');
+  await addColumn('ALTER TABLE user_profile ADD COLUMN last_name VARCHAR(120) NULL AFTER first_name');
+  await addColumn('ALTER TABLE user_profile ADD COLUMN full_name VARCHAR(240) NULL AFTER last_name');
+  await addColumn('ALTER TABLE user_profile ADD COLUMN phone VARCHAR(40) NULL');
+  await addColumn('ALTER TABLE user_profile ADD COLUMN date_of_birth DATE NULL AFTER phone');
   cache.set('userProfiles', true);
 }
 

@@ -25,9 +25,8 @@ function Planner() {
     employeeId: '',
     attractionId: '',
     shiftDate: '',
-    startTime: '09:00',
+    startTime: '10:00',
     endTime: '17:00',
-    notes: '',
   });
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
@@ -46,7 +45,8 @@ function Planner() {
         const employeeRows = Array.isArray(empRes?.data) ? empRes.data : (empRes?.employees || []);
         setEmployees(employeeRows.filter(row => (row.role_name ?? row.role ?? '').toLowerCase() === 'employee'));
         setAttractions(Array.isArray(attrRes?.data) ? attrRes.data : (attrRes?.attractions || []));
-        setSchedules(Array.isArray(schedRes?.data) ? schedRes.data : (schedRes?.schedules || []));
+        const scheduleRows = Array.isArray(schedRes?.data) ? schedRes.data : (schedRes?.schedules || []);
+        setSchedules(scheduleRows.filter(entry => !(entry.is_completed ?? entry.isCompleted ?? false)));
       } catch (err) {
         if (!active) return;
         setError(err?.message || 'Failed to load scheduling data.');
@@ -102,16 +102,16 @@ function Planner() {
           shiftDate: form.shiftDate,
           startTime: form.startTime,
           endTime: form.endTime,
-          notes: form.notes,
         }),
       });
       setSaveMessage('Shift assigned.');
-      setForm(prev => ({ ...prev, shiftDate: '', notes: '' }));
+      setForm(prev => ({ ...prev, shiftDate: '' }));
       const schedRes = await api('/schedules').catch(err => {
         if (err?.status === 403) return { data: [] };
         throw err;
       });
-      setSchedules(Array.isArray(schedRes?.data) ? schedRes.data : (schedRes?.schedules || []));
+      const scheduleRows = Array.isArray(schedRes?.data) ? schedRes.data : (schedRes?.schedules || []);
+      setSchedules(scheduleRows.filter(entry => !(entry.is_completed ?? entry.isCompleted ?? false)));
     } catch (err) {
       setSaveMessage(err?.message || 'Unable to save schedule.');
     } finally {
@@ -143,7 +143,7 @@ function Planner() {
       </section>
 
       <section className="manager-grid">
-        <div className="manager-panel">
+        <div className="manager-panel" style={{ alignSelf: 'start' }}>
           <h3>Assign a Shift</h3>
           <p className="manager-panel__intro">
             Choose an employee, pick their attraction, and capture shift details in one streamlined form.
@@ -177,10 +177,6 @@ function Planner() {
                 <input className="input" type="time" value={form.endTime} onChange={e=>setForm(f=>({ ...f, endTime: e.target.value }))} />
               </label>
             </div>
-            <label className="field">
-              <span>Notes (optional)</span>
-              <textarea className="input" rows={3} value={form.notes} onChange={e=>setForm(f=>({ ...f, notes: e.target.value }))} placeholder="Coverage notes, rotation info, etc." />
-            </label>
             <div className="manager-form__actions">
               <button className="btn primary" type="submit" disabled={saving}>{saving ? 'Saving...' : 'Assign Shift'}</button>
               {saveMessage && <div className="text-sm text-gray-700">{saveMessage}</div>}
@@ -229,12 +225,6 @@ function Planner() {
                         <strong>{formatTime(start)} – {formatTime(end)}</strong>
                       </div>
                     </div>
-                    {s.notes && (
-                      <div className="manager-shift-card__notes">
-                        <label>Notes</label>
-                        <p>{s.notes}</p>
-                      </div>
-                    )}
                   </div>
                 );
               })}

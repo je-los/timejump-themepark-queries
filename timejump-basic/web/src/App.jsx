@@ -151,7 +151,21 @@ function StaffShell() {
       <Routes>
         <Route path="/" element={<Navigate to={staffHome} replace />} />
         <Route path="/schedule" element={<StaffSchedulePage />} />
-        <Route path="/reports" element={<ReportsWorkspace />} />
+        <Route
+          path="/reports"
+          element={(
+            <RequireRole
+              roles={['admin', 'owner']}
+              fallback={(
+                <div className="page">
+                  <div className="panel">Reports are limited to admins and owners.</div>
+                </div>
+              )}
+            >
+              <ReportsWorkspace />
+            </RequireRole>
+          )}
+        />
         <Route path="/manager" element={<Manager />} />
         <Route
           path="/maintenance"
@@ -165,7 +179,6 @@ function StaffShell() {
           )}
         />
         <Route path="/admin/*" element={<Admin />} />
-        <Route path="/account" element={<Account />} />
         <Route path="/login" element={<Navigate to={staffHome} replace />} />
         <Route path="*" element={<Navigate to={staffHome} replace />} />
       </Routes>
@@ -175,7 +188,7 @@ function StaffShell() {
 
 const STAFF_LINKS = [
   { label: 'Schedule', path: '/schedule', roles: ['employee', 'manager'] },
-  { label: 'Reports', path: '/reports', roles: ['employee', 'manager', 'admin', 'owner'] },
+  { label: 'Reports', path: '/reports', roles: ['admin', 'owner'] },
   { label: 'Manager', path: '/manager', roles: ['manager'] },
   { label: 'Maintenance', path: '/maintenance', roles: ['manager'] },
   { label: 'Admin', path: '/admin', roles: ['admin', 'owner'] },
@@ -225,12 +238,6 @@ function StaffNav({ currentPath }) {
               ))}
             </div>
             <div className="nav-auth">
-              <button
-                className="nav-account"
-                onClick={() => navigate('/account')}
-              >
-                Account
-              </button>
               <button className="btn primary" onClick={handleSignOut}>
                 Sign Out
               </button>

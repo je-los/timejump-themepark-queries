@@ -2,7 +2,7 @@ CREATE DATABASE  IF NOT EXISTS `timejumpdb` /*!40100 DEFAULT CHARACTER SET utf8m
 USE `timejumpdb`;
 -- MySQL dump 10.13  Distrib 8.0.43, for Win64 (x86_64)
 --
--- Host: 127.0.0.1    Database: timejumpdb
+-- Host: localhost    Database: timejumpdb
 -- ------------------------------------------------------
 -- Server version	8.0.43
 
@@ -514,7 +514,7 @@ CREATE TABLE `ride_log` (
   UNIQUE KEY `uq_attr_day` (`AttractionID`,`log_date`),
   CONSTRAINT `fk_ridelog_attraction` FOREIGN KEY (`AttractionID`) REFERENCES `attraction` (`AttractionID`) ON DELETE RESTRICT ON UPDATE CASCADE,
   CONSTRAINT `ride_log_chk_1` CHECK ((`riders_count` >= 0))
-) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=31 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -523,33 +523,8 @@ CREATE TABLE `ride_log` (
 
 LOCK TABLES `ride_log` WRITE;
 /*!40000 ALTER TABLE `ride_log` DISABLE KEYS */;
-INSERT INTO `ride_log` VALUES (1,1,'2025-11-10',1320),(2,2,'2025-11-10',910),(3,3,'2025-11-10',640),(4,1,'2025-11-11',1415),(5,2,'2025-11-11',940),(6,4,'2025-11-11',780),(7,1,'2025-01-08',1280),(8,1,'2025-01-09',940),(9,2,'2025-01-08',820),(10,2,'2025-01-09',0),(11,3,'2025-01-08',1510),(12,4,'2025-01-08',670),(13,4,'2025-01-10',715);
+INSERT INTO `ride_log` VALUES (1,1,'2025-11-10',55),(2,2,'2025-11-10',910),(3,3,'2025-11-10',640),(4,1,'2025-11-11',66),(5,2,'2025-11-11',940),(6,4,'2025-11-11',780),(7,1,'2025-01-08',1280),(8,1,'2025-01-09',940),(9,2,'2025-01-08',820),(10,2,'2025-01-09',0),(11,3,'2025-01-08',1510),(12,4,'2025-01-08',670),(13,4,'2025-01-10',715),(20,2,'2025-11-13',55),(21,3,'2025-11-13',60),(22,1,'2025-11-16',22),(23,2,'2025-11-23',44),(24,1,'2025-11-24',88),(25,3,'2025-11-25',22),(26,4,'2025-11-26',3545),(27,9,'2025-11-01',85),(28,14,'2025-11-02',65),(29,8,'2025-11-03',850),(30,10,'2025-11-04',67);
 /*!40000 ALTER TABLE `ride_log` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `schedule_notes`
---
-
-DROP TABLE IF EXISTS `schedule_notes`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `schedule_notes` (
-  `ScheduleID` int unsigned NOT NULL,
-  `notes` text,
-  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`ScheduleID`),
-  CONSTRAINT `fk_sched_notes` FOREIGN KEY (`ScheduleID`) REFERENCES `schedules` (`ScheduleID`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `schedule_notes`
---
-
-LOCK TABLES `schedule_notes` WRITE;
-/*!40000 ALTER TABLE `schedule_notes` DISABLE KEYS */;
-/*!40000 ALTER TABLE `schedule_notes` ENABLE KEYS */;
 UNLOCK TABLES;
 
 --
@@ -566,6 +541,8 @@ CREATE TABLE `schedules` (
   `Shift_date` date NOT NULL,
   `Start_time` time NOT NULL,
   `End_time` time NOT NULL,
+  `completed_at` datetime DEFAULT NULL,
+  `is_completed` tinyint(1) NOT NULL DEFAULT '0',
   `ShiftMinutes` smallint unsigned GENERATED ALWAYS AS (timestampdiff(MINUTE,concat(`Shift_date`,_utf8mb4' ',`Start_time`),concat(`Shift_date`,_utf8mb4' ',`End_time`))) STORED,
   PRIMARY KEY (`ScheduleID`),
   UNIQUE KEY `uq_emp_day_attr_start` (`EmployeeID`,`Shift_date`,`AttractionID`,`Start_time`),
@@ -574,7 +551,7 @@ CREATE TABLE `schedules` (
   CONSTRAINT `fk_sched_employee` FOREIGN KEY (`EmployeeID`) REFERENCES `employee` (`employeeID`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `chk_sched_time_order` CHECK ((`End_time` > `Start_time`)),
   CONSTRAINT `chk_sched_time_window` CHECK (((`Start_time` >= TIME'10:00:00') and (`End_time` <= TIME'20:00:00')))
-) ENGINE=InnoDB AUTO_INCREMENT=51007 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=51018 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -583,7 +560,7 @@ CREATE TABLE `schedules` (
 
 LOCK TABLES `schedules` WRITE;
 /*!40000 ALTER TABLE `schedules` DISABLE KEYS */;
-INSERT INTO `schedules` (`ScheduleID`, `EmployeeID`, `AttractionID`, `Shift_date`, `Start_time`, `End_time`) VALUES (51001,10000004,1,'2025-11-10','10:00:00','18:00:00'),(51002,10000005,2,'2025-11-10','10:00:00','18:00:00'),(51003,10000006,3,'2025-11-10','10:00:00','18:00:00'),(51004,10000004,1,'2025-11-11','10:00:00','18:00:00'),(51005,10000007,4,'2025-11-11','12:00:00','20:00:00'),(51006,10000008,2,'2025-11-11','10:00:00','18:00:00');
+INSERT INTO `schedules` (`ScheduleID`, `EmployeeID`, `AttractionID`, `Shift_date`, `Start_time`, `End_time`, `completed_at`, `is_completed`) VALUES (51001,10000004,1,'2025-11-10','10:00:00','18:00:00',NULL,1),(51002,10000005,2,'2025-11-10','10:00:00','18:00:00',NULL,0),(51003,10000006,3,'2025-11-10','10:00:00','18:00:00',NULL,0),(51004,10000004,1,'2025-11-11','10:00:00','18:00:00',NULL,1),(51005,10000007,4,'2025-11-11','12:00:00','20:00:00',NULL,0),(51006,10000008,2,'2025-11-11','10:00:00','18:00:00',NULL,0),(51007,10000004,2,'2025-11-13','10:00:00','17:00:00',NULL,1),(51008,10000004,1,'2025-11-16','10:00:00','17:00:00',NULL,1),(51009,10000004,3,'2025-11-13','10:00:00','17:00:00',NULL,1),(51010,10000004,2,'2025-11-23','10:00:00','17:00:00',NULL,1),(51011,10000004,1,'2025-11-24','10:00:00','17:00:00',NULL,1),(51012,10000004,3,'2025-11-25','10:00:00','17:00:00',NULL,1),(51013,10000004,4,'2025-11-26','10:00:00','17:00:00',NULL,1),(51014,10000004,9,'2025-11-01','10:00:00','17:00:00',NULL,1),(51015,10000004,14,'2025-11-02','10:00:00','17:00:00',NULL,1),(51016,10000004,8,'2025-11-03','10:00:00','17:00:00',NULL,1),(51017,10000004,10,'2025-11-04','10:00:00','17:00:00',NULL,1);
 /*!40000 ALTER TABLE `schedules` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -721,8 +698,11 @@ DROP TABLE IF EXISTS `user_profile`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `user_profile` (
   `user_id` int unsigned NOT NULL,
+  `first_name` varchar(120) DEFAULT NULL,
+  `last_name` varchar(120) DEFAULT NULL,
   `full_name` varchar(160) DEFAULT NULL,
   `phone` varchar(40) DEFAULT NULL,
+  `date_of_birth` date DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`user_id`),
   CONSTRAINT `fk_user_profile_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE
@@ -735,6 +715,7 @@ CREATE TABLE `user_profile` (
 
 LOCK TABLES `user_profile` WRITE;
 /*!40000 ALTER TABLE `user_profile` DISABLE KEYS */;
+INSERT INTO `user_profile` VALUES (25,'jane','doe','jane doe','(555) 555-5555','2002-01-09','2025-11-12 21:01:05');
 /*!40000 ALTER TABLE `user_profile` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -756,7 +737,7 @@ CREATE TABLE `users` (
   UNIQUE KEY `email` (`email`),
   KEY `fk_users_employee` (`employeeID`),
   CONSTRAINT `fk_users_employee` FOREIGN KEY (`employeeID`) REFERENCES `employee` (`employeeID`) ON DELETE SET NULL ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=25 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=26 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -765,7 +746,7 @@ CREATE TABLE `users` (
 
 LOCK TABLES `users` WRITE;
 /*!40000 ALTER TABLE `users` DISABLE KEYS */;
-INSERT INTO `users` VALUES (1,'owner@example.com',_binary '\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0','owner',NULL,'2025-10-22 09:32:25'),(2,'cathy.customer@timejump.test',_binary 'ï¿½	\ï¿½iGï¿½V\ï¿½\ï¿½ÄŸï¿½ï¿½ï¿½Ù§ï¿½ï¿½\rï¿½ï¿½\ï¿½\ï¿½sï¿½ï¿½\ï¿½','customer',NULL,'2025-10-28 04:56:03'),(7,'jane.customer@timejump.test',_binary 'ï¿½]ï¿½\ï¿½K0ï¿½)ï¿½\ï¿½ï¿½ï¿½Dï¿½7@O\ï¿½e\ï¿½@J\ï¿½R}ï¿½ï¿½W<\ï¿½uï¿½Sï¿½\ï¿½%ê±mBï¿½>PV%ï¿½G.g|ï¿½Iï¿½z0\ï¿½4\ï¿½ï¿½A(ï¿½ï¿½','customer',NULL,'2025-10-28 04:58:21'),(8,'ava.reynolds@timejumppark.com',_binary 'ï¿½ï¿½ï¿½ï¿½ï¿½;8?\ï¿½\ï¿½\ï¿½\ï¿½NVrjï¿½{\ï¿½=ï¿½!/\ï¿½M\ï¿½Ú³\ï¿½ï¿½ï¿½\ï¿½\ï¿½>>\ï¿½\ï¿½j\ï¿½&Ó ï¿½ï¿½\ï¿½)ï¿½\ï¿½u}pï¿½q\ï¿½aed\ï¿½\ï¿½\ï¿½\ï¿½/ï¿½BlØ‡ßšUGï¿½','employee',10000004,'2025-11-10 03:56:01'),(9,'diego.patel@timejumppark.com',_binary '\ï¿½Iï¿½_uï¿½\ï¿½é•Šï¿½ï¿½\ï¿½ï¿½ï¿½iï¿½ï¿½\n<\ï¿½ï¿½w8\ï¿½ï¿½\ï¿½\ï¿½+ï¿½ï¿½ÚµjoJg ï¿½Uo\ï¿½Krï¿½ï¿½å‚¨=~ï¿½^Nn\ï¿½Ùƒ9\ï¿½tï¿½%0\'Õ¤\0ï¿½ï¿½ï¿½','employee',10000005,'2025-11-10 03:58:23'),(10,'maya.chen@timejumppark.com',_binary 'aï¿½\ï¿½wï¿½ï¿½ï¿½ï¿½_wï¿½\ï¿½\ï¿½#%pSï¿½ï¿½&\ï¿½Jï¿½\ï¿½`ï¿½6AEK\ï¿½ß¹\rï¿½8\ï¿½ï¿½?\\G\ï¿½ï¿½Oï¿½4\ï¿½ï¿½\ï¿½{[A7\ï¿½ï¿½Vdï¿½`p\ï¿½kIpRï¿½ï¿½\ï¿½','employee',10000006,'2025-11-10 03:59:02'),(11,'liam.brooks@timejumppark.com',_binary 'ï¿½ï¿½\ï¿½u[ï¿½ï¿½Pï¿½\ï¿½ï¿½\ï¿½R\ï¿½9\ï¿½ï¿½\ï¿½\ï¿½i`i\ï¿½nï¿½\"ï¿½\ï¿½/\ï¿½Dï¿½ï¿½ï¿½ï¿½Zï¿½\ï¿½	ï¿½@E/ï¿½ï¿½T\']qï¿½ï¿½2~NHfï¿½ï¿½ï¿½ï¿½8Í‘Bï¿½%ï¿½ï¿½ï¿½\ï¿½kï¿½ï¿½','employee',10000007,'2025-11-10 03:59:46'),(12,'sophia.nguyen@timejumppark.com',_binary 'ï¿½ï¿½>\ï¿½ï¿½\ï¿½>ï¿½Hï¿½\ï¿½D\ï¿½ï¿½1ï¿½\ï¿½a#ï¿½w\ï¿½Ë¶ï¿½f/Jï¿½ï¿½^ï¿½\ï¿½}O\ï¿½R\ï¿½qï¿½ï¿½\ï¿½)F6ï¿½\ï¿½4ï¿½ï¿½Êº1ï¿½ï¿½\ï¿½ï¿½ï¿½# V9T!]ï¿½Ô´ï¿½','employee',10000008,'2025-11-10 04:00:30'),(13,'jonah.morales@timejumppark.com',_binary '!\0hR\'C\ï¿½\ï¿½İ¤ î¾¿ce(ï¿½ï¿½ï¿½,b.ï¿½:cUï¿½4ï¿½[\ï¿½4\ï¿½\ï¿½3eMYBWï¿½ï¿½xï¿½@e\ï¿½84> ï¿½\ï¿½]ï¿½\ï¿½iï¿½ï¿½Riï¿½Sï¿½\ï¿½\ï¿½','employee',10000009,'2025-11-10 04:02:42'),(14,'ethan.park@timejumppark.com',_binary 'Wï¿½x#0j\ï¿½qÚ–oÉ¡\ï¿½W1Rï¿½×®ï¿½Nzï¿½K:[I\ï¿½$fï¿½eï¿½ Oï¿½Bï¿½ï¿½^ï¿½\ï¿½oï¿½ï¿½ï¿½<ï¿½Oï¿½ï¿½6-\ï¿½\ï¿½Bï¿½hï¿½ï¿½\ï¿½\ï¿½F.sï¿½ï¿½-g','employee',10000010,'2025-11-10 04:03:17'),(15,'priya.shah@timejumppark.com',_binary '\ï¿½H_ï¿½=\ï¿½(ï¿½ï¿½ï¿½ï¿½Ê¯\ï¿½\ï¿½Oï¿½!ï¿½S:ï¿½ï¿½\ï¿½~ï¿½ï¿½ï¿½}ï¿½ï¿½:ï¿½ï¿½ï¿½\ï¿½ï¿½\ï¿½%ï¿½Ñ¾\ï¿½ \ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½q\ï¿½\ï¿½x]F\ï¿½\rï¿½\ï¿½ï¿½Jï¿½7\ï¿½','manager',10000011,'2025-11-10 04:03:53'),(16,'marcus.greene@timejumppark.com',_binary 'Wï¿½hDï¿½]8ï¿½ï¿½6ï¿½ï¿½\rhÉ‘ó’–Œï¿½ï¿½ï¿½vï¿½u\ï¿½\"ï¿½+\ï¿½W \ï¿½Í˜EMW^9.Å¬\ï¿½Ğ¿\ï¿½ty\ï¿½\0Wr\ï¿½AD\\\ï¿½:rï¿½ï¿½lï¿½\ï¿½\ï¿½\ï¿½ï¿½(\ï¿½ï¿½?7	ï¿½','manager',10000012,'2025-11-10 04:08:59'),(17,'kendall.ortiz@timejumppark.com',_binary 'ï¿½\ï¿½{ï¿½Gï¿½xGï¿½KriFï¿½ï¿½ï¿½\\Iï¿½ï¿½zï¿½zï¿½Jgï¿½!\ï¿½gï¿½ï¿½e.ï¿½ï¿½\n.Ha+\ï¿½Yï¿½n\ï¿½\ï¿½gï¿½\0\ï¿½qï¿½\ï¿½+(ï¿½\ï¿½\ï¿½7ï¿½ï¿½[u\ï¿½Or\ï¿½','manager',10000013,'2025-11-10 04:10:20'),(18,'helena.foster@timejumppark.com',_binary 'gkï¿½p\ï¿½\ï¿½ï¿½v)\ï¿½\ï¿½B\ZIï¿½ï¿½})nYï¿½q\"LUï¿½;ï¿½(ï¿½ï¿½ï¿½P\ï¿½`M\ï¿½Bï¿½+2Jï¿½ï¿½ï¿½\ï¿½\ï¿½4ï¿½ï¿½ÍŒï¿½15ï¿½!ï¿½ï¿½\r\ï¿½tAï¿½b*O','admin',10000014,'2025-11-10 04:11:08'),(19,'noah.alvarez@timejumppark.com',_binary '\ï¿½yiï¿½-ï¿½Ó†,ï¿½ï¿½l[ï¿½ï¿½ï¿½Q\ruï¿½=\ï¿½wUIï¿½oï¿½ï¿½\ï¿½t\ï¿½ï¿½#ï¿½ï¿½\ï¿½\'ï¿½n\ï¿½ï¿½ï¿½9rï¿½ï¿½_[ï¿½íŸ‹IFï¿½\ï¿½O3\ï¿½PZ<d/\ï¿½\ï¿½ï¿½rQ','admin',10000015,'2025-11-10 04:11:34'),(20,'jane.admin@example.com',_binary '6Kï¿½ë·\ï¿½\ï¿½vmT0\ï¿½5ï¿½ï¿½ï¿½\ï¿½#=ï¿½×Dï¿½9Ü¢ï¿½73\ï¿½ï¿½4ï¿½ï¿½ï¿½ï¿½P\ï¿½\r\ï¿½ï¿½)	\ï¿½R\ï¿½ï¿½\ï¿½ï¿½ï¿½ï¿½ï¿½_ï¿½ï¿½Yï¿½_ï¿½s S\ï¿½\ï¿½~{fHï¿½iï¿½','admin',10000016,'2025-11-10 04:36:40'),(22,'newuser@gmail.com',_binary 'ï¿½?\ï¿½2\ï¿½hLï¿½6ï¿½\ï¿½ï¿½\ï¿½íŠœï¿½T\ï¿½eï¿½}ï¿½ï¿½hï¿½&ï¿½\ï¿½.OY	\ï¿½~ï¿½ï¿½ï¿½`qg+q\ï¿½7ï¿½Pï¿½@\ï¿½\ï¿½QDQ\ï¿½}\ï¿½ov$\0ï¿½E\ï¿½\ï¿½|É†ï¿½pï¿½a','customer',NULL,'2025-11-10 19:30:31'),(23,'jane.customer@gmail.com',_binary 'ï¿½\ï¿½^ï¿½\ï¿½ï¿½<ï¿½ï¿½ï¿½ï¿½ï¿½Ğ‹Â¯}k\Z\'|_.\ï¿½;ï¿½qVï¿½ï¿½Oï¿½\ï¿½ï¿½kï¿½ï¿½ï¿½\ï¿½ï¿½Â”ï¿½!,ï¿½\ï¿½ï¿½ï¿½s2ï¿½9ï¿½\ï¿½ï¿½\ï¿½ï¿½ï¿½Zï¿½Zï¿½ï¿½\ï¿½\ï¿½ïˆ?','customer',NULL,'2025-11-10 21:04:19'),(24,'umazooma@gmail.com',_binary '\ï¿½jÈ¸#ï¿½ï¿½ï¿½kï¿½ZE\"\ï¿½\ï¿½ï¿½`HHï¿½\ï¿½Wï¿½@Nï¿½Oï¿½6 T@|Kï¿½)ï¿½ï¿½,ï¿½H\01\ï¿½\ï¿½Öˆï¿½)ï¿½ï¿½\ï¿½w9V\\	~\ï¿½G\ï¿½P3\ï¿½!ï¿½ï¿½Jï¿½ï¿½\ï¿½\ï¿½\ï¿½','customer',NULL,'2025-11-12 02:28:17');
+INSERT INTO `users` VALUES (1,'owner@example.com',_binary '\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0','owner',NULL,'2025-10-22 09:32:25'),(2,'cathy.customer@timejump.test',_binary '¡	\ãiG­V\Ş\ÊÄŸø¬šÙ§±ª\rô³\Ä\ËsÁÿ\ê','customer',NULL,'2025-10-28 04:56:03'),(7,'jane.customer@timejump.test',_binary '‹]¯\îƒK0Ÿ)‰\åş³D³7@O\Ôe\å@J\áµR}¿W<\íu¢Só¤§\Û%ê±mB±>PV%†G.g|­Iüz0\Æ4\çÀA(½ô','customer',NULL,'2025-10-28 04:58:21'),(8,'ava.reynolds@timejumppark.com',_binary '®›û°Ÿ;8?\Ğ\î\Ğ\ÑNVrj¿{\ä=À!/\áM\ÚÚ³\Ä·¡\ì\ë>>\è¿\íj\ß&Ó ¼\ë)¸\Éu}p¹q\íaed\É\â\É\×/ŸBlØ‡ßšUG±','employee',10000004,'2025-11-10 03:56:01'),(9,'diego.patel@timejumppark.com',_binary '\ÉI_u³\íé•Š˜„\Öõ»i¾†\n<\Û¹w8\àŒ\æ\ï+† ÚµjoJg Uo\ê·KrÀ—å‚¨=~ü^Nn\æ²Ùƒ9\êt˜%0\'Õ¤\0›¼','employee',10000005,'2025-11-10 03:58:23'),(10,'maya.chen@timejumppark.com',_binary 'a£\ìwô§ñğ²_wƒ\Ğ\Ú#%pS¹¹&\ËJµ\ã`ü6AEK\Æß¹\r¿8\í²?\\G\è†O¯4\äü\í{[A7\ÕòVd³`p\ËkIpRº»\é¬','employee',10000006,'2025-11-10 03:59:02'),(11,'liam.brooks@timejumppark.com',_binary '‚‹\âu[ù¥P¢\Ãñ\ÓR\é9\Â\è\Ìi`i\ãnº\"„\Û/\æD¯±Zú\Î	†@E/÷™T\']q¹’2~NHf‰£²€8Í‘B %‘—\Ğk²¿','employee',10000007,'2025-11-10 03:59:46'),(12,'sophia.nguyen@timejumppark.com',_binary '¶¤>\×÷\È>«Hª\ÕD\è¼1\ía#Šw\åË¶¤f/J»¯^·\Ö}O\ĞR\ï†q¶·\Ë)F6š\å4Êº1ˆ¿\íÀ€# V9T!]³Ô´º','employee',10000008,'2025-11-10 04:00:30'),(13,'jonah.morales@timejumppark.com',_binary '!\0hR\'C\é\Îİ¤ î¾¿ce(‘ö¦,b.©:cUú4ƒ[\Å4\×\Ô3eMYBWğ‚x¿@e\ï84> «\ï]Ÿ\çişÁRi°S«\Ê\Ô','employee',10000009,'2025-11-10 04:02:42'),(14,'ethan.park@timejumppark.com',_binary 'WŠx#0j\éqÚ–oÉ¡\ÇW1R¡×®ÁNz¦K:[I\Ô$f…e³ OšBû—^²\Âoş¸<ŸO„´6-\í\á’Bğ°…h¥ö\Ç\íF.s¹ö-g','employee',10000010,'2025-11-10 04:03:17'),(15,'priya.shah@timejumppark.com',_binary '\á¦H_ø=\å(Á¢Ê¯\Â\ÉOœ!”S:ó\å‘~›ö¸}½¸:•ûª\Æü\Æ%ªÑ¾\× \îö°‘«Š©¦€q\Ô\Ãx]F\Å\r¢\ÌñJ³7\á²','manager',10000011,'2025-11-10 04:03:53'),(16,'marcus.greene@timejumppark.com',_binary 'WÀhD ]8¨6ö³\rhÉ‘ó’–Œ¨ü½v—u\á\"ù+\êW \ŞÍ˜EMW^9.Å¬\ÃĞ¿\Éty\à\0Wr\ÒAD\\\Æ:rƒ—lÁ\ç\Ì\Çö(\ÉÀ?7	™','manager',10000012,'2025-11-10 04:08:59'),(17,'kendall.ortiz@timejumppark.com',_binary 'ö\ë¢{‘GğxG“KriF÷œõ\\I‚–zŒz€Jgÿ!\Õgğe.’«\n.Ha+\ÑY‹n\á\Çg¸\0\ï‘q´\Ö+(¯\Æ\Î7ˆõ[u\ÊOr\×','manager',10000013,'2025-11-10 04:10:20'),(18,'helena.foster@timejumppark.com',_binary 'gk•p\ï\íºv)\æ\ÃB\ZI‹÷})nYƒq\"LUñ;Š(©‰§P\è`M\ÓB¾+2Jººş\Í\á4‰òšÍŒ15¹!óñ\r\ætA„b*O','admin',10000014,'2025-11-10 04:11:08'),(19,'noah.alvarez@timejumppark.com',_binary '\İyi¥-¹Ó†,†l[«¥¨Q\ruœ=\ÍwUI›o£÷\×t\Õû#¡À\Ï\'‚n\ä¸©9r€¯_[…íŸ‹IF‡\ïO3\íPZ<d/\Ú\ÊürQ','admin',10000015,'2025-11-10 04:11:34'),(20,'jane.admin@example.com',_binary '6K©ë·\Ï\ÖvmT0\é5®®€\ç³#=™×Dµ9Ü¢º73\à—4÷œòùP\á\r\Æù)	\ÅR\Éÿ\ÒÁš §_‹±Y¬_ús S\ï\ë~{fH«i©','admin',10000016,'2025-11-10 04:36:40'),(22,'newuser@gmail.com',_binary 'Œ?\Î2\ÇhLÁ6ö\ïñ‚\âíŠœ¼T\èe­}¦h’&©\İ.OY	\ç~œƒ`qg+q\Â7‹Pğ@\Ê\âQDQ\é}\Øov$\0­E\ë\è|É†«p”a','customer',NULL,'2025-11-10 19:30:31'),(23,'jane.customer@gmail.com',_binary '‡\Å^À\Âõ<À·³‹¿Ğ‹Â¯}k\Z\'|_.\Ã;›qV—‚Oü\Ò¢k¥‹±\ÑõÂ”¡!,†\Ó‘ıs2’9µ\æò±\İ¼¢ZşZ ˆ\ì\Óïˆ?','customer',NULL,'2025-11-10 21:04:19'),(24,'umazooma@gmail.com',_binary '\ÃjÈ¸#©³kšZE\"\å¯\îı`HHö\ãW¾@NğO­6 T@|K¶)ˆÀ,ºH\01\Â\æÖˆ¤)ÿ°\Çw9V\\	~\ÒG\éP3\Ô!ŒˆJ«Á\ì®\î¶\Ú','customer',NULL,'2025-11-12 02:28:17'),(25,'customer@customer.com',_binary '¹Kœ\æ>\'`A*I0±L\ìb\â:+¿\É\ß\Ó\ê\ÓR\çĞ¼P³ª€8®,h»D\Ä5e[¢;Ác[€}\Ê­ú\Ù)–\âòV3ş¯€ú\æ²\Ì\Û\Èñ\"\Ş	','customer',NULL,'2025-11-12 21:01:05');
 /*!40000 ALTER TABLE `users` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!50003 SET @saved_cs_client      = @@character_set_client */ ;
@@ -830,75 +811,6 @@ SET @saved_cs_client     = @@character_set_client;
  1 AS `EndsAt`,
  1 AS `Note`*/;
 SET character_set_client = @saved_cs_client;
-
---
--- Temporary view structure for view `v_user_profile`
---
-
-DROP TABLE IF EXISTS `v_user_profile`;
-/*!50001 DROP VIEW IF EXISTS `v_user_profile`*/;
-SET @saved_cs_client     = @@character_set_client;
-/*!50503 SET character_set_client = utf8mb4 */;
-/*!50001 CREATE VIEW `v_user_profile` AS SELECT 
- 1 AS `user_id`,
- 1 AS `email`,
- 1 AS `role`,
- 1 AS `employeeID`,
- 1 AS `user_created_at`,
- 1 AS `first_name`,
- 1 AS `last_name`,
- 1 AS `phone`,
- 1 AS `birthdate`*/;
-SET character_set_client = @saved_cs_client;
-
---
--- Table structure for table `visitor`
---
-
-DROP TABLE IF EXISTS `visitor`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `visitor` (
-  `user_id` int unsigned NOT NULL,
-  `first_name` varchar(50) NOT NULL,
-  `last_name` varchar(50) NOT NULL,
-  `phone` varchar(20) DEFAULT NULL,
-  `birthdate` date DEFAULT NULL,
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`user_id`),
-  CONSTRAINT `fk_visitor_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `visitor`
---
-
-LOCK TABLES `visitor` WRITE;
-/*!40000 ALTER TABLE `visitor` DISABLE KEYS */;
-INSERT INTO `visitor` VALUES (7,'Jane','Customer','555-0101','2002-08-15','2025-10-28 04:58:27','2025-10-28 04:58:27');
-/*!40000 ALTER TABLE `visitor` ENABLE KEYS */;
-UNLOCK TABLES;
-/*!50003 SET @saved_cs_client      = @@character_set_client */ ;
-/*!50003 SET @saved_cs_results     = @@character_set_results */ ;
-/*!50003 SET @saved_col_connection = @@collation_connection */ ;
-/*!50003 SET character_set_client  = utf8mb4 */ ;
-/*!50003 SET character_set_results = utf8mb4 */ ;
-/*!50003 SET collation_connection  = utf8mb4_0900_ai_ci */ ;
-/*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
-/*!50003 SET sql_mode              = 'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION' */ ;
-DELIMITER ;;
-/*!50003 CREATE*/ /*!50017 DEFINER=`root`@`localhost`*/ /*!50003 TRIGGER `visitor_check_role` BEFORE INSERT ON `visitor` FOR EACH ROW BEGIN
-  IF (SELECT role FROM users WHERE user_id = NEW.user_id) <> 'customer' THEN
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Only users with role=customer can have a visitor profile';
-  END IF;
-END */;;
-DELIMITER ;
-/*!50003 SET sql_mode              = @saved_sql_mode */ ;
-/*!50003 SET character_set_client  = @saved_cs_client */ ;
-/*!50003 SET character_set_results = @saved_cs_results */ ;
-/*!50003 SET collation_connection  = @saved_col_connection */ ;
 
 --
 -- Dumping events for database 'timejumpdb'
@@ -1051,24 +963,6 @@ DELIMITER ;
 /*!50001 SET character_set_client      = @saved_cs_client */;
 /*!50001 SET character_set_results     = @saved_cs_results */;
 /*!50001 SET collation_connection      = @saved_col_connection */;
-
---
--- Final view structure for view `v_user_profile`
---
-
-/*!50001 DROP VIEW IF EXISTS `v_user_profile`*/;
-/*!50001 SET @saved_cs_client          = @@character_set_client */;
-/*!50001 SET @saved_cs_results         = @@character_set_results */;
-/*!50001 SET @saved_col_connection     = @@collation_connection */;
-/*!50001 SET character_set_client      = utf8mb4 */;
-/*!50001 SET character_set_results     = utf8mb4 */;
-/*!50001 SET collation_connection      = utf8mb4_0900_ai_ci */;
-/*!50001 CREATE ALGORITHM=UNDEFINED */
-/*!50013 DEFINER=`root`@`localhost` SQL SECURITY INVOKER */
-/*!50001 VIEW `v_user_profile` AS select `u`.`user_id` AS `user_id`,`u`.`email` AS `email`,`u`.`role` AS `role`,`u`.`employeeID` AS `employeeID`,`u`.`created_at` AS `user_created_at`,`v`.`first_name` AS `first_name`,`v`.`last_name` AS `last_name`,`v`.`phone` AS `phone`,`v`.`birthdate` AS `birthdate` from (`users` `u` left join `visitor` `v` on((`v`.`user_id` = `u`.`user_id`))) */;
-/*!50001 SET character_set_client      = @saved_cs_client */;
-/*!50001 SET character_set_results     = @saved_cs_results */;
-/*!50001 SET collation_connection      = @saved_col_connection */;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
@@ -1079,4 +973,4 @@ DELIMITER ;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-11-11 22:51:01
+-- Dump completed on 2025-11-12 15:37:05

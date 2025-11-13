@@ -81,7 +81,7 @@ function getFallbackMonthlyRows(start, end, rideFilter, limit) {
 }
 
 export function registerReportRoutes(router) {
-  router.get('/cancellation-reasons', requireRole(['employee', 'manager', 'admin', 'owner'])(async ctx => {
+  router.get('/cancellation-reasons', requireRole(['admin', 'owner'])(async ctx => {
     const rows = await query(
       'SELECT DISTINCT reason FROM ride_cancellation WHERE reason IS NOT NULL AND reason <> "" ORDER BY reason ASC',
     ).catch(() => []);
@@ -110,7 +110,7 @@ export function registerReportRoutes(router) {
     });
   }));
 
-  router.get('/reports/cancellations', requireRole(['employee', 'manager', 'admin', 'owner'])(async ctx => {
+  router.get('/reports/cancellations', requireRole(['admin', 'owner'])(async ctx => {
     const start = String(ctx.query.start || '').trim();
     const end = String(ctx.query.end || '').trim();
     const reasonsParam = String(ctx.query.reasons || '').trim();
@@ -178,7 +178,7 @@ export function registerReportRoutes(router) {
     });
   }));
 
-  router.get('/reports/riders-per-day', requireRole(['employee', 'manager', 'admin', 'owner'])(async ctx => {
+  router.get('/reports/riders-per-day', requireRole(['admin', 'owner'])(async ctx => {
     const groupMode = String(ctx.query.group || 'day').trim().toLowerCase() === 'month' ? 'month' : 'day';
     const date = String(ctx.query.date || '').trim();
     let start = String(ctx.query.start || '').trim();
@@ -294,7 +294,7 @@ export function registerReportRoutes(router) {
     });
   }));
 
-  router.get('/reports/ticket-sales', requireRole(['employee', 'manager', 'admin', 'owner'])(async ctx => {
+  router.get('/reports/ticket-sales', requireRole(['admin', 'owner'])(async ctx => {
     const start = String(ctx.query.start || '').trim();
     const end = String(ctx.query.end || '').trim();
     const typeFilter = String(ctx.query.type || ctx.query.ticketType || '').trim();
@@ -351,7 +351,7 @@ export function registerReportRoutes(router) {
     });
   }));
 
-  router.get('/reports/revenue', requireRole(['employee', 'manager', 'admin', 'owner'])(async ctx => {
+  router.get('/reports/revenue', requireRole(['admin', 'owner'])(async ctx => {
     const start = String(ctx.query.start || '').trim();
     const end = String(ctx.query.end || '').trim();
     const groupRaw = String(ctx.query.group || '').trim().toLowerCase();
@@ -419,7 +419,7 @@ export function registerReportRoutes(router) {
     ctx.ok({ data: filtered });
   }));
 
-  router.get('/reports/analytics', requireRole(['employee', 'manager', 'admin', 'owner'])(async ctx => {
+  router.get('/reports/analytics', requireRole(['admin', 'owner'])(async ctx => {
     const metricsParam = String(ctx.query.metrics || '').trim();
     if (!metricsParam) {
       ctx.ok({ data: [] });
