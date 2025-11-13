@@ -433,7 +433,12 @@ export function registerOperationsRoutes(router) {
       ${whereClause}
       ORDER BY s.Shift_date DESC, s.Start_time ASC
       LIMIT 500
-    `, params).catch(() => []);
+    `, params).catch((err) => {
+
+      console.error("❌ SQL ERROR in /schedules:", err);
+      ctx.error(500, "Database error");
+      return [];
+    });
     console.log("✅ Query returned rows:", rows.length);
     ctx.ok({
       data: rows.map(row => ({
