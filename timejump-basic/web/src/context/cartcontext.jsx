@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useMemo, useState, useEffect } from 'react';
 import { useAuth } from './authcontext';
+import { triggerAuthToast } from '../hooks/useauthtoast.js';
 const CartContext = createContext();
 
 function getStorageKey(user) {
@@ -9,6 +10,21 @@ function getStorageKey(user) {
 export function CartProvider({ children }) {
   const [items, setItems] = useState([]);
   const { user } = useAuth();
+  const isSignedIn = Boolean(user);
+  function currentPathWithSearch() {
+    if (typeof window === 'undefined') return '/';
+    const { pathname = '/', search = '' } = window.location || {};
+    if (!pathname || !pathname.startsWith('/')) return '/';
+    return `${pathname}${search}`;
+  }
+  function guardCartActions() {
+    if (isSignedIn) return false;
+    triggerAuthToast({
+      type: 'require-signin',
+      redirectTo: currentPathWithSearch(),
+    });
+    return true;
+  }
   useEffect(() => {
     localStorage.setItem('themeParkCart', JSON.stringify(items));
   }, [items]);
@@ -47,6 +63,7 @@ export function CartProvider({ children }) {
     }
   }, [items, user])
   function add(item){
+    if (guardCartActions()) return;
     setItems(prev=>{
       let next = prev;
       if (item.kind === 'parking') {
@@ -61,9 +78,18 @@ export function CartProvider({ children }) {
       return [...next, { qty:1, ...item }];
     });
   }
-  function remove(key){ setItems(prev=>prev.filter((_,i)=>i!==key)); }
-  function updateQty(key, qty){ setItems(prev=>prev.map((it,i)=> i===key?{...it, qty:Math.max(1,qty)}:it)); }
-  function clear(){ setItems([]); }
+  function remove(key){
+    if (guardCartActions()) return;
+    setItems(prev=>prev.filter((_,i)=>i!==key));
+  }
+  function updateQty(key, qty){
+    if (guardCartActions()) return;
+    setItems(prev=>prev.map((it,i)=> i===key?{...it, qty:Math.max(1,qty)}:it));
+  }
+  function clear(){
+    if (guardCartActions()) return;
+    setItems([]);
+  }
   const total = useMemo(()=> items.reduce((s,i)=> s + (Number(i.price||0)*Number(i.qty||1)), 0), [items]);
   return <CartContext.Provider value={{ items, add, remove, updateQty, clear, total }}>{children}</CartContext.Provider>;
 }

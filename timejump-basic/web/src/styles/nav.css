@@ -210,6 +210,22 @@
   font-size: .9rem;
   color: rgba(248, 250, 252, .8);
 }
+.nav-toast-flyout__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+  padding-top: 2px;
+}
+.nav-toast-flyout__actions .btn {
+  padding: 6px 12px;
+  font-size: .85rem;
+  border-radius: 10px;
+}
+.nav-toast-flyout__actions .btn.primary {
+  padding-left: 14px;
+  padding-right: 14px;
+}
 .nav-toast-flyout .btn.primary {
   justify-self: flex-start;
   padding-left: 18px;
