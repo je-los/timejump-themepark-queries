@@ -23,15 +23,17 @@ async function initTransporter() {
     return null;
   }
 
-  const secure = typeof SMTP_SECURE === 'string'
-    ? SMTP_SECURE === 'true' || SMTP_SECURE === '1'
-    : Number(SMTP_PORT) === 465;
-
   return nodemailer.createTransport({
     host: SMTP_HOST,
-    port: Number(SMTP_PORT),
-    secure,
-    auth: SMTP_USER && SMTP_PASS ? { user: SMTP_USER, pass: SMTP_PASS } : undefined,
+    port: parseInt(SMTP_PORT || '587'),
+    secure: false, // Brevo uses STARTTLS on port 587
+    auth: {
+      user: SMTP_USER,
+      pass: SMTP_PASS,
+    },
+    tls: {
+      ciphers: 'SSLv3' 
+    }
   });
 }
 
