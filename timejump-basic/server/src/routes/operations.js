@@ -397,9 +397,7 @@ export function registerOperationsRoutes(router) {
   }));
 
   router.get('/schedules', requireRole(['employee', 'manager', 'admin', 'owner'])(async ctx => {
-    console.log('authUser:', ctx.authUser);
     await ensureScheduleCompletionColumn();
-    console.log("✅ ensureScheduleCompletionColumn passed");
     const isEmployee = ctx.authUser.role === 'employee';
     let whereClause = '';
     const params = [];
@@ -422,7 +420,7 @@ export function registerOperationsRoutes(router) {
              s.EmployeeID,
              e.name AS employee_name,
              s.AttractionID,
-             a.Name AS attraction_name,
+             a.Name AS attraction_Name,
              s.Shift_date,
              s.Start_time,
              s.End_time,
@@ -433,13 +431,7 @@ export function registerOperationsRoutes(router) {
       ${whereClause}
       ORDER BY s.Shift_date DESC, s.Start_time ASC
       LIMIT 500
-    `, params).catch((err) => {
-
-      console.error("❌ SQL ERROR in /schedules:", err);
-      ctx.error(500, "Database error");
-      return [];
-    });
-    console.log("✅ Query returned rows:", rows.length);
+    `, params).catch((err) => []);
     ctx.ok({
       data: rows.map(row => ({
         ScheduleID: row.ScheduleID,
