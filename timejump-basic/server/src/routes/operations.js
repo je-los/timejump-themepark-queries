@@ -420,7 +420,7 @@ export function registerOperationsRoutes(router) {
              s.EmployeeID,
              e.name AS employee_name,
              s.AttractionID,
-             a.Name AS attraction_Name,
+             a.Name AS attraction_name,
              s.Shift_date,
              s.Start_time,
              s.End_time,
