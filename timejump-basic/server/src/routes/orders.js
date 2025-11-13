@@ -5,6 +5,7 @@ import {
   ensureMenuSalesTable,
   ensureTicketPurchaseTables,
 } from '../services/ensure.js';
+import { sendTicketPurchaseEmail } from '../services/mailer.js';
 
 function normalizeItems(rawItems) {
   if (!Array.isArray(rawItems)) return [];
@@ -77,6 +78,18 @@ export function registerOrderRoutes(router) {
         ).catch(() => {});
       }
     }
+    const ticketItems = items.filter(item => item.kind === 'ticket');
+    if (ticketItems.length && ctx.authUser?.email) {
+      sendTicketPurchaseEmail({
+        to: ctx.authUser.email,
+        items: ticketItems,
+        total: ticketItems.reduce((sum, item) => sum + item.price * item.qty, 0),
+        purchaseDate: now,
+      }).catch(err => {
+        console.warn('[orders] Failed to queue ticket email', err?.message || err);
+      });
+    }
+
     ctx.ok({
       message: 'Thanks! Your purchase is confirmed and the details have been saved to your account.',
       data: {
