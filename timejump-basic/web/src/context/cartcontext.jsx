@@ -2,26 +2,50 @@ import React, { createContext, useContext, useMemo, useState, useEffect } from '
 import { useAuth } from './authcontext';
 const CartContext = createContext();
 
+function getStorageKey(user) {
+  if (!user || !user.id) return null; 
+  return `themeParkCart_${user.id}`; 
+}
 export function CartProvider({ children }) {
-  const [items, setItems] = useState(() => {
-    try {
-      const savedCart = localStorage.getItem('themeParkCart');
-      if (savedCart) {
-        return JSON.parse(savedCart);
-      }
-    } catch (err) {
-      console.error('Failed to load cart from localStorage', err);
-    }
-    return []; 
-  });
+  const [items, setItems] = useState([]);
+  const { user } = useAuth();
   useEffect(() => {
     localStorage.setItem('themeParkCart', JSON.stringify(items));
   }, [items]);
-  const { user } = useAuth();
   useEffect(() => {
-    console.log("Auth state changed, clearing cart.");
-    setItems([]);
+    // Check if the user is logged in
+    if (user && user.id) {
+      const storageKey = getStorageKey(user);
+      console.log("User changed, loading cart from key:", storageKey);
+      try {
+        const savedCart = localStorage.getItem(storageKey);
+        if (savedCart) {
+          // Found a saved cart for this user
+          setItems(JSON.parse(savedCart));
+        } else {
+          // No saved cart for this user, start empty
+          setItems([]);
+        }
+      } catch (err) {
+        console.error('Failed to load user-specific cart', err);
+        setItems([]);
+      }
+    } else {
+      // User is logged out
+      console.log("User logged out, clearing cart state.");
+      setItems([]);
+    }
   }, [user]);
+
+  useEffect(() => {
+    const storageKey = getStorageKey(user);
+    
+    // Only save if the user is logged in (i.e., we have a storage key)
+    if (storageKey) {
+      console.log("Items changed, saving cart to key:", storageKey);
+      localStorage.setItem(storageKey, JSON.stringify(items));
+    }
+  }, [items, user])
   function add(item){
     setItems(prev=>{
       let next = prev;
