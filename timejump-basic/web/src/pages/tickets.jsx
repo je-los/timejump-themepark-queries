@@ -103,11 +103,7 @@ export default function Tickets() {
         meta: { lot: selectedParking.name },
       });
     }
-    setQty(1);
-    setIncludeParking(false);
-    setParkingQty(1);
-    setPassType('');
-    setParkingLot('');
+    resetForm();
   }
 
   function addParkingOnly() {
@@ -120,12 +116,15 @@ export default function Tickets() {
       qty: parkingQty,
       meta: { lot: selectedParking.name },
     });
+    resetForm();
+  }
+  function resetForm() {
     setQty(1);
     setIncludeParking(false);
     setParkingQty(1);
     setPassType('');
     setParkingLot('');
-  }
+}
 
   return (
     <div className="max-w-4xl mx-auto p-6">
