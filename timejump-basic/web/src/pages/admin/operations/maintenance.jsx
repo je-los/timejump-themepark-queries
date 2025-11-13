@@ -38,6 +38,13 @@ export default function MaintenancePage() {
   const [types, setTypes] = useState([]);
   const [severities, setSeverities] = useState(DEFAULT_SEVERITIES);
   const canApprove = ['manager', 'admin', 'owner'].includes(user?.role);
+  const [missingFields, setMissingFields] = useState({
+    attractionId: false,
+    dateBroken: false,
+    type: false,
+    severity: false,
+    description: false,
+  });
 
   const loadRecords = useCallback(async () => {
     setLoading(true);
@@ -138,20 +145,16 @@ export default function MaintenancePage() {
   async function handleSubmit(e) {
     e.preventDefault();
     if (saving) return;
-    if (!form.attractionId) {
-      setFormError('Attraction is required.');
-      return;
-    }
-    if (!form.type) {
-      setFormError('Repair type must be selected.');
-      return;
-    }
-    if (!form.severity) {
-      setFormError('Severity must be selected.');
-      return;
-    }
-    if (!form.description.trim()) {
-      setFormError('Description is required.');
+    const missing = {
+      attractionId: !form.attractionId,
+      dateBroken: !form.dateBroken,
+      type: !form.type,
+      severity: !form.severity,
+      description: !form.description.trim(),
+    };
+    setMissingFields(missing);
+    if (missing.attractionId || missing.dateBroken || missing.type || missing.severity || missing.description) {
+      setFormError('Please fill in all required fields.');
       return;
     }
     setSaving(true);
@@ -178,6 +181,13 @@ export default function MaintenancePage() {
         severity: '',
         description: '',
       });
+      setMissingFields({
+        attractionId: false,
+        dateBroken: false,
+        type: false,
+        severity: false,
+        description: false,
+      });
       loadRecords();
     } catch (err) {
       setFormError(err?.message || 'Failed to save maintenance record.');
@@ -193,7 +203,7 @@ export default function MaintenancePage() {
           <h3 style={{ marginTop: 0 }}>Log Maintenance</h3>
           <form className="admin-form-grid" onSubmit={handleSubmit}>
             <label className="field">
-              <span>Attraction</span>
+              <span>Attraction{missingFields.attractionId && <span className="missing-asterisk">*</span>}</span>
               <select
                 className="input"
                 value={form.attractionId}
@@ -209,7 +219,7 @@ export default function MaintenancePage() {
               </select>
             </label>
             <label className="field">
-              <span>Date reported</span>
+              <span>Date reported{missingFields.dateBroken && <span className="missing-asterisk">*</span>}</span>
               <input
                 className="input"
                 type="date"
@@ -229,7 +239,7 @@ export default function MaintenancePage() {
               />
             </label>
             <label className="field">
-              <span>Maintenance type</span>
+              <span>Maintenance type{missingFields.type && <span className="missing-asterisk">*</span>}</span>
               <select
                 className="input"
                 value={form.type}
@@ -245,7 +255,7 @@ export default function MaintenancePage() {
               </select>
             </label>
             <label className="field">
-              <span>Severity</span>
+              <span>Severity{missingFields.severity && <span className="missing-asterisk">*</span>}</span>
               <select
                 className="input"
                 value={form.severity}
@@ -261,7 +271,7 @@ export default function MaintenancePage() {
               </select>
             </label>
             <label className="field" style={{ gridColumn: '1 / -1' }}>
-              <span>Description</span>
+              <span>Description{missingFields.description && <span className="missing-asterisk">*</span>}</span>
               <textarea
                 className="input"
                 rows={4}
