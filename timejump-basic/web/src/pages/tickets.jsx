@@ -106,8 +106,8 @@ export default function Tickets() {
     setQty(1);
     setIncludeParking(false);
     setParkingQty(1);
-    setPassType(ticketTypes[0]?.name || '');
-    setParkingLot(parkingLots[0]?.id || '');
+    setPassType('');
+    setParkingLot('');
   }
 
   function addParkingOnly() {
@@ -123,8 +123,8 @@ export default function Tickets() {
     setQty(1);
     setIncludeParking(false);
     setParkingQty(1);
-    setPassType(ticketTypes[0]?.name || '');
-    setParkingLot(parkingLots[0]?.id || '');
+    setPassType('');
+    setParkingLot('');
   }
 
   return (
