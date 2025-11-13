@@ -488,6 +488,10 @@ export function registerOperationsRoutes(router) {
         ctx.error(409, 'A shift already exists for that employee, attraction, and start time.');
         return;
       }
+      if (err?.code === 'ER_SIGNAL_EXCEPTION' || (err?.message && err.message.includes('overlap'))) {
+        ctx.error(409, 'Employee already has a shift during this timeframe.');
+        return;
+      }
       throw err;
     }
   }));
