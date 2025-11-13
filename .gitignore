@@ -1,4 +1,4 @@
-# Node & build output
+﻿# Node & build output
 node_modules/
 dist/
 build/

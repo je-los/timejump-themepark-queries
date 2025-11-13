@@ -19,6 +19,19 @@ export default function Tickets() {
   const [parkingLot, setParkingLot] = useState('');
   const [parkingQty, setParkingQty] = useState(1);
 
+  function resetForm() {
+    setQty(1);
+    setIncludeParking(false);
+    setParkingQty(1);
+
+    if (ticketTypes.length > 0) {
+      setPassType(ticketTypes[0].name);
+    }
+    if (parkingLots.length > 0) {
+      setParkingLot(parkingLots[0].id);
+    }
+  }
+
   useEffect(() => {
     let cancelled = false;
     async function load() {
@@ -84,6 +97,7 @@ export default function Tickets() {
   const parkingPrice = Number(selectedParking?.price ?? 0);
 
   function addTicketAndParking() {
+    console.log("right here");
     if (!selectedTicket) return;
     add({
       kind: 'ticket',
@@ -103,6 +117,9 @@ export default function Tickets() {
         meta: { lot: selectedParking.name },
       });
     }
+    console.log("Before Reset form in addTicket and Parking");
+    resetForm();
+    console.log("After Reset form in addTicket and Parking");
   }
 
   function addParkingOnly() {
@@ -115,8 +132,15 @@ export default function Tickets() {
       qty: parkingQty,
       meta: { lot: selectedParking.name },
     });
+    console.log("Before Reset form in Parking");
+    resetForm();
+    console.log("After Reset form in Parking");
   }
-
+  console.log("--- COMPONENT IS RENDERING ---");
+  console.log("ticketTypes state:", ticketTypes);
+  console.log("selectedTicket variable:", selectedTicket);
+  console.log("Is button disabled?", !selectedTicket);
+  console.log("Error state:", error);
   return (
     <div className="max-w-4xl mx-auto p-6">
       <div className="rounded-2xl border bg-white card-padding shadow-sm">

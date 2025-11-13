@@ -57,18 +57,30 @@ const REPORT_CONFIGS = [
         allowAll: false,
         helper: 'Switch to “Day” to focus on a single date’s rider counts.',
       },
-      { key: 'date', label: 'Ride Date (daily)', type: 'date', default: () => today(), helper: 'Only used when grouping by day.' },
-      { key: 'start', label: 'Start Date (monthly)', type: 'date', default: '' },
-      { key: 'end', label: 'End Date (monthly)', type: 'date', default: '' },
+      {
+        key: 'month',
+        label: 'Month (monthly mode)',
+        type: 'month',
+        default: '',
+        helper: 'Pick a calendar month to auto-fill the range when grouping by month.',
+      },
+      { key: 'date', label: 'Ride Date (daily)', type: 'date', default: '', helper: 'Leave blank to see all recent log dates.' },
       { key: 'ride', label: 'Filter by Attraction', type: 'text', placeholder: 'Name or ID', helper: 'Type part of the ride name or use an ID.' },
       { key: 'top', label: 'Top Results', type: 'number', default: '50', helper: 'Limit the number of rows returned (1-500).' },
     ],
     buildParams: (state) => {
       const params = new URLSearchParams();
-      if (state.group) params.set('group', state.group);
-      if (state.date) params.set('date', state.date);
-      if (state.start) params.set('start', state.start);
-      if (state.end) params.set('end', state.end);
+      const group = state.group || 'month';
+      if (group) params.set('group', group);
+      if (group === 'day') {
+        if (state.date) params.set('date', state.date);
+      } else if (state.month) {
+        const range = monthToRange(state.month);
+        if (range) {
+          params.set('start', range.start);
+          params.set('end', range.end);
+        }
+      }
       if (state.ride) params.set('ride', state.ride);
       if (state.top) params.set('top', state.top);
       return params;
@@ -110,6 +122,24 @@ const REPORT_CONFIGS = [
         allowAll: true,
         placeholder: 'All types',
       },
+      {
+        key: 'status',
+        label: 'Status',
+        type: 'select',
+        options: [
+          { value: '', label: 'All statuses' },
+          { value: 'reported', label: 'Reported' },
+          { value: 'awaiting_approval', label: 'Awaiting Approval' },
+          { value: 'approved', label: 'Approved' },
+        ],
+        allowAll: false,
+      },
+      {
+        key: 'approvedBy',
+        label: 'Approved By (name or ID)',
+        type: 'text',
+        placeholder: 'e.g. 10000014 or Helena',
+      },
       { key: 'attraction', label: 'Attraction (ID or name)', type: 'text', placeholder: 'All attractions' },
       { key: 'search', label: 'Keyword search', type: 'text', placeholder: 'notes contain...' },
     ],
@@ -119,6 +149,8 @@ const REPORT_CONFIGS = [
       if (state.end) params.set('end', state.end);
       if (state.severity) params.set('severity', state.severity);
       if (state.type) params.set('type', state.type);
+      if (state.status) params.set('status', state.status);
+      if (state.approvedBy) params.set('approvedBy', state.approvedBy);
       if (state.attraction) params.set('attraction', state.attraction);
       if (state.search) params.set('q', state.search);
       return params;
@@ -221,6 +253,13 @@ export default function Reports() {
   const isLoading = loadingKey === activeReport;
   const isMaintenanceReport = activeReport === 'maintenance';
   const lastSummary = lastRun[activeReport];
+  const revenueSummary = activeReport === 'revenue' ? lastSummary?.summary : null;
+  const revenueBreakdown = useMemo(() => {
+    if (activeReport !== 'revenue' || !revenueSummary?.by_category) return [];
+    return Object.entries(revenueSummary.by_category)
+      .map(([key, value]) => ({ key, amount: Number(value ?? 0) }))
+      .filter(item => Number.isFinite(item.amount));
+  }, [activeReport, revenueSummary]);
   const tablePrefs = tableState[activeReport] || { search: '', sortKey: '', sortDir: 'asc' };
 
   const optionLookups = useMemo(() => ({
@@ -263,12 +302,22 @@ export default function Reports() {
     });
   }
 
+  const ridersForm = formState.riders || {};
+  const riderGroup = String(ridersForm.group || 'month').toLowerCase() === 'day' ? 'day' : 'month';
+
+  const currentColumns = useMemo(() => {
+    if (activeReport !== 'riders') return activeConfig.columns;
+    return riderGroup === 'day'
+      ? ['Name', 'log_date', 'riders_count']
+      : ['Name', 'period_label', 'riders_count', 'avg_riders', 'entry_count'];
+  }, [activeReport, activeConfig.columns, riderGroup]);
+
   const visibleRows = useMemo(() => {
     if (!Array.isArray(reportRows)) return [];
     const searchTerm = (tablePrefs.search || '').trim().toLowerCase();
     const filtered = searchTerm
       ? reportRows.filter(row =>
-          activeConfig.columns.some(col => {
+          currentColumns.some(col => {
             const value = normalizeRow(row)[col] ?? normalizeRow(row)[col?.toLowerCase()];
             return value !== undefined && value !== null && String(value).toLowerCase().includes(searchTerm);
           }),
@@ -282,7 +331,7 @@ export default function Reports() {
       const valB = normalizeRow(b)[sortKey] ?? normalizeRow(b)[sortKey?.toLowerCase()];
       return compareValues(valA, valB) * dir;
     });
-  }, [reportRows, tablePrefs, activeConfig.columns]);
+  }, [reportRows, tablePrefs, currentColumns]);
 
   const formStateRef = useRef(formState);
   useEffect(() => {
@@ -314,12 +363,14 @@ export default function Reports() {
     try {
       const res = await api(url);
       const rows = Array.isArray(res.data) ? res.data : (res.rows || []);
+      const summary = res.summary || res.meta?.summary || null;
       setDataMap(prev => ({ ...prev, [reportKey]: rows }));
       setLastRun(prev => ({
         ...prev,
         [reportKey]: {
           count: rows.length,
           at: new Date().toISOString(),
+          summary,
         },
       }));
       if (!rows.length) {
@@ -387,15 +438,20 @@ export default function Reports() {
           </header>
           <form onSubmit={handleSubmit} className="report-form" style={{ display: 'grid', gap: 12 }}>
             <div className="report-fields">
-              {activeConfig.fields.map(field => (
-                <FilterField
-                  key={field.key}
-                  field={field}
-                  value={formState[activeReport]?.[field.key]}
-                  onChange={value => updateField(activeReport, field.key, value)}
-                  options={resolveOptions(field, optionLookups)}
-                />
-              ))}
+              {activeConfig.fields.map(field => {
+                if (!shouldShowField(activeReport, field.key, formState[activeReport])) {
+                  return null;
+                }
+                return (
+                  <FilterField
+                    key={field.key}
+                    field={field}
+                    value={formState[activeReport]?.[field.key]}
+                    onChange={value => updateField(activeReport, field.key, value)}
+                    options={resolveOptions(field, optionLookups)}
+                  />
+                );
+              })}
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <button className="btn primary" type="submit" disabled={isLoading}>
@@ -421,6 +477,54 @@ export default function Reports() {
           )}
           {!isLoading && !activeError && hasRun && (
             <>
+              {activeReport === 'revenue' && revenueSummary && (
+                <div
+                  className="report-summary-card"
+                  style={{
+                    border: '1px solid #e5e7eb',
+                    borderRadius: 12,
+                    padding: 16,
+                    marginBottom: 12,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 12,
+                  }}
+                >
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <span className="muted" style={{ fontSize: 12 }}>Total Revenue</span>
+                    <strong style={{ fontSize: 28 }}>
+                      {formatCurrency(revenueSummary.total_revenue ?? 0)}
+                    </strong>
+                    {lastSummary?.at && (
+                      <small className="muted">Updated {formatRelative(lastSummary.at)}</small>
+                    )}
+                  </div>
+                  {!!revenueBreakdown.length && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+                      {revenueBreakdown.map(item => (
+                        <div
+                          key={item.key}
+                          style={{
+                            flex: '1 1 140px',
+                            minWidth: 140,
+                            padding: 12,
+                            border: '1px solid #f1f5f9',
+                            borderRadius: 12,
+                            background: '#f8fafc',
+                          }}
+                        >
+                          <span className="muted" style={{ fontSize: 12 }}>
+                            {formatLabel(item.key)}
+                          </span>
+                          <div style={{ fontWeight: 600 }}>
+                            {formatCurrency(item.amount)}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, gap: 12, flexWrap: 'wrap' }}>
                 <input
                   className="input"
@@ -444,7 +548,7 @@ export default function Reports() {
               ) : (
                 <ReportTable
                   rows={visibleRows}
-                  columns={activeConfig.columns}
+                  columns={currentColumns}
                   emptyMessage={activeConfig.emptyMessage}
                   sortKey={tablePrefs.sortKey}
                   sortDir={tablePrefs.sortDir}
@@ -465,6 +569,14 @@ function Wrap({ children }) {
 
 function Panel({ children }) {
   return <div className="panel">{children}</div>;
+}
+
+function shouldShowField(reportKey, fieldKey, state = {}) {
+  if (reportKey !== 'riders') return true;
+  const group = String(state?.group || 'month').toLowerCase() === 'day' ? 'day' : 'month';
+  if (fieldKey === 'date') return group === 'day';
+  if (fieldKey === 'month') return group === 'month';
+  return true;
 }
 
 function FilterField({ field, value, onChange, options = [] }) {
@@ -531,7 +643,7 @@ function FilterField({ field, value, onChange, options = [] }) {
       <span>{label}</span>
       <input
         className="input"
-        type={type === 'date' ? 'date' : type === 'number' ? 'number' : 'text'}
+        type={type === 'date' ? 'date' : type === 'number' ? 'number' : type === 'month' ? 'month' : 'text'}
         placeholder={placeholder}
         value={value ?? ''}
         onChange={e => onChange(e.target.value)}
@@ -584,6 +696,18 @@ function dateDaysAgo(days) {
 function formatDateInput(date) {
   const tzOffset = date.getTimezoneOffset() * 60000;
   return new Date(date.getTime() - tzOffset).toISOString().slice(0, 10);
+}
+
+function monthToRange(value) {
+  if (!value || !/^\d{4}-\d{2}$/.test(value)) return null;
+  const [yearStr, monthStr] = value.split('-');
+  const year = Number(yearStr);
+  const month = Number(monthStr);
+  if (!Number.isInteger(year) || !Number.isInteger(month) || month < 1 || month > 12) return null;
+  const start = `${yearStr}-${monthStr}-01`;
+  const lastDay = new Date(year, month, 0).getDate();
+  const end = `${yearStr}-${monthStr}-${String(lastDay).padStart(2, '0')}`;
+  return { start, end };
 }
 
 function ReportTable({ rows, columns, emptyMessage, sortKey, sortDir, onSort }) {
@@ -679,6 +803,12 @@ function formatLabel(key) {
   if (!key) return '';
   const label = key.replace(/_/g, ' ');
   return label.replace(/\b\w/g, ch => ch.toUpperCase());
+}
+
+function formatCurrency(value) {
+  const amount = Number(value ?? 0);
+  if (!Number.isFinite(amount)) return '$0.00';
+  return amount.toLocaleString(undefined, { style: 'currency', currency: 'USD' });
 }
 
 function formatValue(value, column) {

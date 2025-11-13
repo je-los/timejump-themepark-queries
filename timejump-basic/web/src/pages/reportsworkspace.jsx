@@ -6,8 +6,8 @@ import { api } from '../auth';
 export default function ReportsWorkspace() {
   return (
     <RequireRole
-      roles={['employee','manager','admin','owner']}
-      fallback={<div className="container"><div className="panel">Reports are restricted to staff.</div></div>}
+      roles={['admin','owner']}
+      fallback={<div className="container"><div className="panel">Reports are restricted to admins or owners.</div></div>}
     >
       <WorkspaceShell />
     </RequireRole>

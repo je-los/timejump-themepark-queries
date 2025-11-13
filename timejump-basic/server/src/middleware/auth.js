@@ -15,11 +15,13 @@ export async function resolveAuthUser(authHeader) {
   );
   if (!rows.length) return null;
   const row = rows[0];
+  const employeeId = row.employeeID ?? null;
   return {
     id: row.user_id,
     email: row.email,
     role: row.role,
-    EmployeeID: row.employeeID,
+    employeeId,
+    EmployeeID: employeeId,
   };
 }
 

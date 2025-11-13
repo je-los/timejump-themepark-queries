@@ -8,6 +8,7 @@ const THEME_CARDS = [
     subtitle: 'Primeval thrills with towering coasters and aquatic escapes.',
     href: '/things-to-do/theme/jurassic-zone',
     gradient: 'from-emerald-500 via-lime-400 to-amber-300',
+    extraClass: 'home-theme-card--jurassic',
   },
   {
     key: 'medieval',
@@ -15,6 +16,7 @@ const THEME_CARDS = [
     subtitle: 'Dragon-fire adventures and enchanted quests for every hero.',
     href: '/things-to-do/theme/medieval-fantasy-zone',
     gradient: 'from-purple-500 via-indigo-500 to-sky-400',
+    extraClass: 'home-theme-card--medieval',
   },
   {
     key: 'wild-west',
@@ -22,6 +24,7 @@ const THEME_CARDS = [
     subtitle: 'High-noon showdowns, runaway trains, and frontier flair.',
     href: '/things-to-do/theme/wild-west-zone',
     gradient: 'from-amber-500 via-orange-500 to-rose-400',
+    extraClass: 'home-theme-card--wildwest',
   },
   {
     key: 'nova-crest',
@@ -29,6 +32,7 @@ const THEME_CARDS = [
     subtitle: 'Futuristic spectacles, zero-G simulators, and neon nights.',
     href: '/things-to-do/theme/nova-crest-futuristic-zone',
     gradient: 'from-cyan-500 via-blue-500 to-fuchsia-500',
+    extraClass: 'home-theme-card--novacrest',
   },
 ];
 
@@ -40,30 +44,26 @@ export default function Home() {
   }
 
   return (
-    <div className="page">
-      <section className="home-hero">
-        <div className="home-hero__inner">
-          <div className="home-hero__badge">Time Jump Theme Park</div>
-          <h1>Skip Through Time, One Thrill at a Time.</h1>
-          <p>
-            Journey from prehistoric jungles to neon skylines in a single day. Discover rides for families,
-            adventurers, and thrill seekers—plus dining, shows, and unforgettable souvenirs.
-          </p>
-          <div className="home-hero__actions">
-            <button className="btn primary" onClick={()=>go('/ticket-passes')}>
-              Buy Tickets
-            </button>
-            <button className="btn" onClick={()=>go('/things-to-do/rides-attractions')}>
-              Explore Attractions
-            </button>
-            <button className="btn" onClick={()=>go('/ticket-passes/annual-passes')}>
-              Annual Passes
-            </button>
-          </div>
-        </div>
-        <div className="home-hero__visual">
-          <div className="home-hero__placeholder">
-            <span>Theme artwork coming soon</span>
+    <div className="page home-page">
+      <section className="home-hero home-hero--with-bg home-hero--fullbleed">
+        <div className="home-hero__container">
+          <div className="home-hero__inner">
+            <h1>Skip Through Time, One Thrill at a Time.</h1>
+            <p>
+              Journey from prehistoric jungles to neon skylines in a single day. Discover rides for families,
+              adventurers, and thrill seekers—plus dining, shows, and unforgettable souvenirs.
+            </p>
+            <div className="home-hero__actions">
+              <button className="btn primary" onClick={()=>go('/ticket-passes')}>
+                Buy Tickets
+              </button>
+              <button className="btn" onClick={()=>go('/things-to-do/rides-attractions')}>
+                Explore Attractions
+              </button>
+              <button className="btn" onClick={()=>go('/things-to-do/dining')}>
+                Marketplace
+             </button>
+            </div>
           </div>
         </div>
       </section>
@@ -77,7 +77,7 @@ export default function Home() {
           {THEME_CARDS.map(card => (
             <button
               key={card.key}
-              className={`home-theme-card bg-gradient-to-br ${card.gradient}`}
+              className={`home-theme-card bg-gradient-to-br ${card.gradient} ${card.extraClass ?? ''}`}
               onClick={()=>go(`/theme/${card.href.split('/').pop()}`)}
             >
               <div className="home-theme-card__content">
@@ -108,9 +108,7 @@ export default function Home() {
           </div>
         </div>
         <div className="home-gift-shop__visual">
-          <div className="home-gift-shop__placeholder">
-            <span>Gift shop gallery coming soon</span>
-          </div>
+          <div className="home-gift-shop__placeholder" aria-hidden="true" />
         </div>
       </section>
     </div>

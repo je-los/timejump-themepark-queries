@@ -1,8 +1,21 @@
-import React, { createContext, useContext, useMemo, useState } from 'react';
+import React, { createContext, useContext, useMemo, useState, useEffect } from 'react';
 const CartContext = createContext();
 
 export function CartProvider({ children }) {
-  const [items, setItems] = useState([]); // {id, kind, name, price, qty, meta}
+  const [items, setItems] = useState(() => {
+    try {
+      const savedCart = localStorage.getItem('themeParkCart');
+      if (savedCart) {
+        return JSON.parse(savedCart);
+      }
+    } catch (err) {
+      console.error('Failed to load cart from localStorage', err);
+    }
+    return []; 
+  });
+  useEffect(() => {
+    localStorage.setItem('themeParkCart', JSON.stringify(items));
+  }, [items]);
   function add(item){
     setItems(prev=>{
       let next = prev;

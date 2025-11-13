@@ -36,12 +36,27 @@ export async function login(email, password){
   return j;
 }
 
-export async function signup(email, password){
+export async function signup(details = {}){
+  const {
+    email,
+    password,
+    firstName,
+    lastName,
+    dateOfBirth,
+    phone,
+  } = details;
   const base = import.meta.env.VITE_API_URL || '';
   const res = await fetch(base + '/signup', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password })
+    body: JSON.stringify({
+      email,
+      password,
+      firstName,
+      lastName,
+      dateOfBirth,
+      phone,
+    })
   });
   const j = await readJson(res);
   if(!res.ok) throw new Error(j?.error || 'Unable to create account');
