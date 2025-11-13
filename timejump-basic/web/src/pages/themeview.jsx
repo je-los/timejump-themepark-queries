@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 
 export default function ThemeView() {
@@ -27,27 +27,47 @@ export default function ThemeView() {
     return ()=>{ active=false; };
   },[slug]);
 
+  const hasData = !loading && !error && theme;
+  const heroStyle = useMemo(() => {
+    if (!theme) return undefined;
+    const overrides = {
+      'medieval-fantasy-zone': 'https://i.imgur.com/kd2HUy7.jpeg',
+      'nova-crest-zone': 'https://i.imgur.com/Ip9FcpA.png',
+      'wild-west-zone': 'https://i.imgur.com/MpTHGUm.jpeg',
+    };
+    const match = overrides[theme.slug];
+    return match ? { '--theme-hero-image': `url(${match})` } : undefined;
+  }, [theme]);
   return (
-    <div className="page">
-      <div className="page-box page-box--wide">
-        {loading && <p className="text-sm text-gray-600">Loading attractions...</p>}
-        {error && <p className="alert error">{error}</p>}
-        {!loading && !error && theme && (
-          <>
-            <div className="theme-detail__hero">
-              <div className="theme-detail__copy">
-                <p className="theme-detail__eyebrow">Featured realm</p>
-                <h1>{theme.name}</h1>
-                {theme.description && <p className="text-sm text-gray-700">{theme.description}</p>}
-                <p className="text-sm text-gray-600" style={{ marginTop: 8 }}>
-                  {(theme.rides || []).length} attractions in this land.
-                </p>
-              </div>
-              {theme.image_url && (
-                <div className="theme-detail__image" style={{ backgroundImage: `url(${theme.image_url})` }} />
-              )}
+    <div className="page theme-page">
+      {loading && (
+        <div className="page-box page-box--wide">
+          <p className="text-sm text-gray-600">Loading attractions...</p>
+        </div>
+      )}
+      {error && !loading && (
+        <div className="page-box page-box--wide">
+          <p className="alert error">{error}</p>
+        </div>
+      )}
+      {hasData && (
+        <>
+          <section
+            className="theme-detail__hero"
+            aria-label="Featured realm highlight"
+            style={heroStyle}
+          >
+            <div className="theme-detail__copy">
+              <p className="theme-detail__eyebrow">Featured realm</p>
+              <h1>{theme.name}</h1>
+              {theme.description && <p className="theme-detail__description">{theme.description}</p>}
+              <p className="theme-detail__meta">
+                {(theme.rides || []).length} attractions in this land.
+              </p>
             </div>
+          </section>
 
+          <div className="page-box page-box--wide theme-page__grid">
             <div className="ride-grid ride-grid--detail">
               {(theme.rides || []).map(ride=>{
                 const capacityPerExperience = ride.capacity_per_experience
@@ -105,12 +125,14 @@ export default function ThemeView() {
                 );
               })}
             </div>
-          </>
-        )}
-        {!loading && !error && !theme && (
+          </div>
+        </>
+      )}
+      {!loading && !error && !theme && (
+        <div className="page-box page-box--wide">
           <p className="text-sm text-gray-600">Theme not found.</p>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

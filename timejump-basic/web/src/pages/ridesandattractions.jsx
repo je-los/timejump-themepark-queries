@@ -82,9 +82,6 @@ export default function RidesAndAttractions({ library, loading, error }) {
               <div className="rides-themes__grid">
                 {themes.map(theme => (
                   <article key={theme.slug} className="theme-card">
-                    {theme.image_url && (
-                      <div className="theme-card__image" style={{ backgroundImage: `url(${theme.image_url})` }} />
-                    )}
                     <div className="theme-card__header">
                       <h3>{theme.name}</h3>
                       <span>{(theme.rides || []).length} attractions</span>

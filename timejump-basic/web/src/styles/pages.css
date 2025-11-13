@@ -329,6 +329,9 @@
   filter: saturate(1.15) brightness(1.08);
 }
 
+.page.rides-page {
+  padding: 0;
+}
 .rides-shell {
   max-width: 72rem;
   margin: 0 auto;
@@ -337,11 +340,23 @@
   gap: 32px;
 }
 .rides-hero {
-  background: radial-gradient(circle at top left, #1e3a8a, #0f172a 65%);
-  border-radius: 28px;
-  padding: clamp(1.5rem, 4vw, 3rem);
+  background-image:
+    linear-gradient(90deg, rgba(10, 24, 60, 0.78) 0%, rgba(9, 21, 52, 0.6) 55%, rgba(12, 21, 45, 0.35) 100%),
+    url('https://i.imgur.com/5FZfuTF.jpeg');
+  background-size: 150% auto;
+  background-position: left center;
+  background-repeat: no-repeat;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+  width: 100vw;
+  border-radius: 0 0 40px 40px;
+  padding: clamp(2rem, 6vw, 4rem) clamp(1.5rem, 8vw, 6rem);
   color: #e2e8f0;
   box-shadow: 0 24px 60px -32px rgba(15, 23, 42, 0.7);
+}
+.rides-hero__content {
+  max-width: 72rem;
+  margin: 0 auto;
 }
 .rides-hero__content h1 {
   margin: 0.4rem 0 0.8rem;
@@ -438,12 +453,31 @@
   display: flex;
   justify-content: flex-start;
 }
+.page.theme-page {
+  max-width: none;
+  padding: 0 0 2.5rem;
+}
 .theme-detail__hero{
   display:flex;
   flex-wrap:wrap;
   gap:24px;
   align-items:center;
-  margin-bottom:24px;
+  margin-bottom:0;
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+  background-image:
+    linear-gradient(115deg, rgba(6, 11, 34, 0.92), rgba(15, 23, 42, 0.45)),
+    var(--theme-hero-image, url('https://i.imgur.com/iyT0blJ.jpeg'));
+  background-size: cover;
+  background-position: center;
+  border-radius: 0 0 40px 40px;
+  padding: clamp(2rem, 6vw, 4.5rem) clamp(1.5rem, 8vw, 6rem);
+  color: #f8fafc;
+  box-shadow: 0 30px 70px -50px rgba(15, 23, 42, 0.65);
+  min-height: clamp(220px, 40vw, 360px);
+  position: relative;
+  overflow: hidden;
 }
 .theme-detail__copy{
   flex:1 1 260px;
@@ -453,14 +487,28 @@
 }
 .theme-detail__copy h1{
   margin:0;
-  font-size:2rem;
+  font-size:2.5rem;
+  color:#fff;
 }
 .theme-detail__eyebrow{
   text-transform:uppercase;
   letter-spacing:.08em;
   font-size:.75rem;
-  color:#94a3b8;
+  color:rgba(248, 250, 252, 0.8);
   margin:0;
+}
+.theme-detail__description{
+  color:rgba(248, 250, 252, 0.85);
+  font-size:1rem;
+  margin:0;
+}
+.theme-detail__meta{
+  color:rgba(248, 250, 252, 0.75);
+  margin:0;
+  font-size:0.95rem;
+}
+.theme-page__grid {
+  margin-top: 32px;
 }
 .theme-detail__image{
   flex:1 1 280px;
@@ -1307,8 +1355,48 @@
   color: #475569;
 }
 
-.dining-page{display:flex;flex-direction:column;gap:32px;}
-.dining-hero{display:flex;flex-wrap:wrap;justify-content:space-between;gap:24px;background:linear-gradient(135deg,#1d4ed8,#0f172a);color:#e2e8f0;padding:32px;border-radius:24px;box-shadow:0 25px 60px -35px rgba(15,23,42,.8);}
+.dining-page{
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 90px 24px 32px;
+  display:flex;
+  flex-direction:column;
+  gap:32px;
+}
+.dining-page-shell {
+  padding: 0 0 2.5rem;
+}
+.dining-hero{
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:space-between;
+  gap:24px;
+  background-image:
+    linear-gradient(120deg, rgba(15, 23, 42, 0.88), rgba(30, 64, 175, 0.6)),
+    url('https://i.imgur.com/L1BoSLK.jpeg');
+  background-size: cover;
+  background-position: top center;
+  color:#e2e8f0;
+  padding:40px 32px 48px;
+  border-radius:24px;
+  box-shadow:0 25px 60px -35px rgba(15,23,42,.8);
+}
+.giftshop-hero {
+  background-image:
+    linear-gradient(120deg, rgba(15, 23, 42, 0.9), rgba(76, 29, 149, 0.65)),
+    url('https://i.imgur.com/eJ0UT0g.png');
+  background-size: cover;
+  background-position: center;
+}
+.dining-hero--fullbleed {
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+  border-radius: 0 0 40px 40px;
+  padding: clamp(3rem, 8vw, 5.5rem) clamp(1.5rem, 8vw, 6rem);
+  box-shadow: 0 30px 70px -50px rgba(15, 23, 42, 0.65);
+  margin-bottom: -60px;
+}
 .dining-hero__content{max-width:520px;display:flex;flex-direction:column;gap:8px;}
 .dining-hero__content h1{margin:0;font-size:2rem;}
 .dining-hero__content p{margin:0;color:#cbd5f5;font-size:1rem;line-height:1.5;}

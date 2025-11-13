@@ -52,7 +52,7 @@ export default function GiftShop() {
   return (
     <div className="page">
       <div className="page-box page-box--wide dining-page">
-        <section className="dining-hero">
+        <section className="dining-hero giftshop-hero">
           <div className="dining-hero__content">
             <p className="dining-eyebrow">Marketplace</p>
             <h1>Souvenirs from every timeline.</h1>
