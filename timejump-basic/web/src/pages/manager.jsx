@@ -2,6 +2,25 @@ import React, { useEffect, useMemo, useState } from 'react';
 import RequireRole from '../components/requirerole.jsx';
 import { api } from '../auth';
 
+function todayISO() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function formatDate(value) {
+  if (!value) return '--';
+  const raw = String(value);
+  const datePart = raw.includes('T') ? raw.split('T')[0] : raw;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
+    const date = new Date(`${datePart}T00:00:00`);
+    if (!Number.isNaN(date.getTime())) return date.toLocaleDateString();
+  }
+  const fallback = new Date(raw);
+  if (!Number.isNaN(fallback.getTime())) {
+    return fallback.toLocaleDateString();
+  }
+  return raw;
+}
+
 export default function Manager() {
   return (
     <RequireRole
@@ -20,6 +39,7 @@ function Planner() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState({ attraction: '', date: '' });
+  const [cancellations, setCancellations] = useState([]);
 
   const [form, setForm] = useState({
     employeeId: '',
@@ -30,16 +50,25 @@ function Planner() {
   });
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
+  const [cancelForm, setCancelForm] = useState({
+    attractionId: '',
+    cancelDate: todayISO(),
+    reason: '',
+  });
+  const [cancelSaving, setCancelSaving] = useState(false);
+  const [cancelMessage, setCancelMessage] = useState('');
+  const [cancelError, setCancelError] = useState('');
 
   useEffect(() => {
     let active = true;
     async function load() {
       setLoading(true); setError('');
       try {
-        const [empRes, attrRes, schedRes] = await Promise.all([
+        const [empRes, attrRes, schedRes, cancelRes] = await Promise.all([
           api('/employees').catch(err => { if (err?.status === 403) return { data: [] }; throw err; }),
           api('/attractions').catch(err => { if (err?.status === 403) return { data: [] }; throw err; }),
           api('/schedules').catch(err => { if (err?.status === 403) return { data: [] }; throw err; }),
+          api('/ride-cancellations?limit=25').catch(err => { if (err?.status === 403) return { data: [] }; throw err; }),
         ]);
         if (!active) return;
         const employeeRows = Array.isArray(empRes?.data) ? empRes.data : (empRes?.employees || []);
@@ -47,6 +76,7 @@ function Planner() {
         setAttractions(Array.isArray(attrRes?.data) ? attrRes.data : (attrRes?.attractions || []));
         const scheduleRows = Array.isArray(schedRes?.data) ? schedRes.data : (schedRes?.schedules || []);
         setSchedules(scheduleRows.filter(entry => !(entry.is_completed ?? entry.isCompleted ?? false)));
+        setCancellations(Array.isArray(cancelRes?.data) ? cancelRes.data : []);
       } catch (err) {
         if (!active) return;
         setError(err?.message || 'Failed to load scheduling data.');
@@ -115,6 +145,43 @@ function Planner() {
       setSaveMessage(err?.message || 'Unable to save schedule.');
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function logCancellation(e) {
+    e.preventDefault();
+    if (cancelSaving) return;
+    if (!cancelForm.attractionId || !cancelForm.reason.trim()) {
+      setCancelError('Select an attraction and provide a reason.');
+      return;
+    }
+    setCancelSaving(true);
+    setCancelError('');
+    setCancelMessage('');
+    try {
+      await api('/ride-cancellations', {
+        method: 'POST',
+        body: JSON.stringify({
+          attractionId: Number(cancelForm.attractionId),
+          cancelDate: cancelForm.cancelDate || todayISO(),
+          reason: cancelForm.reason.trim(),
+        }),
+      });
+      setCancelMessage('Ride cancellation recorded.');
+      setCancelForm({
+        attractionId: '',
+        cancelDate: todayISO(),
+        reason: '',
+      });
+      const res = await api('/ride-cancellations?limit=25').catch(err => {
+        if (err?.status === 403) return { data: [] };
+        throw err;
+      });
+      setCancellations(Array.isArray(res?.data) ? res.data : []);
+    } catch (err) {
+      setCancelError(err?.message || 'Unable to log cancellation.');
+    } finally {
+      setCancelSaving(false);
     }
   }
 
@@ -230,16 +297,86 @@ function Planner() {
             </div>
           )}
         </div>
+
+        <div className="manager-panel manager-panel--wide" id="ride-cancellations">
+          <div className="manager-panel__header">
+            <div>
+              <h3>Ride Cancellations</h3>
+              <p>Log weather or operational closures to keep teams informed.</p>
+            </div>
+          </div>
+          <form className="manager-form" onSubmit={logCancellation} style={{ marginBottom: 16 }}>
+            <div className="field">
+              <span>Attraction</span>
+              <select
+                className="border rounded-xl p-2"
+                value={cancelForm.attractionId}
+                onChange={e => setCancelForm(f => ({ ...f, attractionId: e.target.value }))}
+              >
+                <option value="">Select attraction...</option>
+                {attractionOptions.map(opt => (
+                  <option key={opt.id} value={opt.id}>{opt.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="manager-form__row">
+              <label className="field" style={{ flex: 1, minWidth: 160 }}>
+                <span>Date</span>
+                <input
+                  className="input"
+                  type="date"
+                  value={cancelForm.cancelDate}
+                  onChange={e => setCancelForm(f => ({ ...f, cancelDate: e.target.value }))}
+                />
+              </label>
+              <label className="field" style={{ flex: 2 }}>
+                <span>Reason</span>
+                <input
+                  className="input"
+                  type="text"
+                  placeholder="e.g. Thunderstorm, lightning advisory..."
+                  value={cancelForm.reason}
+                  onChange={e => setCancelForm(f => ({ ...f, reason: e.target.value }))}
+                />
+              </label>
+            </div>
+            <div className="manager-form__actions">
+              <button className="btn primary" type="submit" disabled={cancelSaving}>
+                {cancelSaving ? 'Saving...' : 'Log Cancellation'}
+              </button>
+              {cancelMessage && <div className="text-sm text-green-700">{cancelMessage}</div>}
+              {cancelError && <div className="text-sm text-red-700">{cancelError}</div>}
+            </div>
+          </form>
+          <div className="manager-cancel-list">
+            {!cancellations.length && (
+              <div className="text-sm text-gray-700">No cancellations logged yet.</div>
+            )}
+            {!!cancellations.length && (
+              <table className="manager-table">
+                <thead>
+                  <tr>
+                    <th>Attraction</th>
+                    <th>Date</th>
+                    <th>Reason</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {cancellations.map(row => (
+                    <tr key={row.cancel_id}>
+                      <td>{row.attraction_name || `#${row.attraction_id}`}</td>
+                      <td>{formatDate(row.cancel_date)}</td>
+                      <td>{row.reason || '--'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
       </section>
     </div>
   );
-}
-
-function formatDate(value) {
-  if (!value) return 'Date TBD';
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return value;
-  return d.toLocaleDateString();
 }
 
 function formatTime(value) {

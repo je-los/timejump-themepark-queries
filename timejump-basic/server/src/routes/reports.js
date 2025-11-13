@@ -29,15 +29,18 @@ function matchesRideFilter(entry, rideFilter) {
 }
 
 function getFallbackDailyRows(date, rideFilter, limit) {
-  if (!date) return [];
-  return FALLBACK_RIDE_LOGS
-    .filter(entry => entry.log_date === date && matchesRideFilter(entry, rideFilter))
+  const source = date
+    ? FALLBACK_RIDE_LOGS.filter(entry => entry.log_date === date)
+    : FALLBACK_RIDE_LOGS;
+  return source
+    .filter(entry => matchesRideFilter(entry, rideFilter))
     .sort((a, b) => b.riders_count - a.riders_count)
     .slice(0, limit)
     .map(entry => ({
       AttractionID: entry.AttractionID,
       Name: normalizeRideName(entry),
       log_date: entry.log_date,
+      period_label: formatPeriodLabel('day', entry.log_date),
       riders_count: entry.riders_count,
     }));
 }
@@ -169,7 +172,7 @@ export function registerReportRoutes(router) {
           cancel_id: row.cancel_id,
           attraction_id: row.AttractionID,
           attraction: row.attraction || `#${row.AttractionID}`,
-          cancel_date: row.cancel_date,
+          cancel_date: formatISODate(row.cancel_date),
           reason,
           reason_code: code,
           reason_label: toTitle(reason),
@@ -201,21 +204,23 @@ export function registerReportRoutes(router) {
     }
 
     if (groupMode === 'day') {
-      if (!date) {
-        ctx.error(400, 'Date is required for daily grouping.');
-        return;
-      }
       const sqlParts = {
-        base: `SELECT rl.AttractionID, rl.log_date, rl.riders_count, a.Name
+        base: `SELECT rl.AttractionID, DATE(rl.log_date) AS log_date, rl.riders_count, a.Name
                FROM ride_log rl
-               LEFT JOIN attraction a ON a.AttractionID = rl.AttractionID`,
-        where: ['rl.log_date = ?'],
-        suffix: 'ORDER BY rl.riders_count DESC, rl.AttractionID ASC LIMIT ?',
+               LEFT JOIN attraction a ON a.AttractionID = rl.AttractionID
+               WHERE 1=1`,
+        where: [],
+        suffix: `ORDER BY rl.riders_count DESC, rl.AttractionID ASC LIMIT ${limit}`,
       };
-      params.push(date);
+      if (date) {
+        sqlParts.where.push('DATE(rl.log_date) = ?');
+        params.push(date);
+      }
       applyRideFilter(sqlParts);
-      params.push(limit);
-      const sql = `${sqlParts.base} WHERE ${sqlParts.where.join(' AND ')} ${sqlParts.suffix}`;
+      const whereClause = sqlParts.where.length
+        ? ` ${sqlParts.where.map(clause => `AND ${clause}`).join(' ')}`
+        : '';
+      const sql = `${sqlParts.base}${whereClause} ${sqlParts.suffix}`;
       let rows = [];
       let errored = false;
       try {
@@ -234,7 +239,8 @@ export function registerReportRoutes(router) {
         data: rows.map(row => ({
           AttractionID: row.AttractionID,
           Name: row.Name || `Attraction ${row.AttractionID}`,
-          log_date: row.log_date,
+          log_date: formatISODate(row.log_date),
+          period_label: formatPeriodLabel('day', row.log_date),
           riders_count: Number(row.riders_count || 0),
         })),
       });
@@ -254,7 +260,7 @@ export function registerReportRoutes(router) {
       where: [],
       suffix: `GROUP BY period_start, rl.AttractionID, a.Name
                ORDER BY period_start DESC, riders_count DESC
-               LIMIT ?`,
+               LIMIT ${limit}`,
     };
     if (start) {
       sqlParts.where.push('rl.log_date >= ?');
@@ -265,7 +271,6 @@ export function registerReportRoutes(router) {
       params.push(end);
     }
     applyRideFilter(sqlParts);
-    params.push(limit);
     const whereClause = sqlParts.where.length ? `WHERE ${sqlParts.where.join(' AND ')}` : '';
     const sql = `${sqlParts.base} ${whereClause} ${sqlParts.suffix}`;
     let rows = [];
@@ -285,6 +290,7 @@ export function registerReportRoutes(router) {
     ctx.ok({
       data: rows.map(row => ({
         period_start: row.period_start,
+        period_label: formatPeriodLabel('month', row.period_start),
         AttractionID: row.AttractionID,
         Name: row.Name || `Attraction ${row.AttractionID}`,
         riders_count: Number(row.riders_count || 0),
@@ -416,7 +422,24 @@ export function registerReportRoutes(router) {
       return true;
     });
 
-    ctx.ok({ data: filtered });
+    const totalsByCategory = filtered.reduce((acc, row) => {
+      const category = row.category || 'unknown';
+      acc[category] = (acc[category] || 0) + Number(row.total_amount || 0);
+      return acc;
+    }, {});
+    const totalRevenue = Object.values(totalsByCategory).reduce((sum, value) => sum + value, 0);
+    const round = val => Number((val ?? 0).toFixed(2));
+    const summaryByCategory = Object.fromEntries(
+      Object.entries(totalsByCategory).map(([key, value]) => [key, round(value)]),
+    );
+
+    ctx.ok({
+      data: filtered,
+      summary: {
+        total_revenue: round(totalRevenue),
+        by_category: summaryByCategory,
+      },
+    });
   }));
 
   router.get('/reports/analytics', requireRole(['admin', 'owner'])(async ctx => {
@@ -727,10 +750,41 @@ function selectGroupClause(field, mode) {
 
 function formatPeriodLabel(mode, isoDate) {
   if (!isoDate) return '';
-  const date = new Date(isoDate);
-  if (Number.isNaN(date.getTime())) return isoDate;
+  const date = parseLocalDate(isoDate);
+  if (!date) return isoDate;
   if (mode === 'month') {
     return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
   }
   return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+function formatISODate(value) {
+  if (!value) return null;
+  if (typeof value === 'string') {
+    const match = value.match(/^(\d{4}-\d{2}-\d{2})/);
+    if (match) return match[1];
+  }
+  const date = parseLocalDate(value);
+  if (!date) return null;
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function parseLocalDate(value) {
+  if (!value) return null;
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
+  if (typeof value === 'string') {
+    const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (match) {
+      const year = Number(match[1]);
+      const month = Number(match[2]) - 1;
+      const day = Number(match[3]);
+      const local = new Date(year, month, day);
+      if (!Number.isNaN(local.getTime())) return local;
+    }
+  }
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
 }

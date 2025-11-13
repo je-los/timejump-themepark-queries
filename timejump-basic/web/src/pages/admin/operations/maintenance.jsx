@@ -22,7 +22,9 @@ export default function MaintenancePage() {
   const [formError, setFormError] = useState('');
   const [actionStatus, setActionStatus] = useState('');
   const [actionError, setActionError] = useState('');
+  const [resolveError, setResolveError] = useState('');
   const [confirmingId, setConfirmingId] = useState(null);
+  const [resolvingId, setResolvingId] = useState(null);
   const [form, setForm] = useState({
     attractionId: '',
     dateBroken: '',
@@ -96,6 +98,34 @@ export default function MaintenancePage() {
       setConfirmingId(null);
     }
   }, [canApprove, loadRecords]);
+
+  const handleResolve = useCallback(async (record) => {
+    if (!record?.RecordID) return;
+    setResolveError('');
+    const defaultDate = record?.Date_fixed || new Date().toISOString().slice(0, 10);
+    const input = typeof window !== 'undefined'
+      ? window.prompt('Enter resolved date (YYYY-MM-DD)', defaultDate)
+      : defaultDate;
+    if (!input) return;
+    const date = input.trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      setResolveError('Resolved date must be in YYYY-MM-DD format.');
+      return;
+    }
+    setResolvingId(record.RecordID);
+    try {
+      await api(`/maintenance/${record.RecordID}`, {
+        method: 'PUT',
+        body: JSON.stringify({ dateFixed: date }),
+      });
+      setActionStatus('Maintenance marked resolved.');
+      await loadRecords();
+    } catch (err) {
+      setResolveError(err?.message || 'Unable to mark maintenance resolved.');
+    } finally {
+      setResolvingId(null);
+    }
+  }, [loadRecords]);
 
   useEffect(() => {
     loadRecords();
@@ -260,6 +290,7 @@ export default function MaintenancePage() {
           <h3 style={{ marginTop: 0 }}>Recent Maintenance Records</h3>
           {loading && <div className="text-sm text-gray-600">Loading records...</div>}
           {!loading && error && <div className="alert error">{error}</div>}
+          {!loading && resolveError && <div className="alert error">{resolveError}</div>}
           {!loading && !error && (
             <TableList
               rows={records}
@@ -281,7 +312,7 @@ export default function MaintenancePage() {
                   key: 'status_label',
                   label: 'Status',
                   render: (value, row) => (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
                       <span
                         style={{
                           display: 'inline-flex',
@@ -292,15 +323,27 @@ export default function MaintenancePage() {
                           fontSize: 12,
                           fontWeight: 500,
                           textTransform: 'capitalize',
+                          width: 'fit-content',
                         }}
                       >
                         {value || 'Unknown'}
                       </span>
+                      {row.status_code === 'reported' && (
+                        <button
+                          type="button"
+                          className="btn"
+                          style={{ padding: '2px 8px', fontSize: 12 }}
+                          onClick={() => handleResolve(row)}
+                          disabled={resolvingId === row.RecordID}
+                        >
+                          {resolvingId === row.RecordID ? 'Saving...' : 'Mark Resolved'}
+                        </button>
+                      )}
                       {canApprove && row.can_confirm && (
                         <button
                           type="button"
                           className="btn"
-                          style={{ padding: '2px 8px', fontSize: 12, alignSelf: 'flex-start' }}
+                          style={{ padding: '2px 8px', fontSize: 12 }}
                           onClick={() => handleApprove(row.RecordID)}
                           disabled={confirmingId === row.RecordID}
                         >

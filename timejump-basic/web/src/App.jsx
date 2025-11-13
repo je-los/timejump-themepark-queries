@@ -187,7 +187,7 @@ function StaffShell() {
 }
 
 const STAFF_LINKS = [
-  { label: 'Schedule', path: '/schedule', roles: ['employee', 'manager'] },
+  { label: 'Schedule', path: '/schedule', roles: ['employee'] },
   { label: 'Reports', path: '/reports', roles: ['admin', 'owner'] },
   { label: 'Manager', path: '/manager', roles: ['manager'] },
   { label: 'Maintenance', path: '/maintenance', roles: ['manager'] },

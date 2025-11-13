@@ -345,10 +345,10 @@ const tdStyle = {
 export default function StaffSchedulePage() {
   return (
     <RequireRole
-      roles={['employee', 'manager', 'admin', 'owner']}
+      roles={['employee']}
       fallback={
         <div className="page">
-          <div className="panel">Only staff members can view schedules.</div>
+          <div className="panel">Only employees can view schedules.</div>
         </div>
       }
     >
