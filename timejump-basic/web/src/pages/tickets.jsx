@@ -19,6 +19,19 @@ export default function Tickets() {
   const [parkingLot, setParkingLot] = useState('');
   const [parkingQty, setParkingQty] = useState(1);
 
+  function resetForm() {
+    setQty(1);
+    setIncludeParking(false);
+    setParkingQty(1);
+
+    if (ticketTypes.length > 0) {
+      setPassType(ticketTypes[0].name);
+    }
+    if (parkingLots.length > 0) {
+      setParkingLot(parkingLots[0].id);
+    }
+  }
+
   useEffect(() => {
     let cancelled = false;
     async function load() {
@@ -118,13 +131,6 @@ export default function Tickets() {
     });
     resetForm();
   }
-  function resetForm() {
-    setQty(1);
-    setIncludeParking(false);
-    setParkingQty(1);
-    setPassType('');
-    setParkingLot('');
-}
 
   return (
     <div className="max-w-4xl mx-auto p-6">
