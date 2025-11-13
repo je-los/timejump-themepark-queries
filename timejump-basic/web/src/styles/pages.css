@@ -13,14 +13,68 @@
   box-shadow: 0 10px 24px -20px rgba(15,23,42,.35);
 }
 .catalog-card .input { flex:1; min-width:120px; }
+.page.home-page {
+  padding-top: 0;
+}
 .home-hero {
+  padding: 48px 24px;
+}
+.home-hero__container {
   display: grid;
   gap: 32px;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   align-items: center;
-  padding: 48px 24px;
-  margin: 0 auto;
   max-width: 1152px;
+  margin: 0 auto;
+  width: 100%;
+}
+.home-hero--with-bg {
+  position: relative;
+  border-radius: 40px;
+  overflow: hidden;
+  padding: clamp(40px, 5vw, 64px) clamp(32px, 6vw, 72px);
+  padding-bottom: clamp(180px, 20vw, 320px);
+  background-image:
+    linear-gradient(120deg, rgba(15, 23, 42, .82), rgba(15, 23, 42, .35)),
+    url('/JurasticTJ.jpg');
+  background-size: cover;
+  background-position: 78% 80%;
+  color: #f8fafc;
+  box-shadow: 0 40px 90px -60px rgba(15, 23, 42, .9);
+  isolation: isolate; /* ensure inner shadows/gradients stay above image */
+}
+.home-hero--with-bg .home-hero__badge {
+  background: rgba(248, 250, 252, .15);
+  color: #f8fafc;
+}
+.home-hero--with-bg .home-hero__inner h1 { color: #fff; }
+.home-hero--with-bg .home-hero__inner p { color: rgba(241, 245, 249, .9); }
+.home-hero__actions .btn.primary {
+  background: #fff;
+  color: #0f172a;
+  border-color: #fff;
+  box-shadow: 0 15px 40px -25px rgba(15, 23, 42, .85);
+}
+.home-hero__actions .btn.primary:hover {
+  background: #f8fafc;
+  border-color: #f8fafc;
+}
+.home-hero--with-bg .home-hero__placeholder {
+  border-color: rgba(248, 250, 252, .55);
+  background: rgba(248, 250, 252, .18);
+  color: #e2e8f0;
+}
+.home-hero--fullbleed {
+  width: 100vw;
+  max-width: none;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+  border-radius: 0 0 48px 48px;
+  padding-left: clamp(32px, 8vw, 120px);
+  padding-right: clamp(32px, 8vw, 120px);
+}
+.home-hero__container {
+  margin-top: clamp(32px, 6vw, 96px);
 }
 .home-hero__inner {
   display: grid;
@@ -116,6 +170,58 @@
   color: #fff;
 }
 .home-theme-card:hover { transform: translateY(-4px); box-shadow: 0 20px 40px -24px rgba(15,23,42,.65); }
+.home-theme-card--jurassic {
+  background-image:
+    linear-gradient(140deg, rgba(16,185,129,.25), rgba(15,23,42,.6)),
+    url('/TJdinasour.jpg');
+  background-size: cover;
+  background-position: center;
+}
+.home-theme-card--jurassic .home-theme-card__content {
+  background: linear-gradient(140deg, rgba(15,23,42,.75), rgba(15,23,42,.35));
+}
+.home-theme-card--jurassic .home-theme-card__overlay {
+  display: none;
+}
+.home-theme-card--medieval {
+  background-image:
+    linear-gradient(140deg, rgba(15,23,42,.3), rgba(76,29,149,.7)),
+    url('/TJfantasy.jpg');
+  background-size: cover;
+  background-position: center;
+}
+.home-theme-card--medieval .home-theme-card__content {
+  background: linear-gradient(140deg, rgba(15,23,42,.8), rgba(76,29,149,.45));
+}
+.home-theme-card--medieval .home-theme-card__overlay {
+  display: none;
+}
+.home-theme-card--wildwest {
+  background-image:
+    linear-gradient(140deg, rgba(249,115,22,.25), rgba(68,29,12,.7)),
+    url('/TJwildwest.jpg');
+  background-size: cover;
+  background-position: center;
+}
+.home-theme-card--wildwest .home-theme-card__content {
+  background: linear-gradient(140deg, rgba(15,23,42,.85), rgba(68,29,12,.5));
+}
+.home-theme-card--wildwest .home-theme-card__overlay {
+  display: none;
+}
+.home-theme-card--novacrest {
+  background-image:
+    linear-gradient(140deg, rgba(59,130,246,.25), rgba(111,0,255,.45)),
+    url('/TJFuture2.jpg');
+  background-size: cover;
+  background-position: center;
+}
+.home-theme-card--novacrest .home-theme-card__content {
+  background: linear-gradient(140deg, rgba(15,23,42,.85), rgba(59,130,246,.4));
+}
+.home-theme-card--novacrest .home-theme-card__overlay {
+  display: none;
+}
 .home-theme-card__content {
   position: relative;
   z-index: 2;
@@ -187,22 +293,40 @@
   flex-wrap: wrap;
   gap: 12px;
 }
+.home-gift-shop__actions .btn.primary {
+  background: #fff;
+  color: #0f172a;
+  border-color: #fff;
+  box-shadow: 0 15px 40px -25px rgba(15, 23, 42, .85);
+}
+.home-gift-shop__actions .btn.primary:hover {
+  background: #f8fafc;
+  border-color: #f8fafc;
+}
 .home-gift-shop__visual {
   display: flex;
   justify-content: center;
 }
 .home-gift-shop__placeholder {
-  width: min(360px, 100%);
-  aspect-ratio: 4/3;
+  width: min(520px, 100%);
+  aspect-ratio: 16/9;
   border-radius: 24px;
-  border: 1px dashed rgba(226,232,240,.65);
+  border: 1px solid rgba(226,232,240,.4);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: rgba(226,232,240,.8);
+  padding: 24px;
+  color: #f8fafc;
   font-size: 13px;
   letter-spacing: .08em;
   text-transform: uppercase;
+  background-image:
+    linear-gradient(135deg, rgba(15,23,42,.25), rgba(8,47,73,.05)),
+    url('/TJshop.jpg');
+  background-size: cover;
+  background-position: center;
+  box-shadow: inset 0 0 0 1px rgba(248,250,252,.2);
+  filter: saturate(1.15) brightness(1.08);
 }
 
 .rides-shell {
