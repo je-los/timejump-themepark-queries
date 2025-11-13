@@ -11,6 +11,10 @@ import { pick } from '../utils/object.js';
 
 const EMPLOYEE_POSITION_ID = 1;
 
+function todayISO() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 function normalizeDate(value) {
   if (!value && value !== 0) return null;
   const trimmed = String(value).trim();
@@ -670,6 +674,68 @@ export function registerOperationsRoutes(router) {
         AttractionID: attractionId,
         log_date: logDate,
         riders_count: ridersCount,
+      },
+    });
+  }));
+
+  router.get('/ride-cancellations', requireRole(['manager', 'admin', 'owner'])(async ctx => {
+    const limitParam = Number(ctx.query?.limit);
+    const limit = Number.isFinite(limitParam) ? Math.min(Math.max(limitParam, 1), 200) : 50;
+    const rows = await query(`
+      SELECT rc.cancel_id,
+             rc.AttractionID,
+             DATE(rc.cancel_date) AS cancel_date,
+             rc.reason,
+             a.Name AS attraction_name
+      FROM ride_cancellation rc
+      LEFT JOIN attraction a ON a.AttractionID = rc.AttractionID
+      ORDER BY rc.cancel_date DESC, rc.cancel_id DESC
+      LIMIT ${limit}
+    `).catch(() => []);
+    ctx.ok({
+      data: rows.map(row => ({
+        cancel_id: row.cancel_id,
+        attraction_id: row.AttractionID,
+        attraction_name: row.attraction_name || `Attraction ${row.AttractionID}`,
+        cancel_date: row.cancel_date,
+        reason: row.reason || '',
+      })),
+    });
+  }));
+
+  router.post('/ride-cancellations', requireRole(['manager', 'admin', 'owner'])(async ctx => {
+    const attractionId = Number(ctx.body?.attractionId || ctx.body?.AttractionID);
+    const cancelDateRaw = ctx.body?.cancelDate || ctx.body?.cancel_date || ctx.body?.date;
+    const cancelDate = normalizeDate(cancelDateRaw) || todayISO();
+    const reason = String(ctx.body?.reason || '').trim();
+
+    if (!attractionId) {
+      ctx.error(400, 'Attraction is required.');
+      return;
+    }
+    if (!reason) {
+      ctx.error(400, 'Reason is required.');
+      return;
+    }
+    const [exists] = await query(
+      'SELECT AttractionID FROM attraction WHERE AttractionID = ? LIMIT 1',
+      [attractionId],
+    ).catch(() => []);
+    if (!exists) {
+      ctx.error(400, 'Attraction not found.');
+      return;
+    }
+    const trimmedReason = reason.slice(0, 255);
+    const result = await query(
+      'INSERT INTO ride_cancellation (AttractionID, cancel_date, reason) VALUES (?, ?, ?)',
+      [attractionId, cancelDate, trimmedReason],
+    );
+    ctx.created({
+      data: {
+        cancel_id: result.insertId,
+        attraction_id: attractionId,
+        cancel_date: cancelDate,
+        reason: trimmedReason,
       },
     });
   }));

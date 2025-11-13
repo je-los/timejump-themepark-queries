@@ -110,7 +110,7 @@ const FALLBACK_MAINTENANCE_ROWS = [
   },
 ];
 
-function filterFallbackRows(rows, { start, end, severities, maintenanceTypes, attractionParam, search }) {
+function filterFallbackRows(rows, { start, end, severities, maintenanceTypes, attractionParam, search, statusFilters = [], approvedFilters = [] }) {
   const likeSearch = search ? search.toLowerCase() : '';
   return rows.filter(row => {
     if (start && String(row.Date_broken_down || '') < start) return false;
@@ -135,6 +135,8 @@ function filterFallbackRows(rows, { start, end, severities, maintenanceTypes, at
       const haystack = `${row.attraction_name || ''} ${row.Description_of_work || ''}`.toLowerCase();
       if (!haystack.includes(likeSearch)) return false;
     }
+    if (!matchesStatusFilter(row, statusFilters)) return false;
+    if (!matchesApprovedByFilter(row, approvedFilters)) return false;
     return true;
   });
 }
@@ -162,6 +164,50 @@ function decorateMaintenanceRow(row) {
   };
 }
 
+function normalizeStatusFilter(value) {
+  const raw = String(value || '').trim().toLowerCase();
+  if (!raw) return null;
+  if (raw === 'reported' || raw === 'not fixed' || raw === 'not_fixed') return 'reported';
+  if (raw === 'awaiting' || raw === 'awaiting_approval' || raw === 'pending_approval') return 'awaiting_approval';
+  if (raw === 'approved' || raw === 'fixed' || raw === 'completed') return 'approved';
+  return raw;
+}
+
+function matchesStatusFilter(row, statusFilters) {
+  if (!statusFilters?.length) return true;
+  const status = deriveStatus(row);
+  return statusFilters.includes(status.code);
+}
+
+function matchesApprovedByFilter(row, approvedFilters) {
+  if (!approvedFilters?.length) return true;
+  const approverId = row.Approved_by_supervisor ?? row.approved_by_supervisor ?? null;
+  const approverName = String(row.Approved_by_supervisor_name || row.approved_by_name || '').toLowerCase();
+  return approvedFilters.some(filter => {
+    const value = String(filter || '').trim();
+    if (!value) return false;
+    if (/^\d+$/.test(value)) {
+      return Number(approverId || 0) === Number(value);
+    }
+    const lower = value.toLowerCase();
+    if (['none', 'null', 'unassigned', 'pending'].includes(lower)) {
+      return !approverId;
+    }
+    if (!approverName) return false;
+    return approverName.includes(lower);
+  });
+}
+
+function toDateOnly(value) {
+  if (!value) return null;
+  if (value instanceof Date && !Number.isNaN(value.valueOf())) {
+    return value.toISOString().slice(0, 10);
+  }
+  const str = String(value);
+  const match = str.match(/\d{4}-\d{2}-\d{2}/);
+  return match ? match[0] : str;
+}
+
 export function registerMaintenanceRoutes(router) {
   router.get('/maintenance', requireRole(['employee', 'manager', 'admin', 'owner'])(async ctx => {
     const filters = ctx.query || {};
@@ -171,12 +217,18 @@ export function registerMaintenanceRoutes(router) {
     const typeParam = String(filters.type || filters.types || '').trim();
     const attractionParam = String(filters.attraction || '').trim();
     const search = String(filters.q || filters.search || '').trim();
+    const statusParam = String(filters.status || filters.statuses || '').trim();
+    const approvedParam = String(filters.approvedBy || filters.approved_by || filters.approved || '').trim();
 
     const toList = (value) => value
       ? value.split(',').map(v => v.trim()).filter(Boolean)
       : [];
     const severities = toList(severityParam).map(val => val.toLowerCase());
     const maintenanceTypes = toList(typeParam).map(val => val.toLowerCase());
+    const statusFilters = toList(statusParam)
+      .map(normalizeStatusFilter)
+      .filter(code => ['reported', 'awaiting_approval', 'approved'].includes(code));
+    const approvedFilters = toList(approvedParam);
 
     let sql = `
       SELECT mr.RecordID,
@@ -245,14 +297,16 @@ export function registerMaintenanceRoutes(router) {
         maintenanceTypes,
         attractionParam,
         search,
+        statusFilters,
+        approvedFilters,
       });
     }
     const decorated = rows.map(row => decorateMaintenanceRow({
       RecordID: row.RecordID,
       AttractionID: row.AttractionID,
       attraction_name: row.attraction_name,
-      Date_broken_down: row.Date_broken_down,
-      Date_fixed: row.Date_fixed,
+      Date_broken_down: toDateOnly(row.Date_broken_down),
+      Date_fixed: toDateOnly(row.Date_fixed),
       type_of_maintenance: row.type_of_maintenance,
       Description_of_work: row.Description_of_work,
       Severity_of_report: row.Severity_of_report,
@@ -260,7 +314,11 @@ export function registerMaintenanceRoutes(router) {
       Approved_by_supervisor_name: row.approved_by_name,
       Status: row.status_value,
     }));
-    ctx.ok({ data: decorated });
+    const filtered = decorated.filter(row =>
+      matchesStatusFilter(row, statusFilters) &&
+      matchesApprovedByFilter(row, approvedFilters),
+    );
+    ctx.ok({ data: filtered });
   }));
 
   router.get('/maintenance/meta', requireRole(['employee', 'manager', 'admin', 'owner'])(async ctx => {

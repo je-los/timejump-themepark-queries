@@ -1,5 +1,4 @@
 import { query } from '../db.js';
-import { todayISO } from '../utils/date.js';
 
 const cache = new Map();
 
@@ -134,8 +133,8 @@ export async function ensureDefaultGiftShop() {
   }
   const themeId = await ensureDefaultTheme();
   const result = await query(
-    'INSERT INTO gift_shops (ThemeID, ShopName, Revenue, OpenDate) VALUES (?, ?, NULL, ?)',
-    [themeId, 'Central Gift Shop', todayISO()],
+    'INSERT INTO gift_shops (ThemeID, ShopName) VALUES (?, ?)',
+    [themeId, 'Central Gift Shop'],
   );
   cache.set('defaultGiftShop', result.insertId);
   return result.insertId;

@@ -285,17 +285,12 @@ export function registerCatalogRoutes(router) {
   router.post('/gift-shops', requireRole(['owner', 'admin'])(async ctx => {
     const name = String(ctx.body?.name || ctx.body?.shopName || '').trim();
     const themeId = Number(ctx.body?.themeId || ctx.body?.ThemeID);
-    const openDate = ctx.body?.openDate ? String(ctx.body.openDate).trim() : null;
     if (!name) {
       ctx.error(400, 'Shop name is required.');
       return;
     }
     if (!themeId) {
       ctx.error(400, 'Theme is required.');
-      return;
-    }
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(openDate || '')) {
-      ctx.error(400, 'Open date must be provided in YYYY-MM-DD format.');
       return;
     }
     const themeExists = await query(
@@ -315,15 +310,14 @@ export function registerCatalogRoutes(router) {
       return;
     }
     const result = await query(
-      'INSERT INTO gift_shops (ThemeID, ShopName, Revenue, OpenDate) VALUES (?, ?, NULL, ?)',
-      [themeId, name, openDate],
+      'INSERT INTO gift_shops (ThemeID, ShopName) VALUES (?, ?)',
+      [themeId, name],
     );
     ctx.created({
       data: {
         shop_id: result.insertId,
         name,
         theme_id: themeId,
-        open_date: openDate,
       },
     });
   }));
@@ -336,7 +330,6 @@ export function registerCatalogRoutes(router) {
     }
     const name = ctx.body?.name ? String(ctx.body.name).trim() : null;
     const themeId = ctx.body?.themeId !== undefined ? Number(ctx.body.themeId) : null;
-    const closeDate = ctx.body?.closeDate ? String(ctx.body.closeDate).trim() : undefined;
     const fields = [];
     const values = [];
     if (name) {
@@ -355,10 +348,6 @@ export function registerCatalogRoutes(router) {
       fields.push('ThemeID = ?');
       values.push(themeId);
     }
-    if (closeDate !== undefined) {
-      fields.push('CloseDate = ?');
-      values.push(closeDate || null);
-    }
     if (!fields.length) {
       ctx.error(400, 'Nothing to update.');
       return;
@@ -372,7 +361,7 @@ export function registerCatalogRoutes(router) {
       ctx.error(404, 'Gift shop not found.');
       return;
     }
-    ctx.ok({ data: { shop_id: shopId, name, theme_id: themeId, close_date: closeDate } });
+    ctx.ok({ data: { shop_id: shopId, name, theme_id: themeId } });
   }));
 
   router.delete('/gift-shops/:id', requireRole(['owner', 'admin'])(async ctx => {

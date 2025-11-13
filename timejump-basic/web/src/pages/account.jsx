@@ -52,6 +52,18 @@ export default function Account() {
   }, [isEmployee]);
   const [editing, setEditing] = useState(false);
 
+  function resetFormState(nextEditing = false) {
+    setForm({
+      first_name: profile.first_name || '',
+      last_name: profile.last_name || '',
+      phone: formatPhoneDisplay(profile.phone) || '',
+      date_of_birth: profile.date_of_birth || '',
+    });
+    setStatus('');
+    setStatusTone('info');
+    setEditing(nextEditing);
+  }
+
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
@@ -250,43 +262,18 @@ export default function Account() {
                   <button
                     className="btn"
                     type="button"
-                    onClick={() => {
-                      setForm({
-                        first_name: profile.first_name || '',
-                        last_name: profile.last_name || '',
-                        phone: formatPhoneDisplay(profile.phone) || '',
-                        date_of_birth: profile.date_of_birth || '',
-                      });
-                      setStatus('');
-                      setStatusTone('info');
-                      setEditing(true);
-                    }}
+                    onClick={() => resetFormState(true)}
                   >
                     Modify
                   </button>
                 ) : (
-                  <>
-                    <button className="btn primary" form="profile-form" type="submit" disabled={saving}>
-                      {saving ? 'Saving…' : 'Confirm'}
-                    </button>
-                    <button
-                      className="btn"
-                      type="button"
-                      onClick={() => {
-                      setForm({
-                        first_name: profile.first_name || '',
-                        last_name: profile.last_name || '',
-                        phone: formatPhoneDisplay(profile.phone) || '',
-                        date_of_birth: profile.date_of_birth || '',
-                      });
-                      setStatus('');
-                      setStatusTone('info');
-                      setEditing(false);
-                    }}
+                  <button
+                    className="btn"
+                    type="button"
+                    onClick={() => resetFormState(false)}
                   >
                     Cancel
                   </button>
-                  </>
                 )}
               </div>
             )}
@@ -329,11 +316,26 @@ export default function Account() {
                 <input
                   className="input"
                   type="date"
-                  value={profile.date_of_birth || ''}
-                  readOnly
-                  disabled
+                  value={form.date_of_birth || ''}
+                  onChange={e => setForm(f => ({ ...f, date_of_birth: e.target.value }))}
+                  disabled={!editing}
                 />
               </label>
+              {editing && (
+                <div className="account-form__actions" style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                  <button className="btn primary" type="submit" disabled={saving}>
+                    {saving ? 'Saving…' : 'Confirm'}
+                  </button>
+                  <button
+                    className="btn"
+                    type="button"
+                    onClick={() => resetFormState(false)}
+                    disabled={saving}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
               {status && (
                 <div
                   className={`alert ${
