@@ -399,6 +399,7 @@ export function registerOperationsRoutes(router) {
   router.get('/schedules', requireRole(['employee', 'manager', 'admin', 'owner'])(async ctx => {
     console.log('authUser:', ctx.authUser);
     await ensureScheduleCompletionColumn();
+    console.log("✅ ensureScheduleCompletionColumn passed");
     const isEmployee = ctx.authUser.role === 'employee';
     let whereClause = '';
     const params = [];
@@ -433,6 +434,7 @@ export function registerOperationsRoutes(router) {
       ORDER BY s.Shift_date DESC, s.Start_time ASC
       LIMIT 500
     `, params).catch(() => []);
+    console.log("✅ Query returned rows:", rows.length);
     ctx.ok({
       data: rows.map(row => ({
         ScheduleID: row.ScheduleID,
