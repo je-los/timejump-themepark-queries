@@ -8,10 +8,12 @@ import { registerSystemRoutes } from './system.js';
 import { registerThemeRoutes } from './themes.js';
 import { registerOrderRoutes } from './orders.js';
 import { registerProfileRoutes } from './profile.js';
+import { registerDashboardRoutes } from './dashboard.js';
 
 export function registerRoutes(router) {
   registerSystemRoutes(router);
   registerAuthRoutes(router);
+  registerDashboardRoutes(router);
   registerCatalogRoutes(router);
   registerThemeRoutes(router);
   registerOrderRoutes(router);
