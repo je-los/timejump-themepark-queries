@@ -30,8 +30,24 @@
   background: transparent;
   cursor: pointer;
   color: #f8fafc;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
 }
 .nav-brand:hover { color: #38bdf8; }
+.nav-brand__logo {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  object-fit: cover;
+  box-shadow: 0 10px 25px -15px rgba(15,23,42,.85);
+  border: 1px solid rgba(248,250,252,.4);
+}
+.nav-brand__text {
+  color: inherit;
+  line-height: 1.1;
+}
 .nav-role-pill {
   display: inline-flex;
   align-items: center;
@@ -253,4 +269,3 @@
   font-weight: 600;
 }
 .nav-auth .btn.primary:hover { background: #0ea5e9; border-color: #0ea5e9; color: #0f172a; }
-

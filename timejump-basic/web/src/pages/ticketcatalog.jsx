@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/authcontext.jsx';
 import { useCart } from '../context/cartcontext.jsx';
 
@@ -338,10 +338,19 @@ export default function TicketCatalog({ filter = 'all' }) {
   }
 
   return (
-    <div className="page">
+    <div className="page tickets-page">
+      <div className="tickets-banner">
+        <nav className="tickets-breadcrumbs" aria-label="Breadcrumb">
+          <Link to="/">Home</Link>
+          <span aria-hidden="true">›</span>
+          <span>Tickets</span>
+        </nav>
+        <h1 className="tickets-banner__title">Park Tickets</h1>
+      </div>
       <div className="page-box page-box--tickets">
-        <header style={{ marginBottom: 16 }}>
-          <h1>Buy Tickets</h1>
+        <header className="ticket-catalog__intro">
+          <h2>Plan Your Visit</h2>
+          <p>Select your date, passes, and optional parking below.</p>
         </header>
 
         {user && user.role !== 'customer' && (
@@ -504,6 +513,19 @@ export default function TicketCatalog({ filter = 'all' }) {
           </div>
         )}
       </div>
+      <section className="tickets-support-card" aria-labelledby="ticket-catalog-support-title">
+        <div className="tickets-support-card__content">
+          <p className="tickets-support-card__eyebrow">Need assistance?</p>
+          <h2 id="ticket-catalog-support-title">Guest Services Can Help</h2>
+          <p>
+            Planning for large groups or special celebrations? Connect with our Guest Services team for personalized help selecting tickets, parking, and add-ons.
+          </p>
+          <div className="tickets-support-card__actions">
+            <a className="support-chip" href="tel:1-800-555-1299">Call 1-800-555-1299</a>
+            <a className="support-chip" href="mailto:guestservices@timejumppark.com">guestservices@timejumppark.com</a>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }

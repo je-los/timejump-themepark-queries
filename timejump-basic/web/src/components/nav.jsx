@@ -121,7 +121,14 @@ export default function Nav({ themes = [] }) {
         <div className="nav-bar">
           <div className="nav-left">
             <Link className="nav-brand" to="/" onClick={() => setOpenMenu(null)}>
-              Time Jump Theme Park
+              <img
+                className="nav-brand__logo"
+                src="https://i.imgur.com/8JAUSLLh.jpg"
+                alt="Time Jump Theme Park logo"
+                width={48}
+                height={48}
+              />
+              <span className="nav-brand__text">Time Jump Theme Park</span>
             </Link>
           </div>
 

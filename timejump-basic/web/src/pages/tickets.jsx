@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useCart } from '../context/cartcontext.jsx';
 import { useAuth } from '../context/authcontext.jsx';
 import { api } from '../auth.js';
@@ -142,7 +143,15 @@ export default function Tickets() {
   console.log("Is button disabled?", !selectedTicket);
   console.log("Error state:", error);
   return (
-    <div className="max-w-4xl mx-auto p-6">
+    <div className="max-w-4xl mx-auto p-6 tickets-page">
+      <div className="tickets-banner">
+        <nav className="tickets-breadcrumbs" aria-label="Breadcrumb">
+          <Link to="/">Home</Link>
+          <span aria-hidden="true">›</span>
+          <span>Tickets</span>
+        </nav>
+        <h1 className="tickets-banner__title">Park Tickets</h1>
+      </div>
       <div className="rounded-2xl border bg-white card-padding shadow-sm">
         <h2 className="text-lg font-semibold mb-4">Buy Tickets</h2>
 
@@ -308,6 +317,19 @@ export default function Tickets() {
           </div>
         </div>
       )}
+      <section className="tickets-support-card" aria-labelledby="ticket-support-title">
+        <div className="tickets-support-card__content">
+          <p className="tickets-support-card__eyebrow">Need assistance?</p>
+          <h2 id="ticket-support-title">Guest Services Can Help</h2>
+          <p>
+            Questions about group reservations, accessibility, or special events? Reach out to our dedicated team and we'll walk you through the best ticket option for your visit.
+          </p>
+          <div className="tickets-support-card__actions">
+            <a className="support-chip" href="tel:1-800-555-1299">Call 1-800-555-1299</a>
+            <a className="support-chip" href="mailto:guestservices@timejumppark.com">guestservices@timejumppark.com</a>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
