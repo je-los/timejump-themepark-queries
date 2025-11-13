@@ -50,15 +50,16 @@ export default function FoodVendors() {
   }, [filtered, sortDir]);
 
   return (
-    <div className="page">
-      <div className="page-box page-box--wide dining-page">
-        <section className="dining-hero">
-          <div className="dining-hero__content">
-            <p className="dining-eyebrow">Marketplace</p>
-            <h1>Dine your way through every era.</h1>
-            <p>Filter by land, browse signature bites, and plan your tasting tour before you even scan your ticket.</p>
-          </div>
-        </section>
+    <div className="page dining-page-shell">
+      <section className="dining-hero dining-hero--fullbleed">
+        <div className="dining-hero__content">
+          <p className="dining-eyebrow">Marketplace</p>
+          <h1>Dine your way through every era.</h1>
+          <p>Filter by land, browse signature bites, and plan your tasting tour before you even scan your ticket.</p>
+        </div>
+      </section>
+
+      <div className="dining-page">
 
         <div className="dining-tools">
           <input
