@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import RequireRole from "../components/requirerole.jsx";
 import { api } from "../auth";
-import AuthToast from '../components/authtoast.jsx';
+import AuthToast from "../components/authtoast.jsx";
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
 }
