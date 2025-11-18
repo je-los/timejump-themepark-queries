@@ -180,6 +180,23 @@ function Planner() {
 
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
+  async function handleDelete(schedule) {
+    if (!confirm("Are you sure you want to delete this shift?")) return;
+
+    try {
+      await api(`/schedules/${schedule.ScheduleID}`, { method: 'DELETE' });
+
+      // Reload schedules
+      const res = await api('/schedules');
+      const rows = Array.isArray(res.data) ? res.data : res.schedules;
+      setSchedules(rows.filter(e => !e.is_completed));
+
+    } catch (err) {
+      alert("Failed to delete shift.");
+    }
+
+    setOpenMenu(null);
+  }
 
   async function submit(e) {
     e.preventDefault();

@@ -1130,6 +1130,42 @@
   font-size: .9rem;
   line-height: 1.4;
 }
+.manager-dropdown {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  background: #ffffff;
+  border: 1px solid #e2e8f0; /* cool gray like your UI */
+  border-radius: 12px;
+  padding: 8px;
+  width: 140px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  /* soft UI shadow like other cards */
+  box-shadow: 0 10px 30px -12px rgba(15, 23, 42, 0.28);
+  z-index: 20;
+}
+
+/* Dropdown buttons */
+.manager-dropdown button,
+.manager-dropdown a {
+  padding: 6px 8px;
+  text-align: left;
+  font-size: 0.9rem;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: #334155;
+  border-radius: 8px;
+  transition: background 0.15s ease;
+}
+
+.manager-dropdown button:hover,
+.manager-dropdown a:hover {
+  background: #f1f5f9; /* subtle hover */
+}
 
 .manager-table {
   width: 100%;
