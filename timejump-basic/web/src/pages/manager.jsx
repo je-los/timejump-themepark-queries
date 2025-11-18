@@ -166,6 +166,20 @@ function Planner() {
       return attractionMatch && dateMatch;
     });
   }, [schedules, filter]);
+  function handleMods(schedule) {
+  
+  setForm({
+    employeeId: schedule.employeeId ?? schedule.EmployeeID,
+    attractionId: schedule.attractionId ?? schedule.AttractionID,
+    shiftDate: schedule.shiftDate ?? schedule.date,
+    startTime: schedule.startTime ?? schedule.StartTime,
+    endTime: schedule.endTime ?? schedule.EndTime
+  });
+
+  setOpenMenu(null);
+
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
 
   async function submit(e) {
     e.preventDefault();
@@ -714,7 +728,7 @@ function Planner() {
                           >
                             <button
                               className="btn small"
-                              onClick={() => handleModify(s)}
+                              onClick={() => handleMods(s)}
                             >
                               Modify
                             </button>
