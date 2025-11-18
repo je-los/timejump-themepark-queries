@@ -43,6 +43,29 @@ export function registerAuthRoutes(router) {
       ctx.error(400, 'First name, last name, email, password, phone, and date of birth are required.');
       return;
     }
+
+    // Check if birthdate is not past current date
+    const birthDate = new Date(`${dateOfBirth}T00:00:00Z`);
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+    
+    if (birthDate > today) {
+      ctx.error(400, 'Date of birth invalid.');
+      return;
+    }
+
+    // Check if user is 18+ years old
+    let age = today.getUTCFullYear() - birthDate.getUTCFullYear();
+    const monthDiff = today.getUTCMonth() - birthDate.getUTCMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getUTCDate() < birthDate.getUTCDate())) {
+      age--;
+    }
+
+    if (age < 18) {
+      ctx.error(400, 'You must be at least 18 years or older to create an account.');
+      return;
+    }
+
     const existing = await query(
       'SELECT user_id FROM users WHERE email = ? LIMIT 1',
       [email],

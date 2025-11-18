@@ -13,6 +13,30 @@ function normalizeRide(row) {
   const estimatedCapacity = Number.isFinite(capacityPerDispatch) && capacityPerDispatch > 0
     ? capacityPerDispatch * dispatchesPerHour
     : null;
+  const closureStatusId = Number.isFinite(Number(row.closure_status_id))
+    ? Number(row.closure_status_id)
+    : 0;
+  const closureStatusName = (row.closure_status_name || '').toLowerCase();
+  const hasActiveMaintenance = Boolean(row.maintenance_record_id);
+  let normalizedStatus = closureStatusName || (closureStatusId === 0 ? 'active' : 'temporarily_closed');
+  let statusLabel;
+  let statusNote = row.closure_note || row.closure_status_description || null;
+
+  if (hasActiveMaintenance) {
+    normalizedStatus = 'closed_for_maintenance';
+    statusLabel = 'Closed for Maintenance';
+    statusNote = row.maintenance_description || statusNote;
+  } else if (normalizedStatus === 'active') {
+    statusLabel = 'Open';
+  } else if (normalizedStatus === 'permanently_closed') {
+    statusLabel = 'Permanently Closed';
+  } else {
+    statusLabel = 'Closed';
+  }
+
+  const statusCode = hasActiveMaintenance ? 2 : closureStatusId;
+  const isOpen = normalizedStatus === 'active';
+
   return {
     id: row.AttractionID,
     attraction_id: row.AttractionID,
@@ -30,6 +54,14 @@ function normalizeRide(row) {
     image_url: row.image_url || null,
     experience_level: row.experience_level || null,
     target_audience: row.target_audience || null,
+    status_code: statusCode,
+    status_name: normalizedStatus,
+    status_label: statusLabel,
+    status_note: statusNote || null,
+    is_open: isOpen,
+    is_closed: !isOpen,
+    maintenance_active: hasActiveMaintenance,
+    maintenance_note: row.maintenance_description || null,
   };
 }
 
@@ -73,10 +105,37 @@ export async function listRides() {
       a.Capacity,
       a.image_url,
       a.experience_level,
-      a.target_audience
+      a.target_audience,
+      ac.StatusID AS closure_status_id,
+      cs.StatusName AS closure_status_name,
+      cs.Description AS closure_status_description,
+      ac.Note AS closure_note,
+      mr.RecordID AS maintenance_record_id,
+      mr.Description_of_work AS maintenance_description
     FROM attraction a
     LEFT JOIN theme t ON t.themeID = a.ThemeID
     LEFT JOIN attraction_type at ON at.AttractionTypeID = a.AttractionTypeID
+    LEFT JOIN attraction_closure ac
+      ON ac.ClosureID = (
+        SELECT ac2.ClosureID
+        FROM attraction_closure ac2
+        WHERE ac2.AttractionID = a.AttractionID
+          AND ac2.StartsAt <= NOW()
+          AND (ac2.EndsAt IS NULL OR ac2.EndsAt >= NOW())
+        ORDER BY ac2.StartsAt DESC
+        LIMIT 1
+      )
+    LEFT JOIN cancellation_status cs ON cs.StatusID = ac.StatusID
+    LEFT JOIN maintenance_records mr
+      ON mr.RecordID = (
+        SELECT mr2.RecordID
+        FROM maintenance_records mr2
+        WHERE mr2.AttractionID = a.AttractionID
+          AND mr2.Date_broken_down <= CURRENT_DATE()
+          AND (mr2.Date_fixed IS NULL OR mr2.Date_fixed > CURRENT_DATE())
+        ORDER BY (mr2.Date_fixed IS NULL) DESC, mr2.Date_broken_down DESC
+        LIMIT 1
+      )
     ORDER BY t.themeName ASC, a.Name ASC
   `).catch(() => []);
 

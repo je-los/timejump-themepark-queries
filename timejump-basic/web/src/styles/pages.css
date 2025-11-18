@@ -36,7 +36,7 @@
   padding-bottom: clamp(180px, 20vw, 320px);
   background-image:
     linear-gradient(120deg, rgba(15, 23, 42, .82), rgba(15, 23, 42, .35)),
-    url('/JurasticTJ.jpg');
+    url('https://i.imgur.com/o9sjl45.jpeg');
   background-size: cover;
   background-position: 78% 80%;
   color: #f8fafc;
@@ -173,7 +173,7 @@
 .home-theme-card--jurassic {
   background-image:
     linear-gradient(140deg, rgba(16,185,129,.25), rgba(15,23,42,.6)),
-    url('/TJdinasour.jpg');
+    url('https://i.imgur.com/KDYXMTX.jpeg');
   background-size: cover;
   background-position: center;
 }
@@ -186,7 +186,7 @@
 .home-theme-card--medieval {
   background-image:
     linear-gradient(140deg, rgba(15,23,42,.3), rgba(76,29,149,.7)),
-    url('/TJfantasy.jpg');
+    url('https://i.imgur.com/S6eyrKv.jpeg');
   background-size: cover;
   background-position: center;
 }
@@ -199,7 +199,7 @@
 .home-theme-card--wildwest {
   background-image:
     linear-gradient(140deg, rgba(249,115,22,.25), rgba(68,29,12,.7)),
-    url('/TJwildwest.jpg');
+    url('https://i.imgur.com/IyIn0VE.jpeg');
   background-size: cover;
   background-position: center;
 }
@@ -212,7 +212,7 @@
 .home-theme-card--novacrest {
   background-image:
     linear-gradient(140deg, rgba(59,130,246,.25), rgba(111,0,255,.45)),
-    url('/TJFuture2.jpg');
+    url('https://i.imgur.com/OyJAwO6.jpeg');
   background-size: cover;
   background-position: center;
 }
@@ -322,13 +322,16 @@
   text-transform: uppercase;
   background-image:
     linear-gradient(135deg, rgba(15,23,42,.25), rgba(8,47,73,.05)),
-    url('/TJshop.jpg');
+    url('https://i.imgur.com/EZSI7u0.jpeg');
   background-size: cover;
   background-position: center;
   box-shadow: inset 0 0 0 1px rgba(248,250,252,.2);
   filter: saturate(1.15) brightness(1.08);
 }
 
+.page.rides-page {
+  padding: 0;
+}
 .rides-shell {
   max-width: 72rem;
   margin: 0 auto;
@@ -337,11 +340,23 @@
   gap: 32px;
 }
 .rides-hero {
-  background: radial-gradient(circle at top left, #1e3a8a, #0f172a 65%);
-  border-radius: 28px;
-  padding: clamp(1.5rem, 4vw, 3rem);
+  background-image:
+    linear-gradient(90deg, rgba(10, 24, 60, 0.78) 0%, rgba(9, 21, 52, 0.6) 55%, rgba(12, 21, 45, 0.35) 100%),
+    url('https://i.imgur.com/5FZfuTF.jpeg');
+  background-size: 150% auto;
+  background-position: left center;
+  background-repeat: no-repeat;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+  width: 100vw;
+  border-radius: 0 0 40px 40px;
+  padding: clamp(2rem, 6vw, 4rem) clamp(1.5rem, 8vw, 6rem);
   color: #e2e8f0;
   box-shadow: 0 24px 60px -32px rgba(15, 23, 42, 0.7);
+}
+.rides-hero__content {
+  max-width: 72rem;
+  margin: 0 auto;
 }
 .rides-hero__content h1 {
   margin: 0.4rem 0 0.8rem;
@@ -438,12 +453,31 @@
   display: flex;
   justify-content: flex-start;
 }
+.page.theme-page {
+  max-width: none;
+  padding: 0 0 2.5rem;
+}
 .theme-detail__hero{
   display:flex;
   flex-wrap:wrap;
   gap:24px;
   align-items:center;
-  margin-bottom:24px;
+  margin-bottom:0;
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+  background-image:
+    linear-gradient(115deg, rgba(6, 11, 34, 0.92), rgba(15, 23, 42, 0.45)),
+    var(--theme-hero-image, url('https://i.imgur.com/iyT0blJ.jpeg'));
+  background-size: cover;
+  background-position: center;
+  border-radius: 0 0 40px 40px;
+  padding: clamp(2rem, 6vw, 4.5rem) clamp(1.5rem, 8vw, 6rem);
+  color: #f8fafc;
+  box-shadow: 0 30px 70px -50px rgba(15, 23, 42, 0.65);
+  min-height: clamp(220px, 40vw, 360px);
+  position: relative;
+  overflow: hidden;
 }
 .theme-detail__copy{
   flex:1 1 260px;
@@ -453,14 +487,28 @@
 }
 .theme-detail__copy h1{
   margin:0;
-  font-size:2rem;
+  font-size:2.5rem;
+  color:#fff;
 }
 .theme-detail__eyebrow{
   text-transform:uppercase;
   letter-spacing:.08em;
   font-size:.75rem;
-  color:#94a3b8;
+  color:rgba(248, 250, 252, 0.8);
   margin:0;
+}
+.theme-detail__description{
+  color:rgba(248, 250, 252, 0.85);
+  font-size:1rem;
+  margin:0;
+}
+.theme-detail__meta{
+  color:rgba(248, 250, 252, 0.75);
+  margin:0;
+  font-size:0.95rem;
+}
+.theme-page__grid {
+  margin-top: 32px;
 }
 .theme-detail__image{
   flex:1 1 280px;
@@ -525,7 +573,7 @@
   font-size: .8rem;
   color: #1d4ed8;
 }
-.ride-feature-card__meta span{
+.ride-feature-card__meta span:not(.ride-status){
   background:#e0f2fe;
   color:#0f172a;
   border-radius:999px;
@@ -719,6 +767,146 @@
 }
 .workspace-table--wide table {
   min-width: 680px;
+}
+
+.tickets-page {
+  display: grid;
+  gap: 24px;
+}
+.tickets-page .page-box {
+  max-width: none;
+  width: 100%;
+}
+.tickets-banner {
+  position: relative;
+  border-radius: 28px;
+  overflow: hidden;
+  min-height: 220px;
+  padding: clamp(24px, 5vw, 40px);
+  display: flex;
+  align-items: flex-end;
+  color: #fff;
+  box-shadow: 0 30px 60px -40px rgba(15,23,42,.8);
+  isolation: isolate;
+}
+.tickets-breadcrumbs {
+  position: absolute;
+  top: clamp(16px, 4vw, 32px);
+  left: clamp(18px, 4vw, 36px);
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  font-size: .9rem;
+  font-weight: 600;
+  color: rgba(248,250,252,.9);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.tickets-breadcrumbs a {
+  color: inherit;
+  text-decoration: none;
+}
+.tickets-breadcrumbs a:hover {
+  text-decoration: underline;
+}
+.tickets-breadcrumbs span[aria-hidden="true"] {
+  opacity: .8;
+}
+.tickets-banner::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: url("https://miro.medium.com/v2/resize:fit:1200/1*UVVcdBK8dNitgxOubXX-dA.jpeg");
+  background-size: cover;
+  background-position: center;
+  transform: scale(1.05);
+  filter: saturate(1.1);
+  z-index: -2;
+}
+.tickets-banner::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(150deg, rgba(2,6,23,.15), rgba(2,6,23,.8));
+  z-index: -1;
+}
+.tickets-banner__title {
+  margin: 0;
+  font-size: clamp(2.5rem, 6vw, 3.2rem);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: .04em;
+  text-shadow: 0 12px 30px rgba(2,6,23,.6);
+}
+.tickets-support-card {
+  border-radius: 28px;
+  background: linear-gradient(135deg, rgba(15,23,42,.9), rgba(15,23,42,.75));
+  color: #f8fafc;
+  padding: clamp(24px, 5vw, 40px);
+  box-shadow: 0 25px 60px -40px rgba(15,23,42,.9);
+}
+.tickets-support-card__content {
+  max-width: 640px;
+  display: grid;
+  gap: 12px;
+}
+.tickets-support-card__eyebrow {
+  text-transform: uppercase;
+  letter-spacing: .2em;
+  font-size: .8rem;
+  margin: 0;
+  color: rgba(248,250,252,.8);
+}
+.tickets-support-card__content h2 {
+  margin: 0;
+  font-size: clamp(1.8rem, 4vw, 2.4rem);
+  color: #fff;
+}
+.tickets-support-card__content p {
+  margin: 0;
+  color: rgba(248,250,252,.86);
+  line-height: 1.6;
+}
+.tickets-support-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 8px;
+}
+.support-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: rgba(248,250,252,.15);
+  border: 1px solid rgba(248,250,252,.4);
+  color: #fff;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background .15s ease, transform .15s ease;
+}
+.support-chip:hover {
+  background: rgba(248,250,252,.25);
+  transform: translateY(-1px);
+}
+
+.ticket-catalog__intro {
+  margin-bottom: 16px;
+  display: grid;
+  gap: 4px;
+}
+.ticket-catalog__intro h2 {
+  margin: 0;
+  font-size: clamp(2.5rem, 6vw, 3.2rem);
+  line-height: 1.1;
+  letter-spacing: .04em;
+  color: #0f172a;
+}
+.ticket-catalog__intro p {
+  margin: 0;
+  color: #475569;
+  font-size: .95rem;
 }
 
 .ticket-highlights {
@@ -1167,8 +1355,48 @@
   color: #475569;
 }
 
-.dining-page{display:flex;flex-direction:column;gap:32px;}
-.dining-hero{display:flex;flex-wrap:wrap;justify-content:space-between;gap:24px;background:linear-gradient(135deg,#1d4ed8,#0f172a);color:#e2e8f0;padding:32px;border-radius:24px;box-shadow:0 25px 60px -35px rgba(15,23,42,.8);}
+.dining-page{
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 90px 24px 32px;
+  display:flex;
+  flex-direction:column;
+  gap:32px;
+}
+.dining-page-shell {
+  padding: 0 0 2.5rem;
+}
+.dining-hero{
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:space-between;
+  gap:24px;
+  background-image:
+    linear-gradient(120deg, rgba(15, 23, 42, 0.88), rgba(30, 64, 175, 0.6)),
+    url('https://i.imgur.com/L1BoSLK.jpeg');
+  background-size: cover;
+  background-position: top center;
+  color:#e2e8f0;
+  padding:40px 32px 48px;
+  border-radius:24px;
+  box-shadow:0 25px 60px -35px rgba(15,23,42,.8);
+}
+.giftshop-hero {
+  background-image:
+    linear-gradient(120deg, rgba(15, 23, 42, 0.9), rgba(76, 29, 149, 0.65)),
+    url('https://i.imgur.com/eJ0UT0g.png');
+  background-size: cover;
+  background-position: center;
+}
+.dining-hero--fullbleed {
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+  border-radius: 0 0 40px 40px;
+  padding: clamp(3rem, 8vw, 5.5rem) clamp(1.5rem, 8vw, 6rem);
+  box-shadow: 0 30px 70px -50px rgba(15, 23, 42, 0.65);
+  margin-bottom: -60px;
+}
 .dining-hero__content{max-width:520px;display:flex;flex-direction:column;gap:8px;}
 .dining-hero__content h1{margin:0;font-size:2rem;}
 .dining-hero__content p{margin:0;color:#cbd5f5;font-size:1rem;line-height:1.5;}
@@ -1353,5 +1581,3 @@
   background: #e0f2fe;
   box-shadow: 0 12px 28px -20px rgba(14, 165, 233, 0.8);
 }
-
-

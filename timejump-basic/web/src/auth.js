@@ -31,7 +31,7 @@ export async function login(email, password){
     body: JSON.stringify({ email, password })
   });
   const j = await readJson(res);
-  if(!res.ok) throw new Error(j?.error || 'Invalid credentials');
+  if(!res.ok) throw new Error(j?.message || j?.error || 'Invalid credentials');
   if (j?.token) setToken(j.token);
   return j;
 }
@@ -59,7 +59,7 @@ export async function signup(details = {}){
     })
   });
   const j = await readJson(res);
-  if(!res.ok) throw new Error(j?.error || 'Unable to create account');
+  if(!res.ok) throw new Error(j?.message || j?.error || 'Unable to create account');
   if (j?.token) setToken(j.token);
   return j;
 }
@@ -76,7 +76,7 @@ export async function api(path, opts={}){
   const res = await fetch(base + path, { ...opts, headers });
   const json = await readJson(res);
   if (!res.ok) {
-    const err = new Error(json?.error || 'Request failed');
+    const err = new Error(json?.message || json?.error || 'Request failed');
     err.status = res.status;
     err.body = json;
     throw err;

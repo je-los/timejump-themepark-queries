@@ -38,6 +38,37 @@ function saveRecentLogs(key, logs) {
   }
 }
 
+const STATUS_LABELS = {
+  scheduled: 'Scheduled',
+  cancelled: 'Cancelled',
+  cancelled_for_maintenance: 'Closed for Maintenance',
+};
+
+const STATUS_COLORS = {
+  scheduled: { bg: '#ecfdf5', fg: '#065f46' },
+  cancelled: { bg: '#fef3c7', fg: '#92400e' },
+  cancelled_for_maintenance: { bg: '#fee2e2', fg: '#9f1239' },
+};
+
+function deriveShiftStatusMeta(code, name) {
+  const normalizedName = (name || '').toLowerCase();
+  let key = normalizedName;
+  if (!key) {
+    key = code === 2 ? 'cancelled_for_maintenance' : code === 1 ? 'cancelled' : 'scheduled';
+  }
+  if (!STATUS_LABELS[key]) {
+    key = code !== 0 ? 'cancelled' : 'scheduled';
+  }
+  const colors = STATUS_COLORS[key] || STATUS_COLORS.scheduled;
+  return {
+    key,
+    label: STATUS_LABELS[key] || STATUS_LABELS.scheduled,
+    isMaintenance: key === 'cancelled_for_maintenance',
+    isCancelled: key !== 'scheduled',
+    colors,
+  };
+}
+
 function ScheduleView() {
   const { user } = useAuth();
   const isEmployee = user?.role === 'employee';
@@ -80,6 +111,12 @@ function ScheduleView() {
       .map(shift => {
         const fallbackId = `${shift.AttractionID ?? shift.attractionId ?? 'attr'}-${shift.Start_time ?? shift.startTime ?? 'start'}-${shift.Shift_date ?? shift.shiftDate ?? 'date'}`;
         const scheduleId = shift.ScheduleID ?? shift.id ?? null;
+        const statusCodeRaw = shift.ShiftStatus ?? shift.shiftStatus ?? shift.shift_status ?? 0;
+        const parsedStatus = Number(statusCodeRaw);
+        const statusCode = Number.isFinite(parsedStatus) ? parsedStatus : 0;
+        const statusName = shift.shift_status_name ?? shift.shiftStatusName ?? shift.statusName ?? '';
+        const statusMeta = deriveShiftStatusMeta(statusCode, statusName);
+        const maintenanceNote = shift.maintenanceNote ?? shift.maintenance_note ?? null;
         return {
           id: scheduleId ?? fallbackId,
           scheduleId,
@@ -88,10 +125,34 @@ function ScheduleView() {
           end: shift.End_time ?? shift.endTime ?? '',
           attraction: shift.attraction_name ?? shift.attractionName ?? '',
           attractionId: shift.AttractionID ?? shift.attractionId ?? shift.attractionID ?? null,
+          statusCode,
+          statusName: statusMeta.key,
+          statusLabel: statusMeta.label,
+          statusColors: statusMeta.colors,
+          isCancelled: statusMeta.isCancelled,
+          isMaintenance: statusMeta.isMaintenance,
+          maintenanceNote,
         };
       })
       .sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.start || '').localeCompare(b.start || ''));
   }, [shifts]);
+
+  const loggableShifts = useMemo(
+    () => upcoming.filter(shift => !shift.isCancelled),
+    [upcoming],
+  );
+
+  const rideLogDisabledMessage = useMemo(() => {
+    if (loggableShifts.length) return '';
+    if (upcoming.length === 0) return 'You have no scheduled shifts right now.';
+    if (upcoming.some(shift => shift.isMaintenance)) {
+      return 'All upcoming shifts are closed for maintenance, so rider logging is temporarily disabled.';
+    }
+    if (upcoming.some(shift => shift.isCancelled)) {
+      return 'All upcoming shifts are cancelled.';
+    }
+    return 'You\'ve logged all assigned shifts. New shifts will appear here automatically.';
+  }, [loggableShifts.length, upcoming]);
 
   return (
     <div className="page">
@@ -103,6 +164,11 @@ function ScheduleView() {
         {!loading && !error && upcoming.length === 0 && (
           <div className="text-sm text-gray-600">No shifts have been assigned yet.</div>
         )}
+        {!loading && !error && upcoming.some(shift => shift.isCancelled) && (
+          <div className="text-sm text-amber-700" style={{ marginBottom: 12 }}>
+            Shifts highlighted below are unavailable. Maintenance cancellations will be marked in red.
+          </div>
+        )}
         {!loading && !error && upcoming.length > 0 && (
           <div className="table-wrapper" style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -112,32 +178,54 @@ function ScheduleView() {
                   <th style={thStyle}>Start</th>
                   <th style={thStyle}>End</th>
                   <th style={thStyle}>Attraction</th>
+                  <th style={thStyle}>Status</th>
                 </tr>
               </thead>
               <tbody>
-                {upcoming.map(shift => (
-                  <tr key={shift.id || `${shift.date}-${shift.start}`}>
-                    <td style={tdStyle}>{shift.date || '--'}</td>
-                    <td style={tdStyle}>{shift.start || '--'}</td>
-                    <td style={tdStyle}>{shift.end || '--'}</td>
-                    <td style={tdStyle}>{shift.attraction || 'Unassigned'}</td>
-                  </tr>
-                ))}
+                {upcoming.map(shift => {
+                  const rowBg = shift.isMaintenance ? '#fff5f5' : shift.isCancelled ? '#f8fafc' : undefined;
+                  const pillColors = shift.statusColors || STATUS_COLORS.scheduled;
+                  return (
+                    <tr key={shift.id || `${shift.date}-${shift.start}`} style={rowBg ? { backgroundColor: rowBg } : undefined}>
+                      <td style={{ ...tdStyle }}>{shift.date || '--'}</td>
+                      <td style={tdStyle}>{shift.start || '--'}</td>
+                      <td style={tdStyle}>{shift.end || '--'}</td>
+                      <td style={tdStyle}>{shift.attraction || 'Unassigned'}</td>
+                      <td style={tdStyle}>
+                        <span
+                          style={{
+                            ...statusBadgeStyle,
+                            backgroundColor: pillColors.bg,
+                            color: pillColors.fg,
+                          }}
+                        >
+                          {shift.statusLabel}
+                        </span>
+                        {shift.isMaintenance && shift.maintenanceNote && (
+                          <div className="text-xs" style={{ marginTop: 4, color: '#9f1239' }}>
+                            Maintenance note: {shift.maintenanceNote}
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         )}
       </div>
       <RideLogForm
-        shifts={upcoming}
-        disabled={!upcoming.length}
+        shifts={loggableShifts}
+        disabled={!loggableShifts.length}
+        disabledMessage={rideLogDisabledMessage}
         onShiftLogged={handleShiftLogged}
       />
     </div>
   );
 }
 
-function RideLogForm({ shifts, disabled, onShiftLogged }) {
+function RideLogForm({ shifts, disabled, disabledMessage, onShiftLogged }) {
   const { user } = useAuth();
   const RECENT_LIMIT = 10;
   const cacheKey = useMemo(() => {
@@ -147,7 +235,7 @@ function RideLogForm({ shifts, disabled, onShiftLogged }) {
   }, [user?.employeeId, user?.id]);
   const shiftOptions = useMemo(() => {
     return (shifts || [])
-      .filter(shift => shift.attractionId && shift.date)
+      .filter(shift => shift.attractionId && shift.date && (!shift.statusCode || shift.statusCode === 0))
       .map(shift => ({
         id: shift.id || `${shift.attractionId}-${shift.date}-${shift.start}`,
         label: `${shift.date} - ${shift.attraction || 'Attraction'}`,
@@ -259,7 +347,7 @@ function RideLogForm({ shifts, disabled, onShiftLogged }) {
       <form onSubmit={submit} style={{ display: 'grid', gap: 12 }}>
         {noShiftAvailable && (
           <div className="text-sm text-gray-600">
-            You've logged all assigned shifts. New shifts will appear here automatically.
+            {disabledMessage || 'You\'ve logged all assigned shifts. New shifts will appear here automatically.'}
           </div>
         )}
         <label className="field">
@@ -340,6 +428,16 @@ const tdStyle = {
   padding: '8px',
   borderBottom: '1px solid #f1f5f9',
   fontSize: '0.95rem',
+};
+
+const statusBadgeStyle = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  padding: '2px 8px',
+  borderRadius: '999px',
+  fontSize: '0.8rem',
+  fontWeight: 600,
+  textTransform: 'capitalize',
 };
 
 export default function StaffSchedulePage() {

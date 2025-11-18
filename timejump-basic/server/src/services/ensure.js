@@ -194,6 +194,27 @@ export async function ensureScheduleCompletionColumn() {
   `).catch(err => {
     if (err?.code !== 'ER_DUP_FIELDNAME') throw err;
   });
+  await query(`
+    ALTER TABLE schedules
+    ADD COLUMN ShiftStatus TINYINT(1) UNSIGNED NOT NULL DEFAULT 0
+      COMMENT '0 = scheduled, 1 = cancelled, 2 = cancelled_for_maintenance'
+      AFTER is_completed
+  `).catch(err => {
+    if (err?.code !== 'ER_DUP_FIELDNAME') throw err;
+  });
+  await query(`
+    CREATE TABLE IF NOT EXISTS shift_status_type (
+      StatusCode TINYINT UNSIGNED PRIMARY KEY,
+      StatusName VARCHAR(32) NOT NULL
+    )
+  `);
+  await query(`
+    INSERT INTO shift_status_type (StatusCode, StatusName) VALUES
+      (0, 'scheduled'),
+      (1, 'cancelled'),
+      (2, 'cancelled_for_maintenance')
+    ON DUPLICATE KEY UPDATE StatusName = VALUES(StatusName)
+  `);
   cache.set('scheduleCompletion', true);
 }
 

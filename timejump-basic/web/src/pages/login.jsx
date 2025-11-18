@@ -89,6 +89,33 @@ export default function LoginPage() {
           setBusy(false);
           return;
         }
+        
+        // Check if birthdate is not past current date
+        const birthDate = new Date(dateOfBirth);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        if (birthDate > today) {
+          setStatusTone('error');
+          setStatus('Date of birth invalid.');
+          setBusy(false);
+          return;
+        }
+        
+        // Check if user is 18+ years old
+        let age = today.getFullYear() - birthDate.getFullYear();
+        const monthDiff = today.getMonth() - birthDate.getMonth();
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+          age--;
+        }
+        
+        if (age < 18) {
+          setStatusTone('error');
+          setStatus('You must be at least 18 years or older to create an account.');
+          setBusy(false);
+          return;
+        }
+        
         await signup({ email, password, firstName, lastName, dateOfBirth, phone });
         queueAuthWelcomeToast();
       } else {
