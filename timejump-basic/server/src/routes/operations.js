@@ -556,6 +556,36 @@ export function registerOperationsRoutes(router) {
     }
   }));
 
+  router.delete('/schedules/:id', requireRole(['manager', 'admin', 'owner']))(async ctx => {
+    const scheduleId = Number(ctx.params.id);
+
+    if (!scheduleId) {
+      ctx.error(400, 'A valid ScheduleID is required.');
+      return;
+    }
+
+    try {
+      const result = await query(
+        'DELETE FROM schedules WHERE ScheduleID = ?',
+        [scheduleId]
+      );
+
+      if (result.affectedRows === 0) {
+        ctx.error(404, 'Schedule not found.');
+        return;
+      }
+
+      ctx.ok({
+        message: 'Schedule deleted successfully.',
+        deletedId: scheduleId,
+      });
+    }
+    catch (err) {
+      console.error('DELETE /schedules/:id error:', err);
+      ctx.error(500, 'Server error deleting schedule.');
+    }
+  });
+
   router.get('/ride-log', requireRole(['employee', 'manager', 'admin', 'owner'])(async ctx => {
     const attractionId = Number(pick(ctx.query, 'attractionId', 'AttractionID'));
     const daysParam = Number(pick(ctx.query, 'days'));

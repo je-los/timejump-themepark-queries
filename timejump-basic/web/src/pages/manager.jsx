@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import RequireRole from "../components/requirerole.jsx";
 import { api } from "../auth";
-
+import AuthToast from './components/authtoast.jsx';
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -184,14 +184,23 @@ function Planner() {
     if (!confirm("Are you sure you want to delete this shift?")) return;
 
     try {
-      await api(`//${schedule.ScheduleID}`, { method: 'DELETE' });
+      await api(`/schedules/${schedule.ScheduleID}`, { method: 'DELETE' });
 
+      AuthToast({
+      title: "Shift Deleted",
+      message: `Shift #${schedule.ScheduleID} was removed successfully.`,
+      });
       const res = await api("/schedules");
       const rows = Array.isArray(res.data) ? res.data : res.schedules;
       setSchedules(rows.filter(e => !e.is_completed));
 
     } catch (err) {
-      alert("Failed to delete shift.");
+      console.log(err);
+      AuthToast({
+      title: "Delete Failed",
+      message: "Could not delete the shift. Try again.",
+      dismissible: true,
+    });
     }
 
     setOpenMenu(null);
