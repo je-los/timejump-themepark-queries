@@ -556,7 +556,7 @@ export function registerOperationsRoutes(router) {
     }
   }));
 
-  router.delete('/schedules/:id', requireRole(['manager', 'admin', 'owner']))(async ctx => {
+  /*router.delete('/schedules/:id', requireRole(['manager', 'admin', 'owner']))(async ctx => {
     const scheduleId = Number(ctx.params.id);
 
     if (!scheduleId) {
@@ -584,7 +584,7 @@ export function registerOperationsRoutes(router) {
       console.error('DELETE /schedules/:id error:', err);
       ctx.error(500, 'Server error deleting schedule.');
     }
-  });
+  });*/
 
   router.get('/ride-log', requireRole(['employee', 'manager', 'admin', 'owner'])(async ctx => {
     const attractionId = Number(pick(ctx.query, 'attractionId', 'AttractionID'));
