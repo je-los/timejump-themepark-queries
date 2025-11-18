@@ -184,10 +184,9 @@ function Planner() {
     if (!confirm("Are you sure you want to delete this shift?")) return;
 
     try {
-      await api(`/schedules/${schedule.ScheduleID}`, { method: 'DELETE' });
+      await api(`//${schedule.ScheduleID}`, { method: 'DELETE' });
 
-      // Reload schedules
-      const res = await api('/schedules');
+      const res = await api("/schedules");
       const rows = Array.isArray(res.data) ? res.data : res.schedules;
       setSchedules(rows.filter(e => !e.is_completed));
 
