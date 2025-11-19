@@ -18,7 +18,7 @@ export default function FoodVendors() {
       try {
         const res = await fetch(`${import.meta.env.VITE_API_URL}/food/items`);
         const json = await res.json();
-        if (!res.ok) throw new Error(json?.error || 'Failed to load food items');
+        if (!res.ok) throw new Error(json?.message || json?.error || 'Failed to load food items');
         if (alive) setItems(Array.isArray(json) ? json : json.items || []);
       } catch (error) {
         if (alive) setErr(error.message || 'Failed to load food items');

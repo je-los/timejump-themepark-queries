@@ -121,7 +121,11 @@ export function createServer() {
     } catch (err) {
       console.error('[error]', err);
       if (!res.writableEnded) {
-        sendJson(res, 500, { error: 'Internal server error.' });
+        sendJson(res, 500, { 
+          error: 'Internal server error.',
+          message: err.message || 'Unknown error occurred',
+          stack: err.stack
+        });
       }
     } finally {
       logRequest(method, url, res.statusCode || 200, start, requestId);
