@@ -190,7 +190,7 @@ function Planner() {
       title: "Shift Deleted",
       message: `Shift #${schedule.ScheduleID} was removed successfully.`,
       });
-      const res = await api("/schedules");
+      const res = await api(`/schedules/${schedule.ScheduleID}`);
       const rows = Array.isArray(res.data) ? res.data : res.schedules;
       setSchedules(rows.filter(e => !e.is_completed));
 
