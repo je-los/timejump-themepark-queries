@@ -526,7 +526,7 @@ export function registerOperationsRoutes(router) {
 
     try {
       const result = await query(
-        'INSERT INTO schedules (EmployeeID, AttractionID, Shift_date, Start_time, End_time) VALUES (?, ?, ?, ?, ?)',
+        'INSERT INTO schedules (EmployeeID, AttractionID, Shift_date, Start_time, End_time, isDeleted) VALUES (?, ?, ?, ?, ?, 0)',
         [employeeId, attractionId, shiftDate, startTime, endTime],
       );
       const scheduleId = result.insertId;
