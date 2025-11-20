@@ -411,7 +411,7 @@ export function registerOperationsRoutes(router) {
     } else if (ctx.query?.employeeId) {
       const filterId = Number(ctx.query.employeeId);
       if (Number.isInteger(filterId) && filterId > 0) {
-        whereClause = 'WHERE s.EmployeeID = ?';
+        whereClause = 'WHERE s.EmployeeID = ? AND s.isDeleted = 0';
         params.push(filterId);
       }
     }
