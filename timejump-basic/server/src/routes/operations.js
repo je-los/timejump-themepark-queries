@@ -399,7 +399,7 @@ export function registerOperationsRoutes(router) {
   router.get('/schedules', requireRole(['employee', 'manager', 'admin', 'owner'])(async ctx => {
     await ensureScheduleCompletionColumn();
     const isEmployee = ctx.authUser.role === 'employee';
-    let whereClause = '';
+    let whereClause = 'WHERE s.isDeleted = 0';
     const params = [];
     if (isEmployee) {
       if (!ctx.authUser.employeeId) {
