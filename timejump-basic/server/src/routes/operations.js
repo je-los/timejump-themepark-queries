@@ -406,7 +406,7 @@ export function registerOperationsRoutes(router) {
         ctx.error(400, 'Employee profile is missing.');
         return;
       }
-      whereClause = 'WHERE s.EmployeeID = ? AND s.is_completed = 0';
+      whereClause = 'WHERE s.EmployeeID = ? AND s.is_completed = 0 AND s.isDeleted = 0';
       params.push(ctx.authUser.employeeId);
     } else if (ctx.query?.employeeId) {
       const filterId = Number(ctx.query.employeeId);
