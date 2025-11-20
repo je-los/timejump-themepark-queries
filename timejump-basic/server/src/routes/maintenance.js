@@ -426,6 +426,20 @@ export function registerMaintenanceRoutes(router) {
     const dateFixed = dateFixedRaw ? String(dateFixedRaw).trim() || null : null;
     const approvedId = approved ? Number(approved) : null;
 
+    try {
+      if (dateFixed && dateBroken) {
+        const brokenDt = new Date(String(dateBroken));
+        const fixedDt = new Date(String(dateFixed));
+        if (!isNaN(brokenDt.valueOf()) && !isNaN(fixedDt.valueOf()) && fixedDt < brokenDt) {
+          ctx.error(400, 'Resolved date cannot be before reported date.');
+          return;
+        }
+      }
+    } catch (e) {
+      ctx.error(400, 'Invalid date format.');
+      return;
+    }
+
     const result = await query(
       'INSERT INTO maintenance_records (AttractionID, Date_broken_down, Date_fixed, type_of_maintenance, Description_of_work, Severity_of_report, Approved_by_supervisor) VALUES (?, ?, ?, ?, ?, ?, ?)',
       [
@@ -460,7 +474,7 @@ export function registerMaintenanceRoutes(router) {
       return;
     }
     const existingRows = await query(
-      'SELECT AttractionID FROM maintenance_records WHERE RecordID = ? LIMIT 1',
+      'SELECT AttractionID, Date_broken_down, Date_fixed FROM maintenance_records WHERE RecordID = ? LIMIT 1',
       [id],
     ).catch(() => []);
     if (!existingRows.length) {
@@ -507,6 +521,44 @@ export function registerMaintenanceRoutes(router) {
       }
       setField('Severity_of_report', severity);
     }
+
+    try {
+      const existing = existingRows[0] || {};
+      const existingBroken = existing.Date_broken_down ? String(existing.Date_broken_down) : null;
+      const existingFixed = existing.Date_fixed ? String(existing.Date_fixed) : null;
+
+      const newBrokenValue = dateBroken === undefined ? undefined : (dateBroken ? String(dateBroken).trim() : null);
+      const newFixedValue = normalizedDateFixed === undefined ? undefined : (normalizedDateFixed ? String(normalizedDateFixed).trim() : null);
+
+      function isValidOrder(brokenVal, fixedVal) {
+        if (!brokenVal || !fixedVal) return true;
+        const b = new Date(brokenVal);
+        const f = new Date(fixedVal);
+        if (isNaN(b.valueOf()) || isNaN(f.valueOf())) return true;
+        return f >= b;
+      }
+
+      if (newBrokenValue !== undefined && newFixedValue !== undefined) {
+        if (!isValidOrder(newBrokenValue, newFixedValue)) {
+          ctx.error(400, 'Resolved date cannot be before reported date.');
+          return;
+        }
+      } else if (newFixedValue !== undefined && newBrokenValue === undefined) {
+        if (existingBroken && !isValidOrder(existingBroken, newFixedValue)) {
+          ctx.error(400, 'Resolved date cannot be before reported date.');
+          return;
+        }
+      } else if (newBrokenValue !== undefined && newFixedValue === undefined) {
+        if (existingFixed && !isValidOrder(newBrokenValue, existingFixed)) {
+          ctx.error(400, 'Resolved date cannot be before reported date.');
+          return;
+        }
+      }
+    } catch (e) {
+      ctx.error(400, 'Invalid date format.');
+      return;
+    }
+
     if (attractionId !== undefined) setField('AttractionID', attractionId ? Number(attractionId) : null);
     if (dateBroken !== undefined) setField('Date_broken_down', dateBroken ? String(dateBroken).trim() : null);
     if (dateFixedRaw !== undefined) setField('Date_fixed', normalizedDateFixed || null);

@@ -399,19 +399,19 @@ export function registerOperationsRoutes(router) {
   router.get('/schedules', requireRole(['employee', 'manager', 'admin', 'owner'])(async ctx => {
     await ensureScheduleCompletionColumn();
     const isEmployee = ctx.authUser.role === 'employee';
-    let whereClause = '';
+    let whereClause = 'WHERE s.isDeleted = 0';
     const params = [];
     if (isEmployee) {
       if (!ctx.authUser.employeeId) {
         ctx.error(400, 'Employee profile is missing.');
         return;
       }
-      whereClause = 'WHERE s.EmployeeID = ? AND s.is_completed = 0';
+      whereClause += ' AND s.EmployeeID = ? AND s.is_completed = 0';
       params.push(ctx.authUser.employeeId);
     } else if (ctx.query?.employeeId) {
       const filterId = Number(ctx.query.employeeId);
       if (Number.isInteger(filterId) && filterId > 0) {
-        whereClause = 'WHERE s.EmployeeID = ?';
+        whereClause += ' AND s.EmployeeID = ?';
         params.push(filterId);
       }
     }
@@ -526,7 +526,7 @@ export function registerOperationsRoutes(router) {
 
     try {
       const result = await query(
-        'INSERT INTO schedules (EmployeeID, AttractionID, Shift_date, Start_time, End_time) VALUES (?, ?, ?, ?, ?)',
+        'INSERT INTO schedules (EmployeeID, AttractionID, Shift_date, Start_time, End_time, isDeleted) VALUES (?, ?, ?, ?, ?, 0)',
         [employeeId, attractionId, shiftDate, startTime, endTime],
       );
       const scheduleId = result.insertId;
@@ -553,6 +553,37 @@ export function registerOperationsRoutes(router) {
         return;
       }
       throw err;
+    }
+  }));
+
+  router.delete('/schedules/:id', requireRole(['manager'])(async ctx => {
+    const scheduleId = Number(ctx.params.id);
+
+    if (!scheduleId) {
+      ctx.error(400, 'A valid ScheduleID is required.');
+      return;
+    }
+
+    try {
+      const result = await query(
+        'UPDATE schedules SET isDeleted = 1 WHERE ScheduleID = ?',
+        [scheduleId]
+      );
+
+      if (result.affectedRows === 0) {
+        ctx.error(404, 'Schedule not found.');
+        return;
+      }
+
+      ctx.ok({
+        message: 'Schedule deleted successfully.',
+        deletedId: scheduleId,
+        
+      });
+    }
+    catch (err) {
+      console.error('DELETE /schedules/:id error:', err);
+      ctx.error(500, 'Server error deleting schedule.');
     }
   }));
 
