@@ -566,7 +566,7 @@ export function registerOperationsRoutes(router) {
 
     try {
       const result = await query(
-        'DELETE FROM schedules WHERE ScheduleID = ?',
+        'UPDATE schedules SET isDeleted = 1 WHERE ScheduleID = ?',
         [scheduleId]
       );
 
