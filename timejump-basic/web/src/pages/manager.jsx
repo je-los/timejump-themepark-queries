@@ -361,8 +361,8 @@ function Planner() {
       return;
     }
 
-    // Check for any overlapping shifts for the same employee and block if found
-    const overlappingShift = schedules.filter(s => !s.isDeleted && !s.is_deleted)((s) => {
+    const realSchedules = schedules.filter(s => !(s.isDeleted || s.is_deleted));
+    const overlappingShift = realSchedules.find((s) => {
       const sDateStr = s.shiftDate ?? s.date ?? "";
       if (
         s.employeeId !== form.employeeId &&
