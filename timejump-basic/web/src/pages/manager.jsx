@@ -45,6 +45,7 @@ function Planner() {
   const [filter, setFilter] = useState({ attraction: "", date: "" });
   const [cancellations, setCancellations] = useState([]);
   const [openMenu, setOpenMenu] = useState(null);
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
 
   const [form, setForm] = useState({
     employeeId: "",
@@ -167,29 +168,37 @@ function Planner() {
     });
   }, [schedules, filter]);
   function handleMods(schedule) {
+
   
-  setForm({
-    employeeId: schedule.employeeId ?? schedule.EmployeeID,
-    attractionId: schedule.attractionId ?? schedule.AttractionID,
-    shiftDate: schedule.shiftDate ?? schedule.date,
-    startTime: schedule.startTime ?? schedule.StartTime,
-    endTime: schedule.endTime ?? schedule.EndTime
-  });
+    setForm({
+      employeeId: schedule.employeeId ?? schedule.EmployeeID,
+      attractionId: schedule.attractionId ?? schedule.AttractionID,
+      shiftDate: schedule.shiftDate ?? schedule.date,
+      startTime: schedule.startTime ?? schedule.StartTime,
+      endTime: schedule.endTime ?? schedule.EndTime
+    });
 
-  setOpenMenu(null);
+    setOpenMenu(null);
 
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-}
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
   async function handleDelete(schedule) {
-    if (!confirm("Are you sure you want to delete this shift?")) return;
+    setDeleteConfirm(schedule);
+    setOpenMenu(null);
+  }
+  async function confirmDelete() {
 
+    if (!deleteConfirm) return;
+  
     try {
-      await api(`/schedules/${schedule.ScheduleID}`, { method: 'DELETE' });
+      await api(`/schedules/${deleteConfirm.ScheduleID}`, { method: 'DELETE' });
 
       AuthToast({
-      title: "Shift Deleted",
-      message: `Shift #${schedule.ScheduleID} was removed successfully.`,
+        title: "Shift Deleted",
+        message: `Shift #${deleteConfirm.ScheduleID} was removed successfully.`,
       });
+    
       const res = await api(`/schedules`);
       const rows = Array.isArray(res.data) ? res.data : res.schedules || [];
       setSchedules(rows.filter(e => !(e.is_completed ?? e.isCompleted ?? false)));
@@ -197,13 +206,13 @@ function Planner() {
     } catch (err) {
       console.log(err);
       AuthToast({
-      title: "Delete Failed",
-      message: "Could not delete the shift. Try again.",
-      dismissible: true,
-    });
+        title: "Delete Failed",
+        message: "Could not delete the shift. Try again.",
+        dismissible: true,
+      });
+    } finally {
+      setDeleteConfirm(null);
     }
-
-    setOpenMenu(null);
   }
 
   async function submit(e) {
@@ -890,6 +899,42 @@ function Planner() {
           </div>
         </div>
       </section>
+      {deleteConfirm && (
+  <div className="modal-overlay" onClick={() => setDeleteConfirm(null)}>
+    <div className="modal" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-header">
+        <h3 style={{ margin: 0 }}>Delete Shift?</h3>
+      </div>
+      <div className="modal-body">
+        <p style={{ margin: 0, color: '#475569' }}>
+          Are you sure you want to remove this shift for{" "}
+          <strong>
+            {employeeOptions.find(
+              (e) => String(e.id) === String(deleteConfirm.employeeId ?? deleteConfirm.EmployeeID)
+            )?.name || "this employee"}
+          </strong>
+          ? This action cannot be undone.
+        </p>
+      </div>
+      <div className="modal-footer">
+        <div className="modal-actions">
+          <button
+            className="btn"
+            onClick={() => setDeleteConfirm(null)}
+          >
+            Cancel
+          </button>
+          <button
+            className="btn danger"
+            onClick={confirmDelete}
+          >
+            Delete Shift
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  )}
     </div>
   );
 }
