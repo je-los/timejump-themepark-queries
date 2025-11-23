@@ -24,6 +24,7 @@ function getNavGroups(role) {
       items: [
         { key: 'employees', label: 'Employees', to: '/admin/employees' },
         { key: 'maintenance', label: 'Maintenance', to: '/admin/maintenance' },
+        { key: 'weather', label: 'Weather', to: '/admin/weather' },
       ],
     },
   ];

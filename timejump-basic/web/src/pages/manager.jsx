@@ -55,14 +55,14 @@ function Planner() {
   });
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
-  const [cancelForm, setCancelForm] = useState({
+  const [weatherForm, setWeatherForm] = useState({
     attractionId: "",
-    cancelDate: todayISO(),
-    reason: "",
+    date: todayISO(),
+    weatherCondition: "",
   });
-  const [cancelSaving, setCancelSaving] = useState(false);
-  const [cancelMessage, setCancelMessage] = useState("");
-  const [cancelError, setCancelError] = useState("");
+  const [weatherSaving, setWeatherSaving] = useState(false);
+  const [weatherMessage, setWeatherMessage] = useState("");
+  const [weatherError, setWeatherError] = useState("");
   const [saveTone, setSaveTone] = useState("info");
   const [missingFields, setMissingFields] = useState({
     employee: false,
@@ -91,7 +91,7 @@ function Planner() {
             if (err?.status === 403) return { data: [] };
             throw err;
           }),
-          api("/ride-cancellations?limit=25").catch((err) => {
+          api("/weather-cancellations?limit=25").catch((err) => {
             if (err?.status === 403) return { data: [] };
             throw err;
           }),
@@ -445,40 +445,40 @@ function Planner() {
     }
   }
 
-  async function logCancellation(e) {
+  async function logWeather(e) {
     e.preventDefault();
-    if (cancelSaving) return;
-    if (!cancelForm.attractionId || !cancelForm.reason.trim()) {
-      setCancelError("Select an attraction and provide a reason.");
+    if (weatherSaving) return;
+    if (!weatherForm.attractionId || !weatherForm.weatherCondition) {
+      setWeatherError("Select an attraction and choose a reason.");
       return;
     }
-    setCancelSaving(true);
-    setCancelError("");
-    setCancelMessage("");
+    setWeatherSaving(true);
+    setWeatherError("");
+    setWeatherMessage("");
     try {
-      await api("/ride-cancellations", {
+      await api("/weather-cancellations", {
         method: "POST",
         body: JSON.stringify({
-          attractionId: Number(cancelForm.attractionId),
-          cancelDate: cancelForm.cancelDate || todayISO(),
-          reason: cancelForm.reason.trim(),
+          attractionId: Number(weatherForm.attractionId),
+          date: weatherForm.date || todayISO(),
+          weatherCondition: weatherForm.weatherCondition,
         }),
       });
-      setCancelMessage("Ride cancellation recorded.");
-      setCancelForm({
+      setWeatherMessage("Weather report recorded.");
+      setWeatherForm({
         attractionId: "",
-        cancelDate: todayISO(),
-        reason: "",
+        date: todayISO(),
+        weatherCondition: "",
       });
-      const res = await api("/ride-cancellations?limit=25").catch((err) => {
+      const res = await api("/weather-cancellations?limit=25").catch((err) => {
         if (err?.status === 403) return { data: [] };
         throw err;
       });
       setCancellations(Array.isArray(res?.data) ? res.data : []);
     } catch (err) {
-      setCancelError(err?.message || "Unable to log cancellation.");
+      setWeatherError(err?.message || "Unable to log weather report.");
     } finally {
-      setCancelSaving(false);
+      setWeatherSaving(false);
     }
   }
 
@@ -788,29 +788,20 @@ function Planner() {
           )}
         </div>
 
-        <div
-          className="manager-panel manager-panel--wide"
-          id="ride-cancellations"
-        >
+        <div className="manager-panel manager-panel--wide" id="weather-report" style={{ marginTop: '0.5rem' }}>
           <div className="manager-panel__header">
             <div>
-              <h3>Ride Cancellations</h3>
-              <p>Log weather or operational closures to keep teams informed.</p>
+              <h3>Weather Report</h3>
+              <p>Log weather reports to keep teams and operations informed.</p>
             </div>
           </div>
-          <form
-            className="manager-form"
-            onSubmit={logCancellation}
-            style={{ marginBottom: 16 }}
-          >
-            <div className="field">
+          <form className="manager-form" onSubmit={logWeather} style={{ marginBottom: 16 }}>
+            <div className="field" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'flex-start' }}>
               <span>Attraction</span>
               <select
                 className="border rounded-xl p-2"
-                value={cancelForm.attractionId}
-                onChange={(e) =>
-                  setCancelForm((f) => ({ ...f, attractionId: e.target.value }))
-                }
+                value={weatherForm.attractionId}
+                onChange={(e) => setWeatherForm((f) => ({ ...f, attractionId: e.target.value }))}
               >
                 <option value="">Select attraction...</option>
                 {attractionOptions.map((opt) => (
@@ -820,53 +811,46 @@ function Planner() {
                 ))}
               </select>
             </div>
+
             <div className="manager-form__row">
-              <label className="field" style={{ flex: 1, minWidth: 160 }}>
+              <label className="field" style={{ flex: 1, minWidth: 160, display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'flex-start' }}>
                 <span>Date</span>
                 <input
                   className="input"
                   type="date"
-                  value={cancelForm.cancelDate}
-                  onChange={(e) =>
-                    setCancelForm((f) => ({ ...f, cancelDate: e.target.value }))
-                  }
+                  value={weatherForm.date}
+                  onChange={(e) => setWeatherForm((f) => ({ ...f, date: e.target.value }))}
+                  style={{ width: '100%' }}
                 />
               </label>
-              <label className="field" style={{ flex: 2 }}>
+
+              <label className="field" style={{ flex: 2, display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'flex-start' }}>
                 <span>Reason</span>
-                <input
+                <select
                   className="input"
-                  type="text"
-                  placeholder="e.g. Thunderstorm, lightning advisory..."
-                  value={cancelForm.reason}
-                  onChange={(e) =>
-                    setCancelForm((f) => ({ ...f, reason: e.target.value }))
-                  }
-                />
+                  value={weatherForm.weatherCondition}
+                  onChange={(e) => setWeatherForm((f) => ({ ...f, weatherCondition: e.target.value }))}
+                  style={{ width: '100%' }}
+                >
+                  <option value="">Select reason...</option>
+                  <option value="Heavy Rain">Heavy Rain</option>
+                  <option value="Lightning">Lightning</option>
+                  <option value="Lightning Advisory">Lightning Advisory</option>
+                </select>
               </label>
             </div>
-            <div className="manager-form__actions">
-              <button
-                className="btn primary"
-                type="submit"
-                disabled={cancelSaving}
-              >
-                {cancelSaving ? "Saving..." : "Log Cancellation"}
+
+            <div className="manager-form__actions" style={{ marginTop: '0.5rem' }}>
+              <button className="btn primary" type="submit" disabled={weatherSaving}>
+                {weatherSaving ? "Saving..." : "Log Weather Report"}
               </button>
-              {cancelMessage && (
-                <div className="text-sm text-green-700">{cancelMessage}</div>
-              )}
-              {cancelError && (
-                <div className="text-sm text-red-700">{cancelError}</div>
-              )}
+              {weatherMessage && <div className="text-sm text-green-700">{weatherMessage}</div>}
+              {weatherError && <div className="text-sm text-red-700">{weatherError}</div>}
             </div>
           </form>
+
           <div className="manager-cancel-list">
-            {!cancellations.length && (
-              <div className="text-sm text-gray-700">
-                No cancellations logged yet.
-              </div>
-            )}
+            {!cancellations.length && <div className="text-sm text-gray-700">No weather reports logged yet.</div>}
             {!!cancellations.length && (
               <table className="manager-table">
                 <thead>
@@ -878,10 +862,10 @@ function Planner() {
                 </thead>
                 <tbody>
                   {cancellations.map((row) => (
-                    <tr key={row.cancel_id}>
-                      <td>{row.attraction_name || `#${row.attraction_id}`}</td>
-                      <td>{formatDate(row.cancel_date)}</td>
-                      <td>{row.reason || "--"}</td>
+                    <tr key={row.WeatherCancellationID || row.WeatherCancellationId || row.WeatherCancellationId || JSON.stringify(row)}>
+                      <td>{row.attraction_name || `#${row.AttractionID || row.attraction_id || row.attraction}`}</td>
+                      <td>{formatDate(row.Date || row.date || row.cancel_date)}</td>
+                      <td>{row.WeatherCondition || row.weatherCondition || row.reason || '--'}</td>
                     </tr>
                   ))}
                 </tbody>
