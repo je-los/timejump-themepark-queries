@@ -703,17 +703,34 @@ export function registerOperationsRoutes(router) {
   router.get('/ride-cancellations', requireRole(['manager', 'admin', 'owner'])(async ctx => {
     const limitParam = Number(ctx.query?.limit);
     const limit = Number.isFinite(limitParam) ? Math.min(Math.max(limitParam, 1), 200) : 50;
-    const rows = await query(`
+    const weatherOnly = ctx.query?.weatherOnly === 'true';
+    const includeCleared = ctx.query?.includeCleared === 'true';
+    
+    let sql = `
       SELECT rc.cancel_id,
              rc.AttractionID,
              DATE(rc.cancel_date) AS cancel_date,
              rc.reason,
+             COALESCE(rc.cleared, 0) AS cleared,
              a.Name AS attraction_name
       FROM ride_cancellation rc
-      LEFT JOIN attraction a ON a.AttractionID = rc.AttractionID
-      ORDER BY rc.cancel_date DESC, rc.cancel_id DESC
-      LIMIT ${limit}
-    `).catch(() => []);
+      LEFT JOIN attraction a ON a.AttractionID = rc.AttractionID`;
+    
+    const conditions = [];
+    if (weatherOnly) {
+      conditions.push(`rc.reason IN ('Heavy Rain', 'Light Rain', 'Lightning', 'Lightning Advisory', 'Thunderstorm', 'Snow', 'Hail', 'Tornado', 'Hurricane')`);
+    }
+    if (!includeCleared) {
+      conditions.push(`COALESCE(rc.cleared, 0) = 0`);
+    }
+    
+    if (conditions.length > 0) {
+      sql += ` WHERE ` + conditions.join(' AND ');
+    }
+    
+    sql += ` ORDER BY rc.cancel_date DESC, rc.cancel_id DESC LIMIT ${limit}`;
+    
+    const rows = await query(sql).catch(() => []);
     ctx.ok({
       data: rows.map(row => ({
         cancel_id: row.cancel_id,
@@ -721,6 +738,7 @@ export function registerOperationsRoutes(router) {
         attraction_name: row.attraction_name || `Attraction ${row.AttractionID}`,
         cancel_date: row.cancel_date,
         reason: row.reason || '',
+        cleared: row.cleared || 0,
       })),
     });
   }));
@@ -758,6 +776,132 @@ export function registerOperationsRoutes(router) {
         attraction_id: attractionId,
         cancel_date: cancelDate,
         reason: trimmedReason,
+      },
+    });
+  }));
+
+  router.put('/ride-cancellations/:id', requireRole(['manager', 'admin', 'owner'])(async ctx => {
+    const cancelId = Number(ctx.params.id);
+    if (!cancelId) {
+      ctx.error(400, 'Cancellation ID is required.');
+      return;
+    }
+
+    const [existing] = await query(
+      'SELECT cancel_id FROM ride_cancellation WHERE cancel_id = ? LIMIT 1',
+      [cancelId],
+    ).catch(() => []);
+
+    if (!existing) {
+      ctx.error(404, 'Cancellation record not found.');
+      return;
+    }
+
+    const attractionId = ctx.body?.attractionId || ctx.body?.AttractionID;
+    const cancelDateRaw = ctx.body?.cancelDate || ctx.body?.cancel_date || ctx.body?.date;
+    const reason = ctx.body?.reason;
+
+    const updates = [];
+    const values = [];
+
+    if (attractionId !== undefined) {
+      const aid = Number(attractionId);
+      if (!aid) {
+        ctx.error(400, 'Invalid attraction ID.');
+        return;
+      }
+      const [exists] = await query(
+        'SELECT AttractionID FROM attraction WHERE AttractionID = ? LIMIT 1',
+        [aid],
+      ).catch(() => []);
+      if (!exists) {
+        ctx.error(400, 'Attraction not found.');
+        return;
+      }
+      updates.push('AttractionID = ?');
+      values.push(aid);
+    }
+
+    if (cancelDateRaw !== undefined) {
+      const cancelDate = normalizeDate(cancelDateRaw);
+      if (!cancelDate) {
+        ctx.error(400, 'Invalid date format.');
+        return;
+      }
+      updates.push('cancel_date = ?');
+      values.push(cancelDate);
+    }
+
+    if (reason !== undefined) {
+      const trimmedReason = String(reason).trim().slice(0, 255);
+      if (!trimmedReason) {
+        ctx.error(400, 'Reason is required.');
+        return;
+      }
+      updates.push('reason = ?');
+      values.push(trimmedReason);
+    }
+
+    if (updates.length === 0) {
+      ctx.error(400, 'Nothing to update.');
+      return;
+    }
+
+    values.push(cancelId);
+    await query(
+      `UPDATE ride_cancellation SET ${updates.join(', ')} WHERE cancel_id = ?`,
+      values,
+    );
+
+    ctx.ok({
+      data: { cancel_id: cancelId },
+    });
+  }));
+
+  router.post('/ride-cancellations/:id/clear-weather', requireRole(['manager', 'admin', 'owner'])(async ctx => {
+    const cancelId = Number(ctx.params.id);
+    if (!cancelId) {
+      ctx.error(400, 'Cancellation ID is required.');
+      return;
+    }
+
+    const [existing] = await query(
+      'SELECT cancel_id, AttractionID, cancel_date, reason, COALESCE(cleared, 0) AS cleared FROM ride_cancellation WHERE cancel_id = ? LIMIT 1',
+      [cancelId],
+    ).catch(() => []);
+
+    if (!existing) {
+      ctx.error(404, 'Cancellation record not found.');
+      return;
+    }
+
+    if (existing.cleared) {
+      ctx.error(400, 'Weather already cleared for this cancellation.');
+      return;
+    }
+
+    // Mark the cancellation as cleared
+    await query(
+      'UPDATE ride_cancellation SET cleared = 1 WHERE cancel_id = ?',
+      [cancelId],
+    );
+
+    // Reopen ALL attractions that were closed due to weather on this date
+    // Since the trigger closes all attractions when weather is logged, we need to reopen all of them
+    await query(
+      `UPDATE attraction_closure 
+       SET EndsAt = NOW() 
+       WHERE StatusID = 2 
+         AND DATE(StartsAt) = ? 
+         AND EndsAt IS NULL`,
+      [existing.cancel_date],
+    );
+
+    ctx.ok({
+      data: { 
+        cancel_id: cancelId,
+        cleared: true,
+        message: 'Weather cleared and all attractions reopened'
       },
     });
   }));

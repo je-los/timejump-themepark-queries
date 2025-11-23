@@ -127,14 +127,17 @@ export default function RidesAndAttractions({ library, loading, error }) {
                     const statusName = (ride.status_name || '').toLowerCase();
                     const derivedClosed = statusName ? statusName !== 'active' : false;
                     const isMaintenance = statusName === 'closed_for_maintenance';
+                    const isWeatherClosed = statusName === 'closed_due_to_weather';
                     const isClosed = ride.is_closed ?? derivedClosed;
                     const statusClass = isMaintenance
                       ? 'ride-status--maintenance'
-                      : isClosed
-                        ? 'ride-status--closed'
-                        : 'ride-status--open';
+                      : isWeatherClosed
+                        ? 'ride-status--weather'
+                        : isClosed
+                          ? 'ride-status--closed'
+                          : 'ride-status--open';
                     const statusLabel = ride.status_label
-                      || (isMaintenance ? 'Closed for Maintenance' : isClosed ? 'Closed' : 'Open');
+                      || (isMaintenance ? 'Closed for Maintenance' : isWeatherClosed ? 'Closed due to Weather' : isClosed ? 'Closed' : 'Open');
                     const statusNote = ride.status_note || ride.maintenance_note || ride.closure_note || null;
                     return (
                       <article key={ride.slug || ride.name} className="ride-feature-card ride-feature-card--show">

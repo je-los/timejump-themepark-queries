@@ -3,6 +3,10 @@ import { api } from '../../../auth';
 import { useAuth } from '../../../context/authcontext.jsx';
 import { Panel, TableList } from '../shared.jsx';
 
+function todayISO() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 const WEATHER_CONDITIONS = [
   'Light Rain',
   'Heavy Rain',
@@ -18,9 +22,8 @@ const WEATHER_CONDITIONS = [
 function createEmptyForm() {
   return {
     attractionId: '',
-    date: '',
-    weatherCondition: '',
-    description: '',
+    date: todayISO(),
+    reason: '',
   };
 }
 
@@ -41,16 +44,17 @@ export default function WeatherPage() {
   const [formError, setFormError] = useState('');
   const [form, setForm] = useState(() => createEmptyForm());
   const [editingRecord, setEditingRecord] = useState(null);
+  const [clearingId, setClearingId] = useState(null);
+  const [confirmingClearId, setConfirmingClearId] = useState(null);
 
   const [attractions, setAttractions] = useState([]);
   const [missingFields, setMissingFields] = useState({
     attractionId: false,
     date: false,
-    weatherCondition: false,
-    description: false,
+    reason: false,
   });
 
-  const canEdit = user?.role_name === 'admin' || user?.role === 'admin' || user?.role_name === 'owner' || user?.role === 'owner';
+  const canEdit = user?.role_name === 'admin' || user?.role === 'admin' || user?.role_name === 'owner' || user?.role === 'owner' || user?.role_name === 'manager' || user?.role === 'manager';
 
   useEffect(() => {
     loadAttractions();
@@ -71,7 +75,7 @@ export default function WeatherPage() {
     setLoading(true);
     setError('');
     try {
-      const res = await api('/weather-cancellations');
+      const res = await api('/ride-cancellations?weatherOnly=true&includeCleared=true');
       const data = Array.isArray(res?.data) ? res.data : res?.records || [];
       setRecords(data);
     } catch (err) {
@@ -87,8 +91,7 @@ export default function WeatherPage() {
     setMissingFields({
       attractionId: false,
       date: false,
-      weatherCondition: false,
-      description: false,
+      reason: false,
     });
     setFormError('');
   }
@@ -100,11 +103,10 @@ export default function WeatherPage() {
     const missing = {
       attractionId: !form.attractionId,
       date: !form.date,
-      weatherCondition: !form.weatherCondition,
-      description: !form.description.trim(),
+      reason: !form.reason,
     };
 
-    if (missing.attractionId || missing.date || missing.weatherCondition || missing.description) {
+    if (missing.attractionId || missing.date || missing.reason) {
       setFormError('Please fill in all required fields.');
       setMissingFields(missing);
       return;
@@ -118,23 +120,22 @@ export default function WeatherPage() {
       const attractionId = form.attractionId ? Number(form.attractionId) : null;
       const payload = {
         attractionId,
-        date: form.date,
-        weatherCondition: form.weatherCondition,
-        description: form.description.trim(),
+        cancelDate: form.date,
+        reason: form.reason,
       };
 
-      if (editingRecord?.WeatherCancellationID) {
-        await api(`/weather-cancellations/${editingRecord.WeatherCancellationID}`, {
+      if (editingRecord?.cancel_id) {
+        await api(`/ride-cancellations/${editingRecord.cancel_id}`, {
           method: 'PUT',
           body: JSON.stringify(payload),
         });
-        setStatus('Weather cancellation record updated.');
+        setStatus('Weather cancellation record updated. Attractions will be automatically closed.');
       } else {
-        await api('/weather-cancellations', {
+        await api('/ride-cancellations', {
           method: 'POST',
           body: JSON.stringify(payload),
         });
-        setStatus('Weather cancellation recorded.');
+        setStatus('Weather Log recorded. Attractions are closed until weather clears.');
       }
 
       setForm(createEmptyForm());
@@ -142,8 +143,7 @@ export default function WeatherPage() {
       setMissingFields({
         attractionId: false,
         date: false,
-        weatherCondition: false,
-        description: false,
+        reason: false,
       });
       await loadRecords();
     } catch (err) {
@@ -156,13 +156,33 @@ export default function WeatherPage() {
   function beginEdit(row) {
     setForm({
       attractionId: row.AttractionID || row.attraction_id,
-      date: row.Date || row.date,
-      weatherCondition: row.WeatherCondition || row.weather_condition,
-      description: row.Description || row.description,
+      date: row.cancel_date || row.date,
+      reason: row.reason,
     });
     setEditingRecord(row);
     setFormError('');
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  async function handleClearWeather(row) {
+    if (clearingId) return;
+
+    setClearingId(row.cancel_id);
+    setStatus('');
+    setError('');
+
+    try {
+      await api(`/ride-cancellations/${row.cancel_id}/clear-weather`, {
+        method: 'POST',
+      });
+      setStatus(`Weather cleared for ${row.attraction_name}. Attraction has been reopened.`);
+      await loadRecords();
+    } catch (err) {
+      setError(err?.message || 'Failed to clear weather.');
+    } finally {
+      setClearingId(null);
+      setConfirmingClearId(null);
+    }
   }
 
   const attractionOptions = attractions
@@ -172,7 +192,7 @@ export default function WeatherPage() {
     }))
     .filter(opt => opt.id);
 
-  const isEditing = !!editingRecord?.WeatherCancellationID;
+  const isEditing = !!editingRecord?.cancel_id;
 
   return (
     <div className="admin-container">
@@ -191,7 +211,10 @@ export default function WeatherPage() {
               <select
                 className="input"
                 value={form.attractionId}
-                onChange={e => setForm(f => ({ ...f, attractionId: e.target.value }))}
+                onChange={e => {
+                  setForm(f => ({ ...f, attractionId: e.target.value }));
+                  if (e.target.value) setMissingFields(m => ({ ...m, attractionId: false }));
+                }}
                 disabled={saving}
               >
                 <option value="">Select attraction...</option>
@@ -203,21 +226,27 @@ export default function WeatherPage() {
               </select>
             </label>
             <label className="field">
-              <span>Date{missingFields.date && <span className="missing-asterisk">*</span>}</span>
+              <span>Date Reported{missingFields.date && <span className="missing-asterisk">*</span>}</span>
               <input
                 className="input"
                 type="date"
                 value={form.date}
-                onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
+                onChange={e => {
+                  setForm(f => ({ ...f, date: e.target.value }));
+                  if (e.target.value) setMissingFields(m => ({ ...m, date: false }));
+                }}
                 disabled={saving}
               />
             </label>
             <label className="field">
-              <span>Weather Condition{missingFields.weatherCondition && <span className="missing-asterisk">*</span>}</span>
+              <span>Reason (Weather Condition){missingFields.reason && <span className="missing-asterisk">*</span>}</span>
               <select
                 className="input"
-                value={form.weatherCondition}
-                onChange={e => setForm(f => ({ ...f, weatherCondition: e.target.value }))}
+                value={form.reason}
+                onChange={e => {
+                  setForm(f => ({ ...f, reason: e.target.value }));
+                  if (e.target.value) setMissingFields(m => ({ ...m, reason: false }));
+                }}
                 disabled={saving}
               >
                 <option value="">Select weather condition...</option>
@@ -264,36 +293,79 @@ export default function WeatherPage() {
               columns={[
                 { key: 'attraction_name', label: 'Attraction' },
                 {
-                  key: 'Date',
+                  key: 'cancel_date',
                   label: 'Date',
                   render: value => formatDateOnly(value),
                 },
                 {
-                  key: 'WeatherCondition',
-                  label: 'Weather Condition',
+                  key: 'reason',
+                  label: 'Reason (Weather)',
                   render: value => value || '--',
                 },
                 {
-                  key: 'Description',
-                  label: 'Description',
-                  render: value => value || '--',
+                  key: 'cleared',
+                  label: 'Status',
+                  render: value => (
+                    <span style={{ 
+                      color: value ? '#059669' : '#dc2626',
+                      fontWeight: 500 
+                    }}>
+                      {value ? 'Resolved' : 'Active'}
+                    </span>
+                  ),
                 },
                 {
                   key: 'actions',
                   label: 'Actions',
                   render: (_, row) => (
-                    <div style={{ display: 'flex', gap: 6 }}>
-                      {canEdit && (
-                        <button
-                          type="button"
-                          className="btn"
-                          style={{ padding: '2px 8px', fontSize: 12 }}
-                          onClick={() => beginEdit(row)}
-                          disabled={editingRecord?.WeatherCancellationID === row.WeatherCancellationID}
-                        >
-                          {editingRecord?.WeatherCancellationID === row.WeatherCancellationID ? 'Editing...' : 'Edit'}
-                        </button>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      {(canEdit && !row.cleared && confirmingClearId !== row.cancel_id) && (
+                        <>
+                          <button
+                            type="button"
+                            className="btn"
+                            style={{ padding: '2px 8px', fontSize: 12 }}
+                            onClick={() => beginEdit(row)}
+                            disabled={editingRecord?.cancel_id === row.cancel_id}
+                          >
+                            {editingRecord?.cancel_id === row.cancel_id ? 'Editing...' : 'Edit'}
+                          </button>
+                          <button
+                            type="button"
+                            className="btn"
+                            style={{ padding: '2px 8px', fontSize: 12 }}
+                            onClick={() => setConfirmingClearId(row.cancel_id)}
+                            disabled={clearingId === row.cancel_id}
+                          >
+                            Weather Cleared
+                          </button>
+                        </>
                       )}
+                      {(canEdit && !row.cleared && confirmingClearId === row.cancel_id) && (
+                        <>
+                          <button
+                            type="button"
+                            className="btn"
+                            style={{ padding: '2px 8px', fontSize: 12 }}
+                            onClick={() => setConfirmingClearId(null)}
+                            disabled={clearingId === row.cancel_id}
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            className="btn"
+                            style={{ padding: '2px 8px', fontSize: 12, backgroundColor: '#dc2626', color: 'white' }}
+                            onClick={() => handleClearWeather(row)}
+                            disabled={clearingId === row.cancel_id}
+                          >
+                            {clearingId === row.cancel_id ? 'Clearing...' : 'Confirm Clear'}
+                          </button>
+                        </>
+                      )}
+                      {row.cleared ? (
+                        <span style={{ fontSize: 12, color: '#059669', fontWeight: 500 }}>Weather resolved</span>
+                      ) : null}
                     </div>
                   ),
                 },

@@ -5,8 +5,9 @@ CREATE TRIGGER weather_cancellation_auto_close_attractions
 AFTER INSERT ON ride_cancellation
 FOR EACH ROW
 BEGIN
-  -- Only trigger for weather-related reasons
-  IF NEW.reason IN ('Heavy Rain', 'Lightning', 'Lightning Advisory') THEN
+  -- Only trigger when the weather report is for today
+  IF NEW.reason IN ('Heavy Rain', 'Light Rain', 'Lightning', 'Lightning Advisory', 'Thunderstorm', 'Snow', 'Hail', 'Tornado', 'Hurricane')
+     AND DATE(NEW.cancel_date) = CURDATE() THEN
     INSERT INTO attraction_closure (AttractionID, StatusID, StartsAt, EndsAt, Note)
     SELECT 
       a.AttractionID,
@@ -16,11 +17,10 @@ BEGIN
       CONCAT('Weather alert: ', NEW.reason)
     FROM attraction a
     WHERE NOT EXISTS (
-      -- Don't close if already closed on this date for weather
       SELECT 1 FROM attraction_closure ac
       WHERE ac.AttractionID = a.AttractionID
         AND ac.StatusID = 2
-        AND DATE(ac.StartsAt) = NEW.cancel_date
+        AND DATE(ac.StartsAt) = CURDATE()
         AND ac.EndsAt IS NULL
     );
   END IF;
