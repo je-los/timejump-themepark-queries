@@ -205,10 +205,15 @@ export function registerReportRoutes(router) {
 
     if (groupMode === 'day') {
       const sqlParts = {
-        base: `SELECT rl.AttractionID, DATE(rl.log_date) AS log_date, rl.riders_count, a.Name
-               FROM ride_log rl
-               LEFT JOIN attraction a ON a.AttractionID = rl.AttractionID
-               WHERE 1=1`,
+        base:  `SELECT rl.AttractionID,
+                  DATE(rl.log_date) AS log_date,
+                  rl.riders_count,
+                  a.Name,
+                  rl.EmployeeID,
+                  e.name AS employee_name
+                FROM ride_log rl
+                LEFT JOIN attraction a ON a.AttractionID = rl.AttractionID
+                LEFT JOIN employee e ON e.employeeID = rl.EmployeeID`,
         where: [],
         suffix: `ORDER BY rl.riders_count DESC, rl.AttractionID ASC LIMIT ${limit}`,
       };
@@ -242,6 +247,8 @@ export function registerReportRoutes(router) {
           log_date: formatISODate(row.log_date),
           period_label: formatPeriodLabel('day', row.log_date),
           riders_count: Number(row.riders_count || 0),
+          EmployeeID: row.EmployeeID,
+          employee_name: row.employee_name || "Unknown",
         })),
       });
       return;
@@ -254,9 +261,12 @@ export function registerReportRoutes(router) {
                     a.Name,
                     SUM(rl.riders_count) AS riders_count,
                     AVG(rl.riders_count) AS avg_riders,
-                    COUNT(*) AS entry_count
+                    COUNT(*) AS entry_count,
+                    rl.EmployeeID,
+                    e.name AS employee_name
              FROM ride_log rl
-             LEFT JOIN attraction a ON a.AttractionID = rl.AttractionID`,
+             LEFT JOIN attraction a ON a.AttractionID = rl.AttractionID
+             LEFT JOIN employee e ON e.employeeID = rl.EmployeeID`,
       where: [],
       suffix: `GROUP BY period_start, rl.AttractionID, a.Name
                ORDER BY period_start DESC, riders_count DESC
@@ -296,6 +306,8 @@ export function registerReportRoutes(router) {
         riders_count: Number(row.riders_count || 0),
         avg_riders: Number(row.avg_riders || 0),
         entry_count: Number(row.entry_count || 0),
+        EmployeeID: row.EmployeeID,
+        employee_name: row.employee_name || "Unknown",
       })),
     });
   }));
