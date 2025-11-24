@@ -383,16 +383,18 @@ export function registerReportRoutes(router) {
     const groupRaw = String(ctx.query.group || '').trim().toLowerCase();
     const groupMode = groupRaw === 'month' || groupRaw === 'monthly' ? 'month' : 'day';
     const categoryFilter = String(ctx.query.category || '').trim().toLowerCase();
+    const limitParam = Number(ctx.query.limit);
+    const limit = Number.isFinite(limitParam) ? Math.min(Math.max(limitParam, 1), 500) : 500;
     const includeTickets = !categoryFilter || categoryFilter === 'ticket';
     const includeFood = !categoryFilter || categoryFilter === 'food';
     const includeGifts = !categoryFilter || categoryFilter === 'gift';
 
     const dateSelect = groupMode === 'month'
-      ? "DATE_FORMAT(t.PurchaseDate, '%Y-%m-01') AS report_date"
-      : 'DATE(t.PurchaseDate) AS report_date';
+      ? "DATE_FORMAT(COALESCE(t.sale_date, t.PurchaseDate), '%Y-%m-01') AS report_date"
+      : 'DATE(COALESCE(t.sale_date, t.PurchaseDate)) AS report_date';
     const groupClause = groupMode === 'month'
-      ? 'YEAR(t.PurchaseDate), MONTH(t.PurchaseDate), t.TicketType, tc.price'
-      : 'DATE(t.PurchaseDate), t.TicketType, tc.price';
+      ? 'YEAR(COALESCE(t.sale_date, t.PurchaseDate)), MONTH(COALESCE(t.sale_date, t.PurchaseDate)), t.TicketType, tc.price'
+      : 'DATE(COALESCE(t.sale_date, t.PurchaseDate)), t.TicketType, tc.price';
 
     let sql = `
       SELECT ${dateSelect},
@@ -403,15 +405,15 @@ export function registerReportRoutes(router) {
              COALESCE(AVG(t.Price), 0) AS avg_price
       FROM ticket t
       LEFT JOIN ticket_catalog tc ON tc.ticket_type = t.TicketType
-      WHERE t.PurchaseDate IS NOT NULL
+      WHERE COALESCE(t.sale_date, t.PurchaseDate) IS NOT NULL
     `;
     const params = [];
     if (start) {
-      sql += ' AND t.PurchaseDate >= ?';
+      sql += ' AND COALESCE(t.sale_date, t.PurchaseDate) >= ?';
       params.push(start);
     }
     if (end) {
-      sql += ' AND t.PurchaseDate <= ?';
+      sql += ' AND COALESCE(t.sale_date, t.PurchaseDate) <= ?';
       params.push(end);
     }
     if (typeFilter) {
@@ -419,7 +421,7 @@ export function registerReportRoutes(router) {
       params.push(typeFilter);
     }
     sql += ` GROUP BY ${groupClause}`;
-    sql += ' ORDER BY report_date DESC, total_revenue DESC LIMIT 500';
+    sql += ` ORDER BY report_date DESC, total_revenue DESC LIMIT ${limit}`;
 
     const rows = await query(sql, params).catch(() => []);
     ctx.ok({
@@ -444,6 +446,7 @@ export function registerReportRoutes(router) {
     const includeTickets = !categoryFilter || categoryFilter === 'ticket';
     const includeFood = !categoryFilter || categoryFilter === 'food';
     const includeGifts = !categoryFilter || categoryFilter === 'gift';
+    const includeParking = !categoryFilter || categoryFilter === 'parking';
 
     await Promise.all([
       ensureTicketCatalogTable(),
@@ -454,11 +457,13 @@ export function registerReportRoutes(router) {
     const ticketQuery = buildTicketRevenueQuery(groupMode, start, end);
     const foodQuery = buildMenuRevenueQuery(groupMode, start, end);
     const giftQuery = buildGiftRevenueQuery(groupMode, start, end);
+    const parkingQuery = buildParkingRevenueQuery(groupMode, start, end);
 
-    const [ticketRows, foodRows, giftRows] = await Promise.all([
+    const [ticketRows, foodRows, giftRows, parkingRows] = await Promise.all([
       includeTickets ? query(ticketQuery.sql, ticketQuery.params).catch(() => []) : Promise.resolve([]),
       includeFood ? query(foodQuery.sql, foodQuery.params).catch(() => []) : Promise.resolve([]),
       includeGifts ? query(giftQuery.sql, giftQuery.params).catch(() => []) : Promise.resolve([]),
+      includeParking ? query(parkingQuery.sql, parkingQuery.params).catch(() => []) : Promise.resolve([]),
     ]);
 
     const data = [
@@ -478,7 +483,7 @@ export function registerReportRoutes(router) {
         item_name: row.item_name || 'Menu Item',
         quantity: Number(row.quantity || 0),
         total_amount: Number(row.total_amount || 0),
-        customer_email: null,
+        customer_email: row.customer_email || null,
       })),
       ...giftRows.map(row => ({
         category: 'gift',
@@ -487,7 +492,16 @@ export function registerReportRoutes(router) {
         item_name: row.item_name || 'Gift Item',
         quantity: Number(row.quantity || 0),
         total_amount: Number(row.total_amount || 0),
-        customer_email: null,
+        customer_email: row.customer_email || null,
+      })),
+      ...parkingRows.map(row => ({
+        category: 'parking',
+        period_start: row.period_start,
+        period_label: formatPeriodLabel(groupMode, row.period_start),
+        item_name: row.item_name || 'Parking',
+        quantity: Number(row.quantity || 0),
+        total_amount: Number(row.total_amount || 0),
+        customer_email: row.customer_email || null,
       })),
     ];
 
@@ -734,31 +748,32 @@ export function registerReportRoutes(router) {
 }
 
 function buildTicketRevenueQuery(groupMode, start, end) {
-  const periodExpr = selectPeriodExpression('t.PurchaseDate', groupMode);
-  const groupClause = selectGroupClause('t.PurchaseDate', groupMode);
+  const dateField = 'COALESCE(t.sale_date, t.PurchaseDate)';
+  const periodExpr = selectPeriodExpression(dateField, groupMode);
+  const groupClause = selectGroupClause(dateField, groupMode);
   let sql = `
     SELECT ${periodExpr} AS period_start,
            t.TicketType AS item_name,
            COALESCE(tc.price, 0) AS catalog_price,
            COUNT(*) AS quantity,
            COALESCE(SUM(t.Price), 0) AS total_amount,
-           u.email AS customer_email,
+           MIN(COALESCE(t.CustomerEmail, u.email)) AS customer_email,
            'Main Gate' AS location_name
     FROM ticket t
     LEFT JOIN ticket_catalog tc ON tc.ticket_type = t.TicketType
     LEFT JOIN users u ON u.user_id = t.UserID
-    WHERE t.PurchaseDate IS NOT NULL
+    WHERE ${dateField} IS NOT NULL
   `;
   const params = [];
   if (start) {
-    sql += ' AND t.PurchaseDate >= ?';
+    sql += ` AND ${dateField} >= ?`;
     params.push(start);
   }
   if (end) {
-    sql += ' AND t.PurchaseDate <= ?';
+    sql += ` AND ${dateField} <= ?`;
     params.push(end);
   }
-  sql += ` GROUP BY ${groupClause}, t.TicketType, tc.price, u.email
+  sql += ` GROUP BY ${groupClause}, t.TicketType, tc.price
            ORDER BY period_start DESC, total_amount DESC`;
   return { sql, params };
 }
@@ -771,10 +786,12 @@ function buildMenuRevenueQuery(groupMode, start, end) {
            mi.name AS item_name,
            fv.VendorName AS location_name,
            COALESCE(SUM(ms.quantity), 0) AS quantity,
-           COALESCE(SUM(ms.quantity * ms.price_each), 0) AS total_amount
+           COALESCE(SUM(ms.quantity * ms.price_each), 0) AS total_amount,
+           MIN(COALESCE(ms.CustomerEmail, u.email)) AS customer_email
     FROM menu_sales ms
     JOIN menu_item mi ON mi.item_id = ms.menu_item_id
     LEFT JOIN food_vendor fv ON fv.VendorID = mi.vendor_id
+    LEFT JOIN users u ON u.user_id = ms.UserID
     WHERE 1=1
   `;
   const params = [];
@@ -799,10 +816,12 @@ function buildGiftRevenueQuery(groupMode, start, end) {
            gi.name AS item_name,
            gs.ShopName AS location_name,
            COALESCE(SUM(gsale.quantity), 0) AS quantity,
-           COALESCE(SUM(gsale.quantity * gsale.price_each), 0) AS total_amount
+           COALESCE(SUM(gsale.quantity * gsale.price_each), 0) AS total_amount,
+           MIN(COALESCE(gsale.CustomerEmail, u.email)) AS customer_email
     FROM gift_sales gsale
     JOIN gift_item gi ON gi.item_id = gsale.gift_item_id
     LEFT JOIN gift_shops gs ON gs.ShopID = gi.shop_id
+    LEFT JOIN users u ON u.user_id = gsale.UserID
     WHERE 1=1
   `;
   const params = [];
@@ -815,6 +834,34 @@ function buildGiftRevenueQuery(groupMode, start, end) {
     params.push(end);
   }
   sql += ` GROUP BY ${groupClause}, gi.name, gs.ShopName
+           ORDER BY period_start DESC, total_amount DESC`;
+  return { sql, params };
+}
+
+function buildParkingRevenueQuery(groupMode, start, end) {
+  const periodExpr = selectPeriodExpression('ps.sale_date', groupMode);
+  const groupClause = selectGroupClause('ps.sale_date', groupMode);
+  let sql = `
+    SELECT ${periodExpr} AS period_start,
+           COALESCE(pl.lot_name, ps.lot_name, 'Parking') AS item_name,
+           COALESCE(SUM(ps.quantity), 0) AS quantity,
+           COALESCE(SUM(ps.quantity * ps.price_each), 0) AS total_amount,
+           MIN(COALESCE(ps.CustomerEmail, u.email)) AS customer_email
+    FROM parking_sale ps
+    LEFT JOIN parking_lot pl ON pl.parking_lot_id = ps.parking_lot_id
+    LEFT JOIN users u ON u.user_id = ps.UserID
+    WHERE 1=1
+  `;
+  const params = [];
+  if (start) {
+    sql += ' AND ps.sale_date >= ?';
+    params.push(start);
+  }
+  if (end) {
+    sql += ' AND ps.sale_date <= ?';
+    params.push(end);
+  }
+  sql += ` GROUP BY ${groupClause}, COALESCE(pl.lot_name, ps.lot_name, 'Parking')
            ORDER BY period_start DESC, total_amount DESC`;
   return { sql, params };
 }
