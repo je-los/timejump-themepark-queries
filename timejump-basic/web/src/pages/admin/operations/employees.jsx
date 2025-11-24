@@ -68,7 +68,7 @@ export default function EmployeesPage() {
       const res = await api('/employees');
       const employees = Array.isArray(res?.data) ? res.data : [];
     // Filter out soft-deleted employees
-      setRows(employees.filter(emp => !(emp.isDeleted || emp.is_deleted)));
+      setRows(employees.filter(emp => !(emp.isDeleted || emp.isDeleted)));
     } catch (err) {
       setError(err?.message || 'Unable to load employees.');
       setRows([]);

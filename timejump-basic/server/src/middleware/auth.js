@@ -19,7 +19,7 @@ export async function resolveAuthUser(authHeader) {
   const needsEmployeeLookup = !employeeId && row.role && row.role !== 'customer';
   if (needsEmployeeLookup) {
     const [employee] = await query(
-      'SELECT employeeID FROM employee WHERE email = ? AND is_deleted = 0 LIMIT 1',
+      'SELECT employeeID FROM employee WHERE email = ? AND isDeleted = 0 LIMIT 1',
       [row.email],
     ).catch(() => []);
     if (employee?.employeeID) {
