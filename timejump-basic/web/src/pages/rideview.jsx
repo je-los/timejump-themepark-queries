@@ -53,8 +53,12 @@ export default function RideView() {
         ? 'ride-status--closed'
         : 'ride-status--open';
   const rideStatusLabel = ride?.status_label
+<<<<<<< HEAD
     || (rideIsMaintenance ? 'Closed for Maintenance' : rideIsWeatherClosed ? 'Closed due to Weather' : rideIsClosed ? 'Closed' : 'Open');
   const rideStatusNote = ride?.status_note || ride?.maintenance_note || ride?.closure_note || null;
+=======
+    || (rideIsMaintenance ? 'Closed for Maintenance' : rideIsClosed ? 'Closed' : 'Open');
+>>>>>>> newtime
 
   return (
     <div className="page">
@@ -68,11 +72,6 @@ export default function RideView() {
               <span className={`ride-status ${rideStatusClass}`}>
                 {rideStatusLabel}
               </span>
-              {rideIsClosed && rideStatusNote && (
-                <span className={`ride-status__note ${rideIsMaintenance ? 'ride-status__note--maintenance' : ''}`}>
-                  {rideStatusNote}
-                </span>
-              )}
             </div>
             <p className="text-sm text-gray-700">
               Experience {ride.Name || ride.name || 'this attraction'}.

@@ -24,13 +24,13 @@ import { BRAND_LOGO_URL, BRAND_NAME } from './constants/brand.js';
 export default function App() {
   const { user } = useAuth();
   const isCustomerView = !user || user.role === 'customer';
-  const [rideLibrary, setRideLibrary] = useState({ themes: [], rides: [] });
+  const [rideLibrary, setRideLibrary] = useState({ themes: [], rides: [], featured: [] });
   const [libraryLoading, setLibraryLoading] = useState(true);
   const [libraryError, setLibraryError] = useState('');
 
   useEffect(() => {
     if (!isCustomerView) {
-      setRideLibrary({ themes: [], rides: [] });
+      setRideLibrary({ themes: [], rides: [], featured: [] });
       setLibraryLoading(false);
       setLibraryError('');
       return;
@@ -41,7 +41,7 @@ export default function App() {
       .then(res => (res.ok ? res.json() : Promise.reject(new Error('Failed to load rides'))))
       .then(json => {
         if (!active) return;
-        setRideLibrary(json?.data || { themes: [], rides: [] });
+        setRideLibrary(json?.data || { themes: [], rides: [], featured: [] });
         setLibraryError('');
       })
       .catch(err => {
@@ -78,7 +78,16 @@ export default function App() {
 function CustomerRoutes({ rideLibrary, libraryLoading, libraryError }) {
   return (
     <Routes>
-      <Route path="/" element={<LandingRoute />} />
+      <Route
+        path="/"
+        element={(
+          <LandingRoute
+            rideLibrary={rideLibrary}
+            libraryLoading={libraryLoading}
+            libraryError={libraryError}
+          />
+        )}
+      />
       <Route
         path="/ticket-passes"
         element={<TicketCatalog filter="all" />}
@@ -115,7 +124,7 @@ function CustomerRoutes({ rideLibrary, libraryLoading, libraryError }) {
   );
 }
 
-function LandingRoute() {
+function LandingRoute({ rideLibrary, libraryLoading, libraryError }) {
   const { user, loading } = useAuth();
 
   if (loading) {
@@ -127,7 +136,13 @@ function LandingRoute() {
   }
 
   if (!user || user.role === 'customer') {
-    return <Home />;
+    return (
+      <Home
+        featuredRides={rideLibrary?.featured || []}
+        featuredLoading={libraryLoading}
+        featuredError={libraryError}
+      />
+    );
   }
 
   return <Navigate to={resolveStaffHome(user.role)} replace />;

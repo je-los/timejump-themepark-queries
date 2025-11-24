@@ -1,6 +1,7 @@
 import {
   findRideBySlug,
   findThemeBySlug,
+  listFeaturedRideRefs,
   listRides,
   listThemes,
 } from '../services/rideLibrary.js';
@@ -53,7 +54,11 @@ export function registerRideRoutes(router) {
 }
 
 async function buildLibrary() {
-  const [themes, rides] = await Promise.all([listThemes(), listRides()]);
+  const [themes, rides, featuredRefs] = await Promise.all([
+    listThemes(),
+    listRides(),
+    listFeaturedRideRefs(),
+  ]);
   const themeMap = new Map(themes.map(theme => [theme.slug, { ...theme, rides: [] }]));
 
   rides.forEach(ride => {
@@ -63,8 +68,17 @@ async function buildLibrary() {
     }
   });
 
+  const featured = featuredRefs
+    .map(ref => {
+      const ride = rides.find(r => r.id === ref.AttractionID);
+      if (!ride) return null;
+      return { ...ride, flagged_at: ref.flagged_at };
+    })
+    .filter(Boolean);
+
   return {
     themes: Array.from(themeMap.values()),
     rides,
+    featured,
   };
 }

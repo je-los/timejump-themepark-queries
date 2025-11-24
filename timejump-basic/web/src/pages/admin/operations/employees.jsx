@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '../../../auth';
 import { useAuth } from '../../../context/authcontext.jsx';
 import { Panel, ResourceTable } from '../shared.jsx';
+import { notifyDeleteError, notifyDeleteSuccess } from '../../../utils/deleteAlert.js';
+import { showToast } from '../../../utils/toast.js';
 
 const moneyFormatter = new Intl.NumberFormat(undefined, {
   style: 'currency',
@@ -55,7 +57,6 @@ export default function EmployeesPage() {
   const [deleteEmployee, setDeleteEmployee] = useState(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState('');
-  const [deleteStatus, setDeleteStatus] = useState('');
   const [editEmployee, setEditEmployee] = useState(null);
   const [editForm, setEditForm] = useState({ name: '', salary: '', positionId: '' });
   const [editBusy, setEditBusy] = useState(false);
@@ -118,14 +119,14 @@ export default function EmployeesPage() {
     if (!deleteEmployee || deleteBusy) return;
     setDeleteBusy(true);
     setDeleteError('');
-    setDeleteStatus('');
     try {
       await api(`/employees/${deleteEmployee.employeeID}`, { method: 'DELETE' });
-      setDeleteStatus('Employee deleted.');
+      const label = deleteEmployee.name || deleteEmployee.email || `Employee #${deleteEmployee.employeeID}`;
+      const message = notifyDeleteSuccess(`Deleted employee: ${label}`);
       setDeleteEmployee(null);
       loadEmployees();
     } catch (err) {
-      setDeleteError(err?.message || 'Unable to delete employee.');
+      setDeleteError(notifyDeleteError(err, 'Unable to delete employee.'));
     } finally {
       setDeleteBusy(false);
     }
@@ -176,8 +177,11 @@ export default function EmployeesPage() {
       });
       setEditEmployee(null);
       loadEmployees();
+      showToast(`Updated employee: ${editForm.name.trim() || editEmployee.name}`, 'success');
     } catch (err) {
-      setFormError(err?.message || 'Unable to update employee.');
+      const message = err?.message || 'Unable to update employee.';
+      setFormError(message);
+      showToast(message, 'error');
     } finally {
       setEditBusy(false);
     }
@@ -397,12 +401,7 @@ export default function EmployeesPage() {
         searchPlaceholder="Search employees..."
         sortableKeys={['name', 'role_name', 'salary', 'start_date']}
       />
-      {(deleteStatus || deleteError) && (
-        <div>
-          {deleteStatus && <div className="alert success">{deleteStatus}</div>}
-          {deleteError && <div className="alert error">{deleteError}</div>}
-        </div>
-      )}
+      {deleteError && <div className="alert error">{deleteError}</div>}
 
       {editEmployee && (
         <div className="table-modal">

@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { api } from '../../../auth';
 import { Panel, ResourceTable } from '../shared.jsx';
+import { notifyDeleteError, notifyDeleteSuccess } from '../../../utils/deleteAlert.js';
+import { showToast } from '../../../utils/toast.js';
 
 export default function ThemesPage() {
   const [rows, setRows] = useState([]);
@@ -195,8 +197,11 @@ export default function ThemesPage() {
                 });
                 setEditItem(null);
                 loadThemes();
+                showToast(`Updated theme: ${editForm.name.trim() || editItem.name}`, 'success');
               } catch (err) {
-                setFormError(err?.message || 'Unable to update theme.');
+                const message = err?.message || 'Unable to update theme.';
+                setFormError(message);
+                showToast(message, 'error');
               } finally {
                 setEditBusy(false);
               }
@@ -258,13 +263,14 @@ export default function ThemesPage() {
             onClick={async () => {
               if (deleteBusy) return;
               setDeleteBusy(true);
-              setFormError('');
               try {
                 await api(`/themes/${deleteItem.id}`, { method: 'DELETE' });
+                const label = deleteItem.name || `Theme #${deleteItem.id}`;
+                const message = notifyDeleteSuccess(`Deleted theme: ${label}`);
                 setDeleteItem(null);
                 loadThemes();
               } catch (err) {
-                setFormError(err?.message || 'Unable to delete theme.');
+                notifyDeleteError(err, 'Unable to delete theme.');
               } finally {
                 setDeleteBusy(false);
               }

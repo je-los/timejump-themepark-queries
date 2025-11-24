@@ -137,8 +137,12 @@ export default function RidesAndAttractions({ library, loading, error }) {
                           ? 'ride-status--closed'
                           : 'ride-status--open';
                     const statusLabel = ride.status_label
+<<<<<<< HEAD
                       || (isMaintenance ? 'Closed for Maintenance' : isWeatherClosed ? 'Closed due to Weather' : isClosed ? 'Closed' : 'Open');
                     const statusNote = ride.status_note || ride.maintenance_note || ride.closure_note || null;
+=======
+                      || (isMaintenance ? 'Closed for Maintenance' : isClosed ? 'Closed' : 'Open');
+>>>>>>> newtime
                     return (
                       <article key={ride.slug || ride.name} className="ride-feature-card ride-feature-card--show">
                         {ride.image_url && (
@@ -151,11 +155,6 @@ export default function RidesAndAttractions({ library, loading, error }) {
                           </span>
                         </div>
                         <h3>{ride.name}</h3>
-                        {isClosed && statusNote && (
-                          <p className={`ride-status__note ${isMaintenance ? 'ride-status__note--maintenance' : ''}`}>
-                            {statusNote}
-                          </p>
-                        )}
                         {description && <p>{description}</p>}
                         <div className="ride-feature-card__stats">
                           {ride.capacity && (

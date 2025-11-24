@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { api } from '../../../auth';
 import { Panel, ResourceTable } from '../shared.jsx';
+import { notifyDeleteError, notifyDeleteSuccess } from '../../../utils/deleteAlert.js';
+import { showToast } from '../../../utils/toast.js';
 
 export default function ParkingPage() {
   const [parking, setParking] = useState([]);
@@ -105,8 +107,11 @@ export default function ParkingPage() {
       });
       setEditLot(null);
       loadParking();
+      showToast(`Updated parking lot: ${editForm.lot.trim() || editLot.lot}`, 'success');
     } catch (err) {
-      setFormError(err?.message || 'Unable to update parking lot.');
+      const message = err?.message || 'Unable to update parking lot.';
+      setFormError(message);
+      showToast(message, 'error');
     } finally {
       setEditBusy(false);
     }
@@ -123,10 +128,12 @@ export default function ParkingPage() {
     setFormError('');
     try {
       await api(`/parking-lots/${deleteLot.lotId}`, { method: 'DELETE' });
+      const label = deleteLot.lot || `Lot #${deleteLot.lotId}`;
+      const message = notifyDeleteSuccess(`Deleted parking lot: ${label}`);
       setDeleteLot(null);
       loadParking();
     } catch (err) {
-      setFormError(err?.message || 'Unable to delete parking lot.');
+      setFormError(notifyDeleteError(err, 'Unable to delete parking lot.'));
     } finally {
       setDeleteBusy(false);
     }
@@ -160,15 +167,15 @@ export default function ParkingPage() {
               disabled={busy}
             />
           </label>
-          <button
-            className="btn primary"
-            type="submit"
-            disabled={busy}
-            style={{ justifySelf: 'flex-start', width: 'auto' }}
-          >
-            {busy ? 'Saving...' : 'Add Parking Lot'}
-          </button>
-        </form>
+        <button
+          className="btn primary"
+          type="submit"
+          disabled={busy}
+          style={{ justifySelf: 'flex-start', width: 'auto' }}
+        >
+          {busy ? 'Saving...' : 'Add Parking Lot'}
+        </button>
+      </form>
         <div style={{ marginTop: 12 }}>
           {status && <div className="alert success">{status}</div>}
           {formError && <div className="alert error">{formError}</div>}

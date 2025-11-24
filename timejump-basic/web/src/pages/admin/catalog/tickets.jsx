@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { api } from '../../../auth';
 import { Panel, ResourceTable } from '../shared.jsx';
+import { notifyDeleteError, notifyDeleteSuccess } from '../../../utils/deleteAlert.js';
+import { showToast } from '../../../utils/toast.js';
 
 export default function TicketsPage() {
   const [tickets, setTickets] = useState([]);
@@ -99,8 +101,11 @@ export default function TicketsPage() {
       });
       setEditTicket(null);
       loadTickets();
+      showToast(`Updated ticket type: ${editForm.name.trim() || editTicket.name || editTicket.key}`, 'success');
     } catch (err) {
-      setFormError(err?.message || 'Unable to update ticket type.');
+      const message = err?.message || 'Unable to update ticket type.';
+      setFormError(message);
+      showToast(message, 'error');
     } finally {
       setEditBusy(false);
     }
@@ -117,10 +122,12 @@ export default function TicketsPage() {
     setFormError('');
     try {
       await api(`/ticket-types/${encodeURIComponent(deleteTicket.key)}`, { method: 'DELETE' });
+      const label = deleteTicket.name || deleteTicket.key || 'Ticket type';
+      const message = notifyDeleteSuccess(`Deleted ticket type: ${label}`);
       setDeleteTicket(null);
       loadTickets();
     } catch (err) {
-      setFormError(err?.message || 'Unable to delete ticket type.');
+      setFormError(notifyDeleteError(err, 'Unable to delete ticket type.'));
     } finally {
       setDeleteBusy(false);
     }
@@ -154,20 +161,20 @@ export default function TicketsPage() {
               disabled={busy}
             />
           </label>
-          <button
-            className="btn primary"
-            type="submit"
-            disabled={busy}
-            style={{ justifySelf: 'flex-start', width: 'auto' }}
-          >
-            {busy ? 'Saving...' : 'Add Ticket Type'}
-          </button>
-        </form>
-        <div style={{ marginTop: 12 }}>
-          {status && <div className="alert success">{status}</div>}
-          {formError && <div className="alert error">{formError}</div>}
-        </div>
-      </Panel>
+        <button
+          className="btn primary"
+          type="submit"
+          disabled={busy}
+          style={{ justifySelf: 'flex-start', width: 'auto' }}
+        >
+          {busy ? 'Saving...' : 'Add Ticket Type'}
+        </button>
+      </form>
+      <div style={{ marginTop: 12 }}>
+        {status && <div className="alert success">{status}</div>}
+        {formError && <div className="alert error">{formError}</div>}
+      </div>
+    </Panel>
 
       <ResourceTable
         title="Ticket Types"

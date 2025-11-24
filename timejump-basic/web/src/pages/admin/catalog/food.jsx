@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { api } from '../../../auth';
 import { Panel, ResourceTable } from '../shared.jsx';
+import { notifyDeleteError, notifyDeleteSuccess } from '../../../utils/deleteAlert.js';
+import { showToast } from '../../../utils/toast.js';
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
 
@@ -197,8 +199,11 @@ export default function FoodPage() {
       });
       setEditItem(null);
       loadFood();
+      showToast(`Updated menu item: ${editForm.name.trim() || editItem.name}`, 'success');
     } catch (err) {
-      setFormError(err?.message || 'Unable to update item.');
+      const message = err?.message || 'Unable to update item.';
+      setFormError(message);
+      showToast(message, 'error');
     } finally {
       setEditBusy(false);
     }
@@ -210,10 +215,12 @@ export default function FoodPage() {
     setFormError('');
     try {
       await api(`/food-items/${deleteItem.item_id}`, { method: 'DELETE' });
+      const label = deleteItem.name || `Item #${deleteItem.item_id}`;
+      const message = notifyDeleteSuccess(`Deleted menu item: ${label}`);
       setDeleteItem(null);
       loadFood();
     } catch (err) {
-      setFormError(err?.message || 'Unable to delete item.');
+      setFormError(notifyDeleteError(err, 'Unable to delete item.'));
     } finally {
       setDeleteBusy(false);
     }
@@ -256,8 +263,11 @@ export default function FoodPage() {
       });
       setEditVendor(null);
       loadVendors();
+      showToast(`Updated vendor: ${editVendorForm.name.trim() || editVendor.name}`, 'success');
     } catch (err) {
-      setVendorError(err?.message || 'Unable to update vendor.');
+      const message = err?.message || 'Unable to update vendor.';
+      setVendorError(message);
+      showToast(message, 'error');
     } finally {
       setEditVendorBusy(false);
     }
@@ -269,10 +279,12 @@ export default function FoodPage() {
     setVendorError('');
     try {
       await api(`/food-vendors/${deleteVendor.vendor_id}`, { method: 'DELETE' });
+      const label = deleteVendor.name || `Vendor #${deleteVendor.vendor_id}`;
+      const message = notifyDeleteSuccess(`Deleted vendor: ${label}`);
       setDeleteVendor(null);
       loadVendors();
     } catch (err) {
-      setVendorError(err?.message || 'Unable to delete vendor.');
+      setVendorError(notifyDeleteError(err, 'Unable to delete vendor.'));
     } finally {
       setDeleteVendorBusy(false);
     }
