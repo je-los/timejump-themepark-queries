@@ -172,7 +172,7 @@ export function registerThemeRoutes(router) {
   router.get('/attraction-types', async ctx => {
     await ensureAttractionTypeDescriptionColumn();
     const rows = await query(
-      'SELECT AttractionTypeID, TypeName, Description FROM attraction_type ORDER BY TypeName ASC',
+      'SELECT AttractionTypeID, TypeName, Description FROM attraction_type WHERE isDeleted = 0 ORDER BY TypeName ASC',
     ).catch(() => []);
     ctx.ok({
       data: rows.map(row => ({
@@ -204,7 +204,7 @@ export function registerThemeRoutes(router) {
     }
 
     const result = await query(
-      'INSERT INTO attraction_type (TypeName, Description) VALUES (?, ?)',
+      'INSERT INTO attraction_type (TypeName, Description, isDeleted) VALUES (?, ?, 0)',
       [name, description || null],
     );
 
@@ -265,9 +265,11 @@ export function registerThemeRoutes(router) {
     if (!Number.isInteger(typeId) || typeId <= 0) {
       ctx.error(400, 'Valid attraction type id is required.');
       return;
-    }
+    } 
+  
+  // Check if any ACTIVE attractions are using this type
     const attachment = await query(
-      'SELECT AttractionID FROM attraction WHERE AttractionTypeID = ? LIMIT 1',
+      'SELECT AttractionID FROM attraction WHERE AttractionTypeID = ? AND isDeleted = 0 LIMIT 1',
       [typeId],
     );
     if (attachment.length) {
@@ -275,15 +277,25 @@ export function registerThemeRoutes(router) {
       return;
     }
 
-    const result = await query(
-      'DELETE FROM attraction_type WHERE AttractionTypeID = ?',
-      [typeId],
-    );
-    if (!result.affectedRows) {
-      ctx.error(404, 'Attraction type not found.');
-      return;
+    try {
+      const result = await query(
+        'UPDATE attraction_type SET isDeleted = 1 WHERE AttractionTypeID = ?',
+        [typeId]
+      );
+    
+      if (result.affectedRows === 0) {
+        ctx.error(404, 'Attraction type not found.');
+        return;
+      }
+    
+      ctx.ok({
+        message: 'Attraction type deleted successfully.',
+        deletedId: typeId,
+      });
+    } catch (err) {
+      console.error('DELETE /attraction-types/:id error:', err);
+      ctx.error(500, 'Server error deleting attraction type.');
     }
-    ctx.noContent();
   }));
 
   router.post('/attractions', requireRole(['admin', 'owner'])(async ctx => {

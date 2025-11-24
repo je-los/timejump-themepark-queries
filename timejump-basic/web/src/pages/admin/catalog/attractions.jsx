@@ -88,7 +88,12 @@ export default function AttractionsPage() {
         id: item.themeID ?? item.id,
         name: item.name ?? item.themeName,
       })));
-      setTypes((typeRes.data || []).map(item => ({
+    
+    // Filter out soft-deleted types
+      const allTypes = typeRes.data || [];
+      const activeTypes = allTypes.filter(item => !(item.isDeleted || item.is_deleted));
+    
+      setTypes(activeTypes.map(item => ({
         id: item.id ?? item.AttractionType ?? item.AttractionTypeID,
         name: item.name ?? item.TypeName,
         description: item.description ?? item.Description ?? '',
