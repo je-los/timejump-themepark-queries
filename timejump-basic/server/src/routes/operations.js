@@ -22,6 +22,38 @@ function normalizeDate(value) {
 }
 
 export function registerOperationsRoutes(router) {
+  async function getImpactedScheduleIds(attractionId, date) {
+    if (!attractionId || !date) return [];
+    const rows = await query(
+      `
+        SELECT ScheduleID
+        FROM schedules
+        WHERE AttractionID = ?
+          AND Shift_date = ?
+          AND isDeleted = 0
+      `,
+      [attractionId, date],
+    ).catch(() => []);
+    return Array.isArray(rows) ? rows.map(r => r.ScheduleID).filter(id => Number.isInteger(id)) : [];
+  }
+
+  async function recordScheduleImpacts(closureId, scheduleIds = []) {
+    const ids = Array.isArray(scheduleIds) ? scheduleIds.filter(id => Number.isInteger(id)) : [];
+    if (!closureId || !ids.length) return;
+    const values = ids.map(id => `(${closureId}, ${id})`).join(', ');
+    await query(
+      `
+        INSERT IGNORE INTO closure_schedule_impact (ClosureID, ScheduleID)
+        VALUES ${values}
+      `,
+    ).catch(() => {});
+  }
+
+  async function listAllAttractionIds() {
+    const rows = await query('SELECT AttractionID FROM attraction WHERE isDeleted = 0').catch(() => []);
+    return Array.isArray(rows) ? rows.map(r => r.AttractionID).filter(id => Number.isInteger(id) && id > 0) : [];
+  }
+
   router.get('/positions', requireRole(['manager', 'admin', 'owner'])(async ctx => {
     const rows = await query('SELECT PositionID, RoleName FROM positions ORDER BY RoleName ASC').catch(() => []);
     ctx.ok({
@@ -769,7 +801,8 @@ export function registerOperationsRoutes(router) {
              cr.Name AS reason,
              cr.Description AS reason_description,
              CASE WHEN ac.EndsAt IS NULL THEN 0 ELSE 1 END AS cleared,
-             a.Name AS attraction_name
+             a.Name AS attraction_name,
+             (SELECT COUNT(*) FROM closure_schedule_impact csi WHERE csi.ClosureID = ac.ClosureID) AS impacted_count
       FROM attraction_closure ac
       LEFT JOIN closure_reason cr ON cr.ReasonID = ac.ReasonID
       LEFT JOIN attraction a ON a.AttractionID = ac.AttractionID
@@ -800,21 +833,19 @@ export function registerOperationsRoutes(router) {
         reason: row.reason || '',
         reason_description: row.reason_description || '',
         cleared: row.cleared || 0,
+        impacted_count: Number(row.impacted_count || 0),
       })),
     });
   }));
 
   router.post('/ride-cancellations', requireRole(['manager', 'admin', 'owner'])(async ctx => {
-    const attractionId = Number(ctx.body?.attractionId || ctx.body?.AttractionID);
+    const attractionIdRaw = ctx.body?.attractionId || ctx.body?.AttractionID;
+    const attractionId = Number(attractionIdRaw);
     const cancelDateRaw = ctx.body?.cancelDate || ctx.body?.cancel_date || ctx.body?.date;
     const cancelDate = normalizeDate(cancelDateRaw) || todayISO();
     const reasonIdRaw = ctx.body?.reasonId || ctx.body?.ReasonID;
     const reasonNameRaw = String(ctx.body?.reason || '').trim();
 
-    if (!attractionId) {
-      ctx.error(400, 'Attraction is required.');
-      return;
-    }
     let reasonId = Number(reasonIdRaw);
     if (!Number.isInteger(reasonId) || reasonId <= 0) {
       if (!reasonNameRaw) {
@@ -835,24 +866,39 @@ export function registerOperationsRoutes(router) {
       ctx.error(400, 'Reason is required.');
       return;
     }
-    const [exists] = await query(
-      'SELECT AttractionID FROM attraction WHERE AttractionID = ? AND isDeleted = 0 LIMIT 1',
-      [attractionId],
-    ).catch(() => []);
-    if (!exists) {
-      ctx.error(400, 'Attraction not found.');
+    const targetAttractionIds = Number.isInteger(attractionId) && attractionId > 0
+      ? [attractionId]
+      : await listAllAttractionIds();
+    if (!targetAttractionIds.length) {
+      ctx.error(400, 'No attractions available to close.');
       return;
     }
-    const result = await query(
-      'INSERT INTO attraction_closure (AttractionID, StatusID, StartsAt, ReasonID) VALUES (?, ?, ?, ?)',
-      [attractionId, 2, `${cancelDate} 00:00:00`, reasonId],
-    );
+
+    const results = [];
+    for (const aid of targetAttractionIds) {
+      const res = await query(
+        'INSERT INTO attraction_closure (AttractionID, StatusID, StartsAt, ReasonID) VALUES (?, ?, ?, ?)',
+        [aid, 2, `${cancelDate} 00:00:00`, reasonId],
+      ).catch(() => null);
+      if (res?.insertId) {
+        const closureId = res.insertId;
+        const impactedIds = await getImpactedScheduleIds(aid, cancelDate);
+        await recordScheduleImpacts(closureId, impactedIds);
+        results.push({
+          cancel_id: closureId,
+          attraction_id: aid,
+          cancel_date: cancelDate,
+          reason_id: reasonId,
+          impacted_count: impactedIds.length,
+        });
+      }
+    }
+
     ctx.created({
       data: {
-        cancel_id: result.insertId,
-        attraction_id: attractionId,
-        cancel_date: cancelDate,
-        reason_id: reasonId,
+        closures_created: results.length,
+        total_impacted_shifts: results.reduce((sum, r) => sum + (r.impacted_count || 0), 0),
+        closures: results,
       },
     });
   }));
@@ -956,7 +1002,7 @@ export function registerOperationsRoutes(router) {
     }
 
     const [existing] = await query(
-      'SELECT ClosureID, AttractionID, DATE(StartsAt) AS cancel_date, Note AS reason, CASE WHEN EndsAt IS NULL THEN 0 ELSE 1 END AS cleared FROM attraction_closure WHERE ClosureID = ? LIMIT 1',
+      'SELECT ClosureID, AttractionID, DATE(StartsAt) AS cancel_date, CASE WHEN EndsAt IS NULL THEN 0 ELSE 1 END AS cleared FROM attraction_closure WHERE ClosureID = ? LIMIT 1',
       [cancelId],
     ).catch(() => []);
 
@@ -970,17 +1016,24 @@ export function registerOperationsRoutes(router) {
       return;
     }
 
-    // Mark the cancellation as cleared
+    // Mark the cancellation as cleared; ensure EndsAt > StartsAt to satisfy check constraint
     await query(
-      'UPDATE attraction_closure SET EndsAt = NOW() WHERE ClosureID = ?',
+      `UPDATE attraction_closure
+       SET EndsAt = CASE
+         WHEN NOW() <= StartsAt THEN DATE_ADD(StartsAt, INTERVAL 1 SECOND)
+         ELSE NOW()
+       END
+       WHERE ClosureID = ?`,
       [cancelId],
     );
 
     // Reopen ALL attractions that were closed due to weather on this date
-    // Since the trigger closes all attractions when weather is logged, we need to reopen all of them
     await query(
       `UPDATE attraction_closure 
-       SET EndsAt = NOW() 
+       SET EndsAt = CASE
+         WHEN NOW() <= StartsAt THEN DATE_ADD(StartsAt, INTERVAL 1 SECOND)
+         ELSE NOW()
+       END
        WHERE StatusID = 2 
          AND DATE(StartsAt) = ? 
          AND EndsAt IS NULL`,

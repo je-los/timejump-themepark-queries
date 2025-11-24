@@ -246,6 +246,8 @@ export function registerMaintenanceRoutes(router) {
     const search = String(filters.q || filters.search || '').trim();
     const statusParam = String(filters.status || filters.statuses || '').trim();
     const approvedParam = String(filters.approvedBy || filters.approved_by || filters.approved || '').trim();
+    const limitParam = Number(filters.limit);
+    const limit = Number.isFinite(limitParam) ? Math.min(Math.max(limitParam, 1), 500) : 500;
 
     const toList = (value) => value
       ? value.split(',').map(v => v.trim()).filter(Boolean)
@@ -305,7 +307,7 @@ export function registerMaintenanceRoutes(router) {
       const like = `%${search}%`;
       params.push(like, like);
     }
-    sql += ' ORDER BY mr.Date_broken_down DESC, mr.RecordID DESC LIMIT 500';
+    sql += ` ORDER BY mr.Date_broken_down DESC, mr.RecordID DESC LIMIT ${limit}`;
 
     let rows = [];
     let errored = false;

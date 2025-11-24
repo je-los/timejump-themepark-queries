@@ -37,6 +37,7 @@ export default function WeatherPage() {
   const [editingRecord, setEditingRecord] = useState(null);
   const [clearingId, setClearingId] = useState(null);
   const [confirmingClearId, setConfirmingClearId] = useState(null);
+  const [applyAll, setApplyAll] = useState(false);
 
   const [attractions, setAttractions] = useState([]);
   const [reasonOptions, setReasonOptions] = useState([]);
@@ -95,6 +96,7 @@ export default function WeatherPage() {
   function cancelEdit() {
     setEditingRecord(null);
     setForm(createEmptyForm());
+    setApplyAll(false);
     setMissingFields({
       attractionId: false,
       date: false,
@@ -108,7 +110,7 @@ export default function WeatherPage() {
     if (saving) return;
 
     const missing = {
-      attractionId: !form.attractionId,
+      attractionId: !applyAll && !form.attractionId,
       date: !form.date,
       reason: !form.reason,
     };
@@ -124,12 +126,13 @@ export default function WeatherPage() {
     setFormError('');
 
     try {
-    const attractionId = form.attractionId ? Number(form.attractionId) : null;
-    const payload = {
-      attractionId,
-      cancelDate: form.date,
-      reasonId: Number(form.reason) || form.reason || null,
-    };
+      const attractionId = applyAll ? null : (form.attractionId ? Number(form.attractionId) : null);
+      const payload = {
+        attractionId,
+        cancelDate: form.date,
+        reasonId: Number(form.reason) || form.reason || null,
+        applyAll,
+      };
 
       if (editingRecord?.cancel_id) {
         await api(`/ride-cancellations/${editingRecord.cancel_id}`, {
@@ -142,10 +145,13 @@ export default function WeatherPage() {
           method: 'POST',
           body: JSON.stringify(payload),
         });
-        setStatus('Weather Log recorded. Attractions are closed until weather clears.');
+        setStatus(applyAll
+          ? 'Park-wide weather closure recorded. All attractions are closed until weather clears.'
+          : 'Weather Log recorded. Attraction is closed until weather clears.');
       }
 
       setForm(createEmptyForm());
+      setApplyAll(false);
       setEditingRecord(null);
       setMissingFields({
         attractionId: false,
@@ -215,22 +221,38 @@ export default function WeatherPage() {
           <form onSubmit={handleSubmit} className="admin-form">
             <label className="field">
               <span>Attraction{missingFields.attractionId && <span className="missing-asterisk">*</span>}</span>
-              <select
-                className="input"
-                value={form.attractionId}
-                onChange={e => {
-                  setForm(f => ({ ...f, attractionId: e.target.value }));
-                  if (e.target.value) setMissingFields(m => ({ ...m, attractionId: false }));
-                }}
-                disabled={saving}
-              >
-                <option value="">Select attraction...</option>
-                {attractionOptions.map(opt => (
-                  <option key={opt.id} value={opt.id}>
-                    {opt.name}
-                  </option>
-                ))}
-              </select>
+              <div style={{ display: 'grid', gap: 8 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+                  <input
+                    type="checkbox"
+                    checked={applyAll}
+                    onChange={e => {
+                      setApplyAll(e.target.checked);
+                      if (e.target.checked) setMissingFields(m => ({ ...m, attractionId: false }));
+                    }}
+                    disabled={saving}
+                  />
+                  Apply to all attractions
+                </label>
+                {!applyAll && (
+                  <select
+                    className="input"
+                    value={form.attractionId}
+                    onChange={e => {
+                      setForm(f => ({ ...f, attractionId: e.target.value }));
+                      if (e.target.value) setMissingFields(m => ({ ...m, attractionId: false }));
+                    }}
+                    disabled={saving}
+                  >
+                    <option value="">Select attraction...</option>
+                    {attractionOptions.map(opt => (
+                      <option key={opt.id} value={opt.id}>
+                        {opt.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
             </label>
             <label className="field">
               <span>Date Reported{missingFields.date && <span className="missing-asterisk">*</span>}</span>

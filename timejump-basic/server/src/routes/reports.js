@@ -118,8 +118,11 @@ export function registerReportRoutes(router) {
     const end = String(ctx.query.end || '').trim();
     const reasonsParam = String(ctx.query.reasons || '').trim();
     const search = String(ctx.query.search || '').trim();
+    const attractionFilter = String(ctx.query.attraction || '').trim();
     const statusParam = String(ctx.query.status || '').trim().toLowerCase();
     const statusFilter = ['active', 'cleared', 'all'].includes(statusParam) ? statusParam : 'active';
+    const limitParam = Number(ctx.query.limit);
+    const limit = Number.isFinite(limitParam) ? Math.min(Math.max(limitParam, 1), 500) : 500;
     const codes = reasonsParam ? reasonsParam.split(',').map(code => code.trim()).filter(Boolean) : [];
 
     const reasonMap = new Map();
@@ -142,7 +145,8 @@ export function registerReportRoutes(router) {
       : [];
 
     let sql = `
-      SELECT ac.ClosureID AS cancel_id, ac.AttractionID, DATE(ac.StartsAt) AS cancel_date, cr.Name AS reason, cr.Description AS reason_description, ac.EndsAt, a.Name AS attraction
+      SELECT ac.ClosureID AS cancel_id, ac.AttractionID, DATE(ac.StartsAt) AS cancel_date, cr.Name AS reason, cr.Description AS reason_description, ac.EndsAt, a.Name AS attraction,
+             (SELECT COUNT(*) FROM closure_schedule_impact csi WHERE csi.ClosureID = ac.ClosureID) AS impacted_count
       FROM attraction_closure ac
       LEFT JOIN closure_reason cr ON cr.ReasonID = ac.ReasonID
       LEFT JOIN attraction a ON a.AttractionID = ac.AttractionID
@@ -162,6 +166,15 @@ export function registerReportRoutes(router) {
       const pattern = `%${search}%`;
       params.push(pattern, pattern);
     }
+    if (attractionFilter) {
+      if (/^\d+$/.test(attractionFilter)) {
+        sql += ' AND ac.AttractionID = ?';
+        params.push(Number(attractionFilter));
+      } else {
+        sql += ' AND a.Name LIKE ?';
+        params.push(`%${attractionFilter}%`);
+      }
+    }
     if (reasonFilterValues.length) {
       sql += ` AND ac.ReasonID IN (${reasonFilterValues.map(() => '?').join(',')})`;
       params.push(...reasonFilterValues);
@@ -171,13 +184,51 @@ export function registerReportRoutes(router) {
     } else if (statusFilter === 'cleared') {
       sql += ' AND ac.EndsAt IS NOT NULL';
     } // statusFilter === 'all' applies no cleared filter
-    sql += ' ORDER BY ac.StartsAt DESC, ac.ClosureID DESC LIMIT 500';
+    sql += ` ORDER BY ac.StartsAt DESC, ac.ClosureID DESC LIMIT ${limit}`;
 
     const rows = await query(sql, params).catch(() => []);
+
+    // fetch impacted schedules in bulk
+    const closureIds = rows.map(r => r.cancel_id).filter(id => Number.isInteger(id));
+    let impactsByClosure = new Map();
+    if (closureIds.length) {
+      const placeholders = closureIds.map(() => '?').join(',');
+      const impactRows = await query(
+        `
+          SELECT csi.ClosureID,
+                 csi.ScheduleID,
+                 s.EmployeeID,
+                 e.name AS employee_name,
+                 s.Shift_date,
+                 s.Start_time,
+                 s.End_time
+          FROM closure_schedule_impact csi
+          JOIN schedules s ON s.ScheduleID = csi.ScheduleID
+          LEFT JOIN employee e ON e.employeeID = s.EmployeeID
+          WHERE csi.ClosureID IN (${placeholders})
+        `,
+        closureIds,
+      ).catch(() => []);
+      impactsByClosure = impactRows.reduce((map, row) => {
+        const key = row.ClosureID;
+        if (!map.has(key)) map.set(key, []);
+        map.get(key).push({
+          schedule_id: row.ScheduleID,
+          employee_id: row.EmployeeID,
+          employee_name: row.employee_name || '',
+          shift_date: row.Shift_date,
+          start_time: row.Start_time,
+          end_time: row.End_time,
+        });
+        return map;
+      }, new Map());
+    }
+
     ctx.ok({
       data: rows.map(row => {
         const reason = row.reason || 'Unspecified';
         const code = toSlug(reason);
+        const impacted = impactsByClosure.get(row.cancel_id) || [];
         return {
           cancel_id: row.cancel_id,
           attraction_id: row.AttractionID,
@@ -187,6 +238,8 @@ export function registerReportRoutes(router) {
           reason_code: code,
           reason_label: toTitle(reason),
           cleared: row.EndsAt ? 1 : 0,
+          impacted_count: Number(row.impacted_count || impacted.length || 0),
+          impacted_schedules: impacted,
         };
       }),
     });
@@ -386,6 +439,8 @@ export function registerReportRoutes(router) {
     const groupRaw = String(ctx.query.group || '').trim().toLowerCase();
     const groupMode = groupRaw === 'month' || groupRaw === 'monthly' ? 'month' : 'day';
     const categoryFilter = String(ctx.query.category || '').trim().toLowerCase();
+    const limitParam = Number(ctx.query.limit);
+    const limit = Number.isFinite(limitParam) ? Math.min(Math.max(limitParam, 1), 500) : 500;
     const includeTickets = !categoryFilter || categoryFilter === 'ticket';
     const includeFood = !categoryFilter || categoryFilter === 'food';
     const includeGifts = !categoryFilter || categoryFilter === 'gift';
@@ -446,7 +501,7 @@ export function registerReportRoutes(router) {
         }
       }
       return true;
-    });
+    }).slice(0, limit);
 
     const totalsByCategory = filtered.reduce((acc, row) => {
       const category = row.category || 'unknown';
