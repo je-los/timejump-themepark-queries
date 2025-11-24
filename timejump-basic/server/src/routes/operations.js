@@ -437,6 +437,7 @@ export function registerOperationsRoutes(router) {
              e.name AS employee_name,
              s.AttractionID,
              a.Name AS attraction_name,
+             a.Capacity AS attraction_capacity,
              s.Shift_date,
              s.Start_time,
              s.End_time,
@@ -502,6 +503,9 @@ export function registerOperationsRoutes(router) {
         employee_name: row.employee_name || '',
         EmployeeName: row.employee_name || '',
         AttractionID: row.AttractionID,
+        capacity: Number.isFinite(Number(row.attraction_capacity ?? row.Capacity))
+          ? Number(row.attraction_capacity ?? row.Capacity)
+          : null,
         attraction_name: row.attraction_name || '',
         attractionName: row.attraction_name || '',
         Shift_date: row.Shift_date,
@@ -759,28 +763,32 @@ export function registerOperationsRoutes(router) {
     const includeCleared = ctx.query?.includeCleared === 'true';
     
     let sql = `
-      SELECT rc.cancel_id,
-             rc.AttractionID,
-             DATE(rc.cancel_date) AS cancel_date,
-             rc.reason,
-             COALESCE(rc.cleared, 0) AS cleared,
+      SELECT ac.ClosureID AS cancel_id,
+             ac.AttractionID,
+             DATE(ac.StartsAt) AS cancel_date,
+             cr.Name AS reason,
+             cr.Description AS reason_description,
+             CASE WHEN ac.EndsAt IS NULL THEN 0 ELSE 1 END AS cleared,
              a.Name AS attraction_name
-      FROM ride_cancellation rc
-      LEFT JOIN attraction a ON a.AttractionID = rc.AttractionID`;
+      FROM attraction_closure ac
+      LEFT JOIN closure_reason cr ON cr.ReasonID = ac.ReasonID
+      LEFT JOIN attraction a ON a.AttractionID = ac.AttractionID
+      WHERE 1=1
+    `;
     
     const conditions = [];
     if (weatherOnly) {
-      conditions.push(`rc.reason IN ('Heavy Rain', 'Light Rain', 'Lightning', 'Lightning Advisory', 'Thunderstorm', 'Snow', 'Hail', 'Tornado', 'Hurricane')`);
+      conditions.push(`ac.StatusID = 2`);
     }
     if (!includeCleared) {
-      conditions.push(`COALESCE(rc.cleared, 0) = 0`);
+      conditions.push(`ac.EndsAt IS NULL`);
     }
     
     if (conditions.length > 0) {
-      sql += ` WHERE ` + conditions.join(' AND ');
+      sql += ` AND ` + conditions.join(' AND ');
     }
     
-    sql += ` ORDER BY rc.cancel_date DESC, rc.cancel_id DESC LIMIT ${limit}`;
+    sql += ` ORDER BY ac.StartsAt DESC, ac.ClosureID DESC LIMIT ${limit}`;
     
     const rows = await query(sql).catch(() => []);
     ctx.ok({
@@ -790,6 +798,7 @@ export function registerOperationsRoutes(router) {
         attraction_name: row.attraction_name || `Attraction ${row.AttractionID}`,
         cancel_date: row.cancel_date,
         reason: row.reason || '',
+        reason_description: row.reason_description || '',
         cleared: row.cleared || 0,
       })),
     });
@@ -799,13 +808,30 @@ export function registerOperationsRoutes(router) {
     const attractionId = Number(ctx.body?.attractionId || ctx.body?.AttractionID);
     const cancelDateRaw = ctx.body?.cancelDate || ctx.body?.cancel_date || ctx.body?.date;
     const cancelDate = normalizeDate(cancelDateRaw) || todayISO();
-    const reason = String(ctx.body?.reason || '').trim();
+    const reasonIdRaw = ctx.body?.reasonId || ctx.body?.ReasonID;
+    const reasonNameRaw = String(ctx.body?.reason || '').trim();
 
     if (!attractionId) {
       ctx.error(400, 'Attraction is required.');
       return;
     }
-    if (!reason) {
+    let reasonId = Number(reasonIdRaw);
+    if (!Number.isInteger(reasonId) || reasonId <= 0) {
+      if (!reasonNameRaw) {
+        ctx.error(400, 'Reason is required.');
+        return;
+      }
+      const [reasonRow] = await query(
+        'SELECT ReasonID FROM closure_reason WHERE LOWER(Name) = LOWER(?) LIMIT 1',
+        [reasonNameRaw],
+      ).catch(() => []);
+      if (!reasonRow) {
+        ctx.error(400, 'Reason not found.');
+        return;
+      }
+      reasonId = reasonRow.ReasonID;
+    }
+    if (!reasonId) {
       ctx.error(400, 'Reason is required.');
       return;
     }
@@ -817,17 +843,16 @@ export function registerOperationsRoutes(router) {
       ctx.error(400, 'Attraction not found.');
       return;
     }
-    const trimmedReason = reason.slice(0, 255);
     const result = await query(
-      'INSERT INTO ride_cancellation (AttractionID, cancel_date, reason) VALUES (?, ?, ?)',
-      [attractionId, cancelDate, trimmedReason],
+      'INSERT INTO attraction_closure (AttractionID, StatusID, StartsAt, ReasonID) VALUES (?, ?, ?, ?)',
+      [attractionId, 2, `${cancelDate} 00:00:00`, reasonId],
     );
     ctx.created({
       data: {
         cancel_id: result.insertId,
         attraction_id: attractionId,
         cancel_date: cancelDate,
-        reason: trimmedReason,
+        reason_id: reasonId,
       },
     });
   }));
@@ -840,7 +865,7 @@ export function registerOperationsRoutes(router) {
     }
 
     const [existing] = await query(
-      'SELECT cancel_id FROM ride_cancellation WHERE cancel_id = ? LIMIT 1',
+      'SELECT ClosureID FROM attraction_closure WHERE ClosureID = ? LIMIT 1',
       [cancelId],
     ).catch(() => []);
 
@@ -851,7 +876,8 @@ export function registerOperationsRoutes(router) {
 
     const attractionId = ctx.body?.attractionId || ctx.body?.AttractionID;
     const cancelDateRaw = ctx.body?.cancelDate || ctx.body?.cancel_date || ctx.body?.date;
-    const reason = ctx.body?.reason;
+    const reasonIdRaw = ctx.body?.reasonId || ctx.body?.ReasonID;
+    const reasonNameRaw = ctx.body?.reason;
 
     const updates = [];
     const values = [];
@@ -880,18 +906,30 @@ export function registerOperationsRoutes(router) {
         ctx.error(400, 'Invalid date format.');
         return;
       }
-      updates.push('cancel_date = ?');
-      values.push(cancelDate);
+      updates.push('StartsAt = ?');
+      values.push(`${cancelDate} 00:00:00`);
     }
 
-    if (reason !== undefined) {
-      const trimmedReason = String(reason).trim().slice(0, 255);
-      if (!trimmedReason) {
-        ctx.error(400, 'Reason is required.');
-        return;
+    if (reasonIdRaw !== undefined || reasonNameRaw !== undefined) {
+      let reasonId = Number(reasonIdRaw);
+      if (!Number.isInteger(reasonId) || reasonId <= 0) {
+        const name = String(reasonNameRaw || '').trim();
+        if (!name) {
+          ctx.error(400, 'Reason is required.');
+          return;
+        }
+        const [reasonRow] = await query(
+          'SELECT ReasonID FROM closure_reason WHERE LOWER(Name) = LOWER(?) LIMIT 1',
+          [name],
+        ).catch(() => []);
+        if (!reasonRow) {
+          ctx.error(400, 'Reason not found.');
+          return;
+        }
+        reasonId = reasonRow.ReasonID;
       }
-      updates.push('reason = ?');
-      values.push(trimmedReason);
+      updates.push('ReasonID = ?');
+      values.push(reasonId);
     }
 
     if (updates.length === 0) {
@@ -901,7 +939,7 @@ export function registerOperationsRoutes(router) {
 
     values.push(cancelId);
     await query(
-      `UPDATE ride_cancellation SET ${updates.join(', ')} WHERE cancel_id = ?`,
+      `UPDATE attraction_closure SET ${updates.join(', ')} WHERE ClosureID = ?`,
       values,
     );
 
@@ -918,7 +956,7 @@ export function registerOperationsRoutes(router) {
     }
 
     const [existing] = await query(
-      'SELECT cancel_id, AttractionID, cancel_date, reason, COALESCE(cleared, 0) AS cleared FROM ride_cancellation WHERE cancel_id = ? LIMIT 1',
+      'SELECT ClosureID, AttractionID, DATE(StartsAt) AS cancel_date, Note AS reason, CASE WHEN EndsAt IS NULL THEN 0 ELSE 1 END AS cleared FROM attraction_closure WHERE ClosureID = ? LIMIT 1',
       [cancelId],
     ).catch(() => []);
 
@@ -934,7 +972,7 @@ export function registerOperationsRoutes(router) {
 
     // Mark the cancellation as cleared
     await query(
-      'UPDATE ride_cancellation SET cleared = 1 WHERE cancel_id = ?',
+      'UPDATE attraction_closure SET EndsAt = NOW() WHERE ClosureID = ?',
       [cancelId],
     );
 

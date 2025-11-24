@@ -7,18 +7,6 @@ function todayISO() {
   return new Date().toISOString().slice(0, 10);
 }
 
-const WEATHER_CONDITIONS = [
-  'Light Rain',
-  'Heavy Rain',
-  'Snow',
-  'Hail',
-  'Lightning',
-  'Lightning Advisory',
-  'Thunderstorm',
-  'Tornado',
-  'Hurricane',
-];
-
 function createEmptyForm() {
   return {
     attractionId: '',
@@ -31,7 +19,10 @@ function formatDateOnly(value) {
   if (!value) return '--';
   const date = new Date(`${value}T00:00:00`);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString();
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  return `${day}-${month}-${year}`;
 }
 
 export default function WeatherPage() {
@@ -48,6 +39,7 @@ export default function WeatherPage() {
   const [confirmingClearId, setConfirmingClearId] = useState(null);
 
   const [attractions, setAttractions] = useState([]);
+  const [reasonOptions, setReasonOptions] = useState([]);
   const [missingFields, setMissingFields] = useState({
     attractionId: false,
     date: false,
@@ -59,6 +51,7 @@ export default function WeatherPage() {
   useEffect(() => {
     loadAttractions();
     loadRecords();
+    loadReasons();
   }, []);
 
   async function loadAttractions() {
@@ -68,6 +61,20 @@ export default function WeatherPage() {
       setAttractions(attrs);
     } catch (err) {
       console.warn('Failed to load attractions:', err?.message);
+    }
+  }
+
+  async function loadReasons() {
+    try {
+      const res = await api('/cancellation-reasons');
+      const rows = Array.isArray(res?.data) ? res.data : res?.reasons || [];
+      setReasonOptions(rows.map(row => ({
+        value: row.reason_id || row.ReasonID || row.code || row.Name || row.reason,
+        label: row.label || row.Name || row.reason || row.code,
+      })));
+    } catch (err) {
+      console.warn('Failed to load cancellation reasons:', err?.message);
+      setReasonOptions([]);
     }
   }
 
@@ -117,12 +124,12 @@ export default function WeatherPage() {
     setFormError('');
 
     try {
-      const attractionId = form.attractionId ? Number(form.attractionId) : null;
-      const payload = {
-        attractionId,
-        cancelDate: form.date,
-        reason: form.reason,
-      };
+    const attractionId = form.attractionId ? Number(form.attractionId) : null;
+    const payload = {
+      attractionId,
+      cancelDate: form.date,
+      reasonId: Number(form.reason) || form.reason || null,
+    };
 
       if (editingRecord?.cancel_id) {
         await api(`/ride-cancellations/${editingRecord.cancel_id}`, {
@@ -250,9 +257,9 @@ export default function WeatherPage() {
                 disabled={saving}
               >
                 <option value="">Select weather condition...</option>
-                {WEATHER_CONDITIONS.map(condition => (
-                  <option key={condition} value={condition}>
-                    {condition}
+                {reasonOptions.map(opt => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
                   </option>
                 ))}
               </select>
