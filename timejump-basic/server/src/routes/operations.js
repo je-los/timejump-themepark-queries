@@ -378,6 +378,7 @@ export function registerOperationsRoutes(router) {
       FROM attraction a
       LEFT JOIN theme t ON t.themeID = a.ThemeID
       LEFT JOIN attraction_type atype ON atype.AttractionTypeID = a.AttractionTypeID
+      WHERE a.isDeleted = 0
       ORDER BY t.themeName ASC, a.Name ASC
     `).catch(() => []);
     ctx.ok({

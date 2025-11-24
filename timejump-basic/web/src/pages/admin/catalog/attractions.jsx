@@ -44,28 +44,31 @@ export default function AttractionsPage() {
   const [typeDeleteItem, setTypeDeleteItem] = useState(null);
   const [typeDeleteBusy, setTypeDeleteBusy] = useState(false);
   const [typeDeleteError, setTypeDeleteError] = useState('');
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
 
   const loadAttractions = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
       const res = await api('/attractions');
-      const list = (res?.data || []).map(item => {
-        const themeId = item.ThemeID ?? item.themeId ?? item.theme_id ?? '';
-        const typeId = item.AttractionTypeID ?? item.typeId ?? item.type_id ?? '';
-        return {
-          id: item.AttractionID ?? item.id,
-          name: item.Name ?? item.name,
-          theme: item.theme_name ?? '',
-          type: item.attraction_type_name ?? item.TypeName ?? item.type ?? '',
-          capacity: item.Capacity ?? item.capacity ?? item.RidersPerVehicle ?? item.riders_per_vehicle ?? null,
-          image_url: item.image_url ?? item.imageUrl ?? '',
-          themeId,
-          typeId,
-          experienceLevel: item.experience_level ?? item.experienceLevel ?? '',
-          audience: item.target_audience ?? item.targetAudience ?? '',
-        };
-      });
+      const list = (res?.data || [])
+        .filter(item => !(item.isDeleted || item.is_deleted)) // ADD THIS LINE
+        .map(item => {
+          const themeId = item.ThemeID ?? item.themeId ?? item.theme_id ?? '';
+          const typeId = item.AttractionTypeID ?? item.typeId ?? item.type_id ?? '';
+          return {
+            id: item.AttractionID ?? item.id,
+            name: item.Name ?? item.name,
+            theme: item.theme_name ?? '',
+            type: item.attraction_type_name ?? item.TypeName ?? item.type ?? '',
+            capacity: item.Capacity ?? item.capacity ?? item.RidersPerVehicle ?? item.riders_per_vehicle ?? null,
+            image_url: item.image_url ?? item.imageUrl ?? '',
+            themeId,
+            typeId,
+            experienceLevel: item.experience_level ?? item.experienceLevel ?? '',
+            audience: item.target_audience ?? item.targetAudience ?? '',
+          };
+        });
       setRows(list);
     } catch (err) {
       setError(err?.message || 'Unable to load attractions.');
@@ -284,8 +287,7 @@ export default function AttractionsPage() {
   }
 
   function openDeleteModal(item) {
-    setDeleteItem(item);
-    setDeleteBusy(false);
+    setDeleteConfirm(item)
   }
 
   async function handleEditSubmit(event) {
@@ -333,12 +335,12 @@ export default function AttractionsPage() {
   }
 
   async function handleDeleteConfirm() {
-    if (!deleteItem || deleteBusy) return;
+    if (!deleteConfirm || deleteBusy) return;
     setDeleteBusy(true);
     setFormError('');
     try {
-      await api(`/attractions/${deleteItem.id}`, { method: 'DELETE' });
-      setDeleteItem(null);
+      await api(`/attractions/${deleteConfirm.id}`, { method: 'DELETE' });
+      setDeleteConfirm(null);
       loadAttractions();
     } catch (err) {
       setFormError(err?.message || 'Unable to delete attraction.');
@@ -707,18 +709,36 @@ export default function AttractionsPage() {
         </div>
       )}
 
-      {deleteItem && (
-        <div className="table-modal">
-          <div className="table-modal__card">
-            <h4>Delete Attraction</h4>
-            <p>Are you sure you want to remove <strong>{deleteItem.name}</strong>?</p>
-            <div className="table-modal__actions">
-              <button type="button" className="btn" onClick={() => setDeleteItem(null)} disabled={deleteBusy}>
-                Cancel
-              </button>
-              <button type="button" className="btn danger" onClick={handleDeleteConfirm} disabled={deleteBusy}>
-                {deleteBusy ? 'Deleting...' : 'Delete'}
-              </button>
+      {deleteConfirm && (
+
+        <div className="modal-overlay" onClick={() => setDeleteConfirm(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 style={{ margin: 0 }}>Delete Attraction?</h3>
+            </div>
+            <div className="modal-body">
+              <p style={{ margin: 0, color: '#475569' }}>
+                Are you sure you want to remove <strong>{deleteConfirm.name}</strong>? 
+                This will soft delete the attraction and it can be restored if needed.
+              </p>
+            </div>
+            <div className="modal-footer">
+              <div className="modal-actions">
+                <button
+                  className="btn"
+                  onClick={() => setDeleteConfirm(null)}
+                  disabled={deleteBusy}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="btn danger"
+                  onClick={handleDeleteConfirm}
+                  disabled={deleteBusy}
+                >
+                  {deleteBusy ? 'Deleting...' : 'Delete Attraction'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

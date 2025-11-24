@@ -324,8 +324,8 @@ export function registerThemeRoutes(router) {
     }
 
     const result = await query(
-      `INSERT INTO attraction (Name, AttractionTypeID, ThemeID, Capacity, image_url, experience_level, target_audience)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO attraction (Name, AttractionTypeID, ThemeID, Capacity, image_url, experience_level, target_audience, isDeleted)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 0)`,
       [name, typeId, themeId, capacity, imageUrl, experienceLevel ?? null, targetAudience ?? null],
     );
 
@@ -450,14 +450,25 @@ export function registerThemeRoutes(router) {
       ctx.error(400, 'Valid attraction ID is required.');
       return;
     }
-    const result = await query(
-      'DELETE FROM attraction WHERE AttractionID = ?',
-      [attractionId],
-    );
-    if (!result.affectedRows) {
-      ctx.error(404, 'Attraction not found.');
-      return;
+  
+    try {
+      const result = await query(
+        'UPDATE attraction SET isDeleted = 1 WHERE AttractionID = ?',
+        [attractionId]
+      );
+    
+      if (result.affectedRows === 0) {
+        ctx.error(404, 'Attraction not found.');
+        return;
+      }
+    
+      ctx.ok({
+        message: 'Attraction deleted successfully.',
+        deletedId: attractionId,
+      });
+    } catch (err) {
+      console.error('DELETE /attractions/:id error:', err);
+      ctx.error(500, 'Server error deleting attraction.');
     }
-    ctx.noContent();
   }));
 }
