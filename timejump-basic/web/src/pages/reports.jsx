@@ -198,6 +198,7 @@ const REPORT_CONFIGS = [
           { value: 'ticket', label: 'Tickets' },
           { value: 'food', label: 'Food' },
           { value: 'gift', label: 'Gifts' },
+          { value: 'parking', label: 'Parking' },
         ],
         allowAll: false,
       },
@@ -282,9 +283,11 @@ export default function Reports() {
   const lastSummary = lastRun[activeReport];
   const revenueSummary = activeReport === 'revenue' ? lastSummary?.summary : null;
   const revenueBreakdown = useMemo(() => {
-    if (activeReport !== 'revenue' || !revenueSummary?.by_category) return [];
-    return Object.entries(revenueSummary.by_category)
-      .map(([key, value]) => ({ key, amount: Number(value ?? 0) }))
+    if (activeReport !== 'revenue') return [];
+    const categories = ['ticket', 'food', 'gift', 'parking'];
+    const byCat = revenueSummary?.by_category || {};
+    return categories
+      .map(key => ({ key, amount: Number(byCat[key] ?? 0) }))
       .filter(item => Number.isFinite(item.amount));
   }, [activeReport, revenueSummary]);
   const tablePrefs = tableState[activeReport] || { search: '', sortKey: '', sortDir: 'asc' };
