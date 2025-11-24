@@ -834,21 +834,6 @@ export function registerCatalogRoutes(router) {
   });
 
   async function loadParkingLots() {
-    let viewRows = [];
-    try {
-      viewRows = await query(`
-        SELECT v.parking_lot_id, v.lot_name, v.base_price, v.passes_today
-        FROM v_parking_lots_prices v
-        JOIN parking_lot pl ON pl.parking_lot_id = v.parking_lot_id
-        WHERE pl.is_deleted = 0
-        ORDER BY v.lot_name
-      `);
-    } catch (err) {
-      if (!['ER_NO_SUCH_TABLE', 'ER_VIEW_INVALID'].includes(err?.code)) {
-        throw err;
-      }
-    }
-
     let tableRows = [];
     try {
       tableRows = await query(`
@@ -878,7 +863,6 @@ export function registerCatalogRoutes(router) {
     };
 
     tableRows.forEach(addRow);
-    viewRows.forEach(addRow);
 
     return Array.from(merged.values())
       .sort((a, b) => String(a.lot_name || '').localeCompare(String(b.lot_name || '')))
