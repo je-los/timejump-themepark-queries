@@ -379,7 +379,7 @@ function Planner() {
       return;
     }
 
-    const realSchedules = schedules.filter(s => !(s.isDeleted || s.is_deleted));
+    const realSchedules = schedules.filter(s => !(s.isDeleted || s.isDeleted));
     const overlappingShift = realSchedules.find((s) => {
       const sDateStr = s.shiftDate ?? s.date ?? "";
       if (

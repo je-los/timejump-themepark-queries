@@ -54,7 +54,7 @@ export default function AttractionsPage() {
     try {
       const res = await api('/attractions');
       const list = (res?.data || [])
-        .filter(item => !(item.isDeleted || item.is_deleted)) // ADD THIS LINE
+        .filter(item => !(item.isDeleted || item.isDeleted)) // ADD THIS LINE
         .map(item => {
           const themeId = item.ThemeID ?? item.themeId ?? item.theme_id ?? '';
           const typeId = item.AttractionTypeID ?? item.typeId ?? item.type_id ?? '';
@@ -93,7 +93,7 @@ export default function AttractionsPage() {
     
     // Filter out soft-deleted types
       const allTypes = typeRes.data || [];
-      const activeTypes = allTypes.filter(item => !(item.isDeleted || item.is_deleted));
+      const activeTypes = allTypes.filter(item => !(item.isDeleted || item.isDeleted));
     
       setTypes(activeTypes.map(item => ({
         id: item.id ?? item.AttractionType ?? item.AttractionTypeID,

@@ -158,7 +158,7 @@ export function registerOperationsRoutes(router) {
     }
 
     const [employeeRows, userRows] = await Promise.all([
-      query('SELECT employeeID FROM employee WHERE email = ? AND is_deleted = 0 LIMIT 1', [email]),
+      query('SELECT employeeID FROM employee WHERE email = ? AND isDeleted = 0 LIMIT 1', [email]),
       query('SELECT user_id FROM users WHERE email = ? LIMIT 1', [email]),
     ]);
     if (employeeRows.length) {
@@ -298,7 +298,7 @@ export function registerOperationsRoutes(router) {
     values.push(employeeId);
 
     const result = await query(
-      `UPDATE employee SET ${fields.join(', ')} WHERE employeeID = ? AND is_deleted = 0`,
+      `UPDATE employee SET ${fields.join(', ')} WHERE employeeID = ? AND isDeleted = 0`,
       values,
     );
     if (!result.affectedRows) {
@@ -311,7 +311,7 @@ export function registerOperationsRoutes(router) {
         SELECT e.employeeID, e.name, e.salary, e.start_date, e.email, e.role, p.RoleName AS role_name
         FROM employee e
         LEFT JOIN positions p ON p.PositionID = e.role
-        WHERE e.employeeID = ? AND e.is_deleted = 0
+        WHERE e.employeeID = ? AND e.isDeleted = 0
         LIMIT 1
       `,
       [employeeId],
@@ -469,8 +469,8 @@ export function registerOperationsRoutes(router) {
                LIMIT 1
              ) AS maintenance_description
       FROM schedules s
-      LEFT JOIN employee e ON e.employeeID = s.EmployeeID AND e.is_deleted = 0
-      LEFT JOIN attraction a ON a.AttractionID = s.AttractionID AND a.is_deleted = 0
+      LEFT JOIN employee e ON e.employeeID = s.EmployeeID AND e.isDeleted = 0
+      LEFT JOIN attraction a ON a.AttractionID = s.AttractionID AND a.isDeleted = 0
       LEFT JOIN shift_status_type sst ON sst.StatusCode = s.ShiftStatus
       ${whereClause}
       ORDER BY s.Shift_date DESC, s.Start_time ASC
@@ -667,7 +667,7 @@ export function registerOperationsRoutes(router) {
       return;
     }
     const [rideRow] = await query(
-      'SELECT Capacity FROM attraction WHERE AttractionID = ? AND is_deleted = 0 LIMIT 1',
+      'SELECT Capacity FROM attraction WHERE AttractionID = ? AND isDeleted = 0 LIMIT 1',
       [attractionId],
     ).catch(() => []);
     if (!rideRow) {
@@ -791,7 +791,7 @@ export function registerOperationsRoutes(router) {
       return;
     }
     const [exists] = await query(
-      'SELECT AttractionID FROM attraction WHERE AttractionID = ? AND is_deleted = 0 LIMIT 1',
+      'SELECT AttractionID FROM attraction WHERE AttractionID = ? AND isDeleted = 0 LIMIT 1',
       [attractionId],
     ).catch(() => []);
     if (!exists) {
