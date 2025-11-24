@@ -284,12 +284,13 @@ export default function Reports() {
   const revenueSummary = activeReport === 'revenue' ? lastSummary?.summary : null;
   const revenueBreakdown = useMemo(() => {
     if (activeReport !== 'revenue') return [];
-    const categories = ['ticket', 'food', 'gift', 'parking'];
+    const selectedCategory = String(formState.revenue?.category || '').trim().toLowerCase();
+    const categories = selectedCategory ? [selectedCategory] : ['ticket', 'food', 'gift', 'parking'];
     const byCat = revenueSummary?.by_category || {};
     return categories
       .map(key => ({ key, amount: Number(byCat[key] ?? 0) }))
       .filter(item => Number.isFinite(item.amount));
-  }, [activeReport, revenueSummary]);
+  }, [activeReport, revenueSummary, formState.revenue?.category]);
   const tablePrefs = tableState[activeReport] || { search: '', sortKey: '', sortDir: 'asc' };
 
   const optionLookups = useMemo(() => ({
