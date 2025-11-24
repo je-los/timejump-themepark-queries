@@ -98,6 +98,7 @@ export function registerOperationsRoutes(router) {
       SELECT e.employeeID, e.name, e.salary, e.role, e.start_date, e.email, p.RoleName AS role_name
       FROM employee e
       LEFT JOIN positions p ON p.PositionID = e.role
+      WHERE e.isDeleted = 0
       ORDER BY e.name ASC
     `).catch(() => []);
     ctx.ok({
@@ -199,7 +200,7 @@ export function registerOperationsRoutes(router) {
     const normalizedRole = String(positionName || 'employee').trim().toLowerCase();
 
     const employeeResult = await query(
-      'INSERT INTO employee (name, salary, role, start_date, email) VALUES (?, ?, ?, ?, ?)',
+      'INSERT INTO employee (name, salary, role, start_date, email, isDeleted) VALUES (?, ?, ?, ?, ?, 0)',
       [
         name,
         salary !== null ? salary : null,
@@ -339,26 +340,40 @@ export function registerOperationsRoutes(router) {
       return;
     }
 
-    const rows = await query(
-      'SELECT employeeID, email FROM employee WHERE employeeID = ? LIMIT 1',
-      [employeeId],
-    );
-    if (!rows.length) {
-      ctx.error(404, 'Employee not found.');
-      return;
-    }
-    const employeeEmail = rows[0]?.email || null;
+    try {
+      // Soft delete the employee
+      const result = await query(
+        'UPDATE employee SET isDeleted = 1 WHERE employeeID = ?',
+        [employeeId]
+      );
 
-    const deleteParams = [employeeId];
-    let deleteSql = 'DELETE FROM users WHERE employeeID = ?';
-    if (employeeEmail) {
-      deleteSql += ' OR email = ?';
-      deleteParams.push(employeeEmail);
-    }
-    await query(deleteSql, deleteParams).catch(() => {});
-    await query('DELETE FROM employee WHERE employeeID = ?', [employeeId]);
+      if (result.affectedRows === 0) {
+        ctx.error(404, 'Employee not found.');
+        return;
+      }
 
-    ctx.noContent();
+      const rows = await query(
+        'SELECT email FROM employee WHERE employeeID = ? LIMIT 1',
+        [employeeId]
+      );
+      const employeeEmail = rows[0]?.email || null;
+    
+      const deleteParams = [employeeId];
+      let deleteSql = 'DELETE FROM users WHERE employeeID = ?';
+      if (employeeEmail) {
+        deleteSql += ' OR email = ?';
+        deleteParams.push(employeeEmail);
+      }
+      await query(deleteSql, deleteParams).catch(() => {});
+
+      ctx.ok({
+        message: 'Employee deleted successfully.',
+        deletedId: employeeId,
+      });
+    } catch (err) {
+      console.error('DELETE /employees/:id error:', err);
+      ctx.error(500, 'Server error deleting employee.');
+    }
   }));
 
   router.get('/attractions', requireRole(['employee', 'manager', 'admin', 'owner'])(async ctx => {

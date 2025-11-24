@@ -65,7 +65,9 @@ export default function EmployeesPage() {
     setError('');
     try {
       const res = await api('/employees');
-      setRows(Array.isArray(res?.data) ? res.data : []);
+      const employees = Array.isArray(res?.data) ? res.data : [];
+    // Filter out soft-deleted employees
+      setRows(employees.filter(emp => !(emp.isDeleted || emp.is_deleted)));
     } catch (err) {
       setError(err?.message || 'Unable to load employees.');
       setRows([]);
@@ -458,19 +460,35 @@ export default function EmployeesPage() {
       )}
 
       {deleteEmployee && (
-        <div className="table-modal">
-          <div className="table-modal__card">
-            <h4>Delete Employee</h4>
-            <p>
-              Are you sure you want to remove <strong>{deleteEmployee.name}</strong>?
-            </p>
-            <div className="table-modal__actions">
-              <button type="button" className="btn" onClick={() => setDeleteEmployee(null)} disabled={deleteBusy}>
-                Cancel
-              </button>
-              <button type="button" className="btn danger" onClick={handleDeleteConfirm} disabled={deleteBusy}>
-                {deleteBusy ? 'Deleting...' : 'Delete'}
-              </button>
+
+        <div className="modal-overlay" onClick={() => setDeleteEmployee(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 style={{ margin: 0 }}>Delete Employee?</h3>
+            </div>
+            <div className="modal-body">
+              <p style={{ margin: 0, color: '#475569' }}>
+                Are you sure you want to remove <strong>{deleteEmployee.name}</strong>? 
+                This will deactivate their account and they will no longer be able to access the system.
+              </p>
+            </div>
+            <div className="modal-footer">
+              <div className="modal-actions">
+                <button
+                  className="btn"
+                  onClick={() => setDeleteEmployee(null)}
+                  disabled={deleteBusy}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="btn danger"
+                  onClick={handleDeleteConfirm}
+                  disabled={deleteBusy}
+                >
+                  {deleteBusy ? 'Deleting...' : 'Delete Employee'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
