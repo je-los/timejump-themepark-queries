@@ -353,15 +353,10 @@ export default function AttractionsPage() {
     setDeleteBusy(true);
     setFormError('');
     try {
-<<<<<<< HEAD
-      await api(`/attractions/${deleteConfirm.id}`, { method: 'DELETE' });
-      setDeleteConfirm(null);
-=======
       await api(`/attractions/${deleteItem.id}`, { method: 'DELETE' });
       const label = deleteItem.name || `Attraction #${deleteItem.id}`;
       const message = notifyDeleteSuccess(`Deleted attraction: ${label}`);
       setDeleteItem(null);
->>>>>>> newtime
       loadAttractions();
     } catch (err) {
       setFormError(notifyDeleteError(err, 'Unable to delete attraction.'));

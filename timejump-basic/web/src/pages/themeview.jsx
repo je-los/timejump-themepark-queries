@@ -93,12 +93,8 @@ export default function ThemeView() {
                       ? 'ride-status--closed'
                       : 'ride-status--open';
                 const statusLabel = ride.status_label
-<<<<<<< HEAD
                   || (isMaintenance ? 'Closed for Maintenance' : isWeatherClosed ? 'Closed due to Weather' : isClosed ? 'Closed' : 'Open');
                 const statusNote = ride.status_note || ride.maintenance_note || ride.closure_note || null;
-=======
-                  || (isMaintenance ? 'Closed for Maintenance' : isClosed ? 'Closed' : 'Open');
->>>>>>> newtime
                 const description =
                   ride.description && ride.description.trim().toLowerCase() === 'seated or street performance with scheduled times.'
                     ? ''

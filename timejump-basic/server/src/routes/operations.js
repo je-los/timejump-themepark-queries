@@ -98,11 +98,7 @@ export function registerOperationsRoutes(router) {
       SELECT e.employeeID, e.name, e.salary, e.role, e.start_date, e.email, p.RoleName AS role_name
       FROM employee e
       LEFT JOIN positions p ON p.PositionID = e.role
-<<<<<<< HEAD
       WHERE e.isDeleted = 0
-=======
-      WHERE e.is_deleted = 0
->>>>>>> newtime
       ORDER BY e.name ASC
     `).catch(() => []);
     ctx.ok({
@@ -344,7 +340,6 @@ export function registerOperationsRoutes(router) {
       return;
     }
 
-<<<<<<< HEAD
     try {
       // Soft delete the employee
       const result = await query(
@@ -356,26 +351,6 @@ export function registerOperationsRoutes(router) {
         ctx.error(404, 'Employee not found.');
         return;
       }
-=======
-    const rows = await query(
-      'SELECT employeeID, email FROM employee WHERE employeeID = ? AND is_deleted = 0 LIMIT 1',
-      [employeeId],
-    );
-    if (!rows.length) {
-      ctx.error(404, 'Employee not found.');
-      return;
-    }
-    const employeeEmail = rows[0]?.email || null;
-
-    const deleteParams = [employeeId];
-    let deleteSql = 'DELETE FROM users WHERE employeeID = ?';
-    if (employeeEmail) {
-      deleteSql += ' OR email = ?';
-      deleteParams.push(employeeEmail);
-    }
-    await query(deleteSql, deleteParams).catch(() => {});
-    await query('UPDATE employee SET is_deleted = 1 WHERE employeeID = ? AND is_deleted = 0', [employeeId]);
->>>>>>> newtime
 
       const rows = await query(
         'SELECT email FROM employee WHERE employeeID = ? LIMIT 1',
@@ -416,15 +391,9 @@ export function registerOperationsRoutes(router) {
              a.experience_level,
              a.target_audience
       FROM attraction a
-<<<<<<< HEAD
       LEFT JOIN theme t ON t.themeID = a.ThemeID
       LEFT JOIN attraction_type atype ON atype.AttractionTypeID = a.AttractionTypeID
       WHERE a.isDeleted = 0
-=======
-      LEFT JOIN theme t ON t.themeID = a.ThemeID AND t.is_deleted = 0
-      LEFT JOIN attraction_type atype ON atype.AttractionTypeID = a.AttractionTypeID AND atype.is_deleted = 0
-      WHERE a.is_deleted = 0
->>>>>>> newtime
       ORDER BY t.themeName ASC, a.Name ASC
     `).catch(() => []);
     ctx.ok({
@@ -778,7 +747,6 @@ export function registerOperationsRoutes(router) {
              COALESCE(rc.cleared, 0) AS cleared,
              a.Name AS attraction_name
       FROM ride_cancellation rc
-<<<<<<< HEAD
       LEFT JOIN attraction a ON a.AttractionID = rc.AttractionID`;
     
     const conditions = [];
@@ -796,12 +764,6 @@ export function registerOperationsRoutes(router) {
     sql += ` ORDER BY rc.cancel_date DESC, rc.cancel_id DESC LIMIT ${limit}`;
     
     const rows = await query(sql).catch(() => []);
-=======
-      LEFT JOIN attraction a ON a.AttractionID = rc.AttractionID AND a.is_deleted = 0
-      ORDER BY rc.cancel_date DESC, rc.cancel_id DESC
-      LIMIT ${limit}
-    `).catch(() => []);
->>>>>>> newtime
     ctx.ok({
       data: rows.map(row => ({
         cancel_id: row.cancel_id,
