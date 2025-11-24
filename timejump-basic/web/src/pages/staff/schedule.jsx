@@ -117,6 +117,8 @@ function ScheduleView() {
         const statusName = shift.shift_status_name ?? shift.shiftStatusName ?? shift.statusName ?? '';
         const statusMeta = deriveShiftStatusMeta(statusCode, statusName);
         const maintenanceNote = shift.maintenanceNote ?? shift.maintenance_note ?? null;
+        const rawCapacity = Number(shift.capacity ?? shift.Capacity ?? shift.attraction_capacity ?? 0);
+        const capacity = Number.isFinite(rawCapacity) && rawCapacity > 0 ? rawCapacity : null;
         return {
           id: scheduleId ?? fallbackId,
           scheduleId,
@@ -132,6 +134,7 @@ function ScheduleView() {
           isCancelled: statusMeta.isCancelled,
           isMaintenance: statusMeta.isMaintenance,
           maintenanceNote,
+          capacity,
         };
       })
       .sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.start || '').localeCompare(b.start || ''));
@@ -178,6 +181,7 @@ function ScheduleView() {
                   <th style={thStyle}>Start</th>
                   <th style={thStyle}>End</th>
                   <th style={thStyle}>Attraction</th>
+                  <th style={thStyle}>Capacity</th>
                   <th style={thStyle}>Status</th>
                 </tr>
               </thead>
@@ -191,6 +195,7 @@ function ScheduleView() {
                       <td style={tdStyle}>{shift.start || '--'}</td>
                       <td style={tdStyle}>{shift.end || '--'}</td>
                       <td style={tdStyle}>{shift.attraction || 'Unassigned'}</td>
+                      <td style={tdStyle}>{shift.capacity ? shift.capacity.toLocaleString() : '--'}</td>
                       <td style={tdStyle}>
                         <span
                           style={{
@@ -238,11 +243,12 @@ function RideLogForm({ shifts, disabled, disabledMessage, onShiftLogged }) {
       .filter(shift => shift.attractionId && shift.date && (!shift.statusCode || shift.statusCode === 0))
       .map(shift => ({
         id: shift.id || `${shift.attractionId}-${shift.date}-${shift.start}`,
-        label: `${shift.date} - ${shift.attraction || 'Attraction'}`,
+        label: `${shift.date} - ${shift.attraction || 'Attraction'}${shift.capacity ? ` (Cap ${shift.capacity.toLocaleString()})` : ''}`,
         date: shift.date,
         attractionId: shift.attractionId,
         attractionName: shift.attraction || 'Attraction',
         scheduleId: shift.scheduleId ?? shift.id ?? null,
+        capacity: shift.capacity ?? null,
       }));
   }, [shifts]);
 
@@ -256,6 +262,12 @@ function RideLogForm({ shifts, disabled, disabledMessage, onShiftLogged }) {
   const [logsLoading, setLogsLoading] = useState(() => !cachedLogs.length);
   const [logsError, setLogsError] = useState('');
   const [reloadKey, setReloadKey] = useState(0);
+
+  const capacityValue = useMemo(() => {
+    if (!current) return null;
+    const raw = Number(current.capacity);
+    return Number.isFinite(raw) && raw > 0 ? raw : null;
+  }, [current]);
 
   useEffect(() => {
     setSelectedShift(shiftOptions[0]?.id || '');
@@ -303,6 +315,10 @@ function RideLogForm({ shifts, disabled, disabledMessage, onShiftLogged }) {
     const ridersCount = Number(count);
     if (!Number.isFinite(ridersCount) || ridersCount < 0) {
       setStatus('Enter a non-negative rider count.');
+      return;
+    }
+    if (capacityValue !== null && ridersCount > capacityValue) {
+      setStatus(`Rider count cannot exceed the attraction capacity (${capacityValue}).`);
       return;
     }
     setBusy(true);
@@ -370,7 +386,9 @@ function RideLogForm({ shifts, disabled, disabledMessage, onShiftLogged }) {
           </select>
         </label>
         <label className="field">
-          <span>Riders</span>
+          <span>
+            Riders {capacityValue ? `(Capacity ${capacityValue.toLocaleString()})` : ''}
+          </span>
           <input
             className="input"
             type="number"
@@ -379,7 +397,11 @@ function RideLogForm({ shifts, disabled, disabledMessage, onShiftLogged }) {
             value={count}
             onChange={e => setCount(e.target.value)}
             placeholder="e.g. 850"
+            max={capacityValue ?? undefined}
           />
+          {capacityValue && (
+            <small className="field-helper">Do not exceed the posted capacity for this ride.</small>
+          )}
         </label>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <button className="btn primary" type="submit" disabled={busy || noShiftAvailable}>

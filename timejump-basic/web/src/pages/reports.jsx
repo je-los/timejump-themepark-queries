@@ -24,6 +24,20 @@ const REPORT_CONFIGS = [
         helper: 'Toggle the reasons you want included.',
       },
       { key: 'search', label: 'Search (ride or notes)', type: 'text', placeholder: 'Keywords...' },
+      { key: 'attraction', label: 'Attraction (ID or name)', type: 'text', placeholder: 'e.g. 12 or Rapids' },
+      {
+        key: 'status',
+        label: 'Status',
+        type: 'select',
+        options: [
+          { value: 'active', label: 'Active' },
+          { value: 'cleared', label: 'Cleared' },
+          { value: 'all', label: 'All' },
+        ],
+        allowAll: false,
+        default: 'active',
+      },
+      { key: 'limit', label: 'Top Results', type: 'number', default: '50', helper: '1-500 rows' },
     ],
     buildParams: (state) => {
       const params = new URLSearchParams();
@@ -33,6 +47,10 @@ const REPORT_CONFIGS = [
         params.set('reasons', state.reasons.join(','));
       }
       if (state.search) params.set('search', state.search);
+      if (state.attraction) params.set('attraction', state.attraction);
+      if (state.status) params.set('status', state.status);
+      const limitVal = Number(state.limit);
+      if (Number.isInteger(limitVal) && limitVal > 0 && limitVal <= 500) params.set('limit', String(limitVal));
       return params;
     },
   },
@@ -71,7 +89,8 @@ const REPORT_CONFIGS = [
     buildParams: (state) => {
       const params = new URLSearchParams();
       const group = state.group || 'month';
-      if (group) params.set('group', group);
+      const groupParam = group === 'month' ? 'day' : group; // fetch daily rows so we can list entries per month
+      if (groupParam) params.set('group', groupParam);
       if (group === 'day') {
         if (state.date) params.set('date', state.date);
       } else if (state.month) {
@@ -142,6 +161,7 @@ const REPORT_CONFIGS = [
       },
       { key: 'attraction', label: 'Attraction (ID or name)', type: 'text', placeholder: 'All attractions' },
       { key: 'search', label: 'Keyword search', type: 'text', placeholder: 'notes contain...' },
+      { key: 'limit', label: 'Top Results', type: 'number', default: '50', helper: '1-500 rows' },
     ],
     buildParams: (state) => {
       const params = new URLSearchParams();
@@ -153,6 +173,8 @@ const REPORT_CONFIGS = [
       if (state.approvedBy) params.set('approvedBy', state.approvedBy);
       if (state.attraction) params.set('attraction', state.attraction);
       if (state.search) params.set('q', state.search);
+      const limitVal = Number(state.limit);
+      if (Number.isInteger(limitVal) && limitVal > 0 && limitVal <= 500) params.set('limit', String(limitVal));
       return params;
     },
   },
@@ -163,7 +185,7 @@ const REPORT_CONFIGS = [
     endpoint: '/reports/revenue',
     emptyMessage: 'Run the report to see revenue totals.',
     badge: 'Finance',
-    columns: ['period_label', 'category', 'item_name', 'quantity', 'total_amount'],
+    columns: ['period_label', 'category', 'item_name', 'quantity', 'total_amount', 'customer_email'],
     fields: [
       { key: 'start', label: 'Start Date', type: 'date', default: '' },
       { key: 'end', label: 'End Date', type: 'date', default: '' },
@@ -180,6 +202,7 @@ const REPORT_CONFIGS = [
         allowAll: false,
       },
       { key: 'search', label: 'Search item name', type: 'text', placeholder: 'e.g. VIP or Funnel Cake' },
+      { key: 'limit', label: 'Top Results', type: 'number', default: '50', helper: '1-500 rows' },
     ],
     buildParams: (state) => {
       const params = new URLSearchParams();
@@ -187,6 +210,8 @@ const REPORT_CONFIGS = [
       if (state.end) params.set('end', state.end);
       if (state.category) params.set('category', state.category);
       if (state.search) params.set('search', state.search);
+      const limitVal = Number(state.limit);
+      if (Number.isInteger(limitVal) && limitVal > 0 && limitVal <= 500) params.set('limit', String(limitVal));
       return params;
     },
   },
@@ -252,6 +277,8 @@ export default function Reports() {
   const activeInfo = infos[activeReport] || '';
   const isLoading = loadingKey === activeReport;
   const isMaintenanceReport = activeReport === 'maintenance';
+  const isCancellationsReport = activeReport === 'cancellations';
+  const isRevenueReport = activeReport === 'revenue';
   const lastSummary = lastRun[activeReport];
   const revenueSummary = activeReport === 'revenue' ? lastSummary?.summary : null;
   const revenueBreakdown = useMemo(() => {
@@ -304,6 +331,8 @@ export default function Reports() {
 
   const ridersForm = formState.riders || {};
   const riderGroup = String(ridersForm.group || 'month').toLowerCase() === 'day' ? 'day' : 'month';
+  const isRidersMonthlyView = activeReport === 'riders' && riderGroup === 'month';
+  const isRidersDailyView = activeReport === 'riders' && riderGroup === 'day';
 
   const currentColumns = useMemo(() => {
     if (activeReport !== 'riders') return activeConfig.columns;
@@ -314,24 +343,34 @@ export default function Reports() {
 
   const visibleRows = useMemo(() => {
     if (!Array.isArray(reportRows)) return [];
+    const scopedRows = (isRidersMonthlyView && ridersForm.month)
+      ? reportRows.filter(row => isWithinMonth(row, ridersForm.month))
+      : reportRows;
     const searchTerm = (tablePrefs.search || '').trim().toLowerCase();
     const filtered = searchTerm
-      ? reportRows.filter(row =>
+      ? scopedRows.filter(row =>
           currentColumns.some(col => {
             const value = normalizeRow(row)[col] ?? normalizeRow(row)[col?.toLowerCase()];
             return value !== undefined && value !== null && String(value).toLowerCase().includes(searchTerm);
           }),
         )
-      : reportRows;
+      : scopedRows;
     const sortKey = tablePrefs.sortKey;
-    if (!sortKey) return filtered;
-    const dir = tablePrefs.sortDir === 'desc' ? -1 : 1;
-    return [...filtered].sort((a, b) => {
-      const valA = normalizeRow(a)[sortKey] ?? normalizeRow(a)[sortKey?.toLowerCase()];
-      const valB = normalizeRow(b)[sortKey] ?? normalizeRow(b)[sortKey?.toLowerCase()];
-      return compareValues(valA, valB) * dir;
-    });
-  }, [reportRows, tablePrefs, currentColumns]);
+    let sorted = filtered;
+    if (sortKey) {
+      const dir = tablePrefs.sortDir === 'desc' ? -1 : 1;
+      sorted = [...filtered].sort((a, b) => {
+        const valA = normalizeRow(a)[sortKey] ?? normalizeRow(a)[sortKey?.toLowerCase()];
+        const valB = normalizeRow(b)[sortKey] ?? normalizeRow(b)[sortKey?.toLowerCase()];
+        return compareValues(valA, valB) * dir;
+      });
+    }
+    const limitNum = Number(tablePrefs.limit);
+    if (Number.isInteger(limitNum) && limitNum > 0) {
+      return sorted.slice(0, limitNum);
+    }
+    return sorted;
+  }, [reportRows, tablePrefs, currentColumns, isRidersMonthlyView, ridersForm.month]);
 
   const formStateRef = useRef(formState);
   useEffect(() => {
@@ -508,7 +547,7 @@ export default function Reports() {
                             flex: '1 1 140px',
                             minWidth: 140,
                             padding: 12,
-                            border: '1px solid #f1f5f9',
+                            border: '1px solid #e2e8f0',
                             borderRadius: 12,
                             background: '#f8fafc',
                           }}
@@ -525,23 +564,43 @@ export default function Reports() {
                   )}
                 </div>
               )}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, gap: 12, flexWrap: 'wrap' }}>
-                <input
-                  className="input"
-                  type="text"
-                  style={{ minWidth: 220, flex: '1 1 220px' }}
-                  placeholder="Search rows..."
-                  value={tablePrefs.search || ''}
-                  onChange={e => updateTableState(activeReport, { search: e.target.value })}
-                />
-                {!!reportRows.length && (
-                  <span className="muted" style={{ fontSize: 12 }}>
-                    Showing {visibleRows.length} of {reportRows.length} rows
-                  </span>
-                )}
-              </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, gap: 12, flexWrap: 'wrap' }}>
+              <input
+                className="input"
+                type="text"
+                style={{ minWidth: 220, flex: '1 1 220px' }}
+                placeholder="Search rows..."
+                value={tablePrefs.search || ''}
+                onChange={e => updateTableState(activeReport, { search: e.target.value })}
+              />
+              {!!reportRows.length && (
+                <span className="muted" style={{ fontSize: 12 }}>
+                  Showing {visibleRows.length} of {reportRows.length} rows
+                </span>
+              )}
+            </div>
               {isMaintenanceReport ? (
                 <MaintenanceReportTable
+                  rows={visibleRows}
+                  emptyMessage={activeConfig.emptyMessage}
+                />
+              ) : isRevenueReport ? (
+                <RevenueGroupedList
+                  rows={visibleRows}
+                  emptyMessage={activeConfig.emptyMessage}
+                />
+              ) : isCancellationsReport ? (
+                <CancellationsReportList
+                  rows={visibleRows}
+                  emptyMessage={activeConfig.emptyMessage}
+                />
+              ) : isRidersDailyView ? (
+                <RidersDailyList
+                  rows={visibleRows}
+                  emptyMessage={activeConfig.emptyMessage}
+                />
+              ) : isRidersMonthlyView ? (
+                <RidersMonthlyList
                   rows={visibleRows}
                   emptyMessage={activeConfig.emptyMessage}
                 />
@@ -710,9 +769,31 @@ function monthToRange(value) {
   return { start, end };
 }
 
+function formatPeriodLabel(mode, isoDate) {
+  if (!isoDate) return '';
+  const date = new Date(`${isoDate}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return isoDate;
+  if (mode === 'month') {
+    return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short' });
+  }
+  return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
 function ReportTable({ rows, columns, emptyMessage, sortKey, sortDir, onSort }) {
   const data = Array.isArray(rows) ? rows : [];
   if (!data.length) return <div className="report-empty">{emptyMessage}</div>;
+  const isRevenue = columns.includes('customer_email');
+  const revenueBadgeStyle = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    padding: '2px 8px',
+    borderRadius: 999,
+    fontSize: 12,
+    fontWeight: 600,
+    background: '#e0f2fe',
+    color: '#0369a1',
+    textTransform: 'capitalize',
+  };
   return (
     <div className="workspace-table">
       <table>
@@ -738,10 +819,25 @@ function ReportTable({ rows, columns, emptyMessage, sortKey, sortDir, onSort }) 
         <tbody>
           {data.map((row, idx) => {
             const normalized = normalizeRow(row);
+            const highlight = isRevenue && ['ticket', 'food', 'gift'].includes(String(normalized.category || '').toLowerCase());
             return (
-              <tr key={idx}>
+              <tr key={idx} style={highlight ? { background: '#f8fafc' } : undefined}>
                 {columns.map(col => {
                   const value = normalized[col] ?? normalized[toLower(col)];
+                  if (isRevenue && col === 'category') {
+                    return (
+                      <td key={col}>
+                        <span style={revenueBadgeStyle}>{formatLabel(value)}</span>
+                      </td>
+                    );
+                  }
+                  if (isRevenue && col === 'customer_email') {
+                    return (
+                      <td key={col} style={{ color: '#0f172a' }}>
+                        {value || '--'}
+                      </td>
+                    );
+                  }
                   return <td key={col}>{formatValue(value, col)}</td>;
                 })}
               </tr>
@@ -753,39 +849,449 @@ function ReportTable({ rows, columns, emptyMessage, sortKey, sortDir, onSort }) 
   );
 }
 
+function RidersMonthlyList({ rows, emptyMessage }) {
+  const data = Array.isArray(rows) ? rows : [];
+  if (!data.length) return <div className="report-empty">{emptyMessage}</div>;
+
+  const groups = Array.from(
+    data.reduce((map, row) => {
+      const dateStr = row.period_start || row.log_date || row.period || row.period_label || 'unknown';
+      const monthDate = toMonthDate(dateStr);
+      const monthKey = monthDate.key;
+      const monthLabel = monthDate.label;
+      const sortValue = monthDate.sortValue;
+      if (!map.has(monthKey)) {
+        map.set(monthKey, {
+          key: monthKey,
+          label: monthLabel,
+          sortValue,
+          total: 0,
+          attractions: new Map(),
+        });
+      }
+      const group = map.get(monthKey);
+
+      const riders = Number(row.riders_count || row.riders || 0);
+      group.total += Number.isFinite(riders) ? riders : 0;
+
+      const attractionId = row.AttractionID || row.AttractionId || row.attraction_id || row.attractionId || row.Name || row.name || 'Attraction';
+      const attractionName = row.Name || row.name || row.attraction_name || `Attraction ${attractionId || ''}`;
+      if (!group.attractions.has(attractionId)) {
+        group.attractions.set(attractionId, {
+          id: attractionId,
+          name: attractionName,
+          total: 0,
+          count: 0,
+          entries: [],
+        });
+      }
+      const ride = group.attractions.get(attractionId);
+      ride.total += Number.isFinite(riders) ? riders : 0;
+      ride.count += 1;
+      ride.entries.push({
+        date: row.log_date || row.period_start || row.period_label || '',
+        riders,
+        employee: row.employee_name || row.EmployeeName || row.employee || '',
+      });
+
+      return map;
+    }, new Map()).values(),
+  ).sort((a, b) => b.sortValue - a.sortValue);
+
+  return (
+    <div className="riders-monthly-list" style={{ display: 'grid', gap: 16 }}>
+      {groups.map(group => (
+        <div
+          key={group.key}
+          className="panel"
+          style={{ padding: 16, border: '1px solid #e5e7eb', borderRadius: 12 }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+            <div>
+              <h4 style={{ margin: 0 }}>{group.label}</h4>
+            </div>
+            <div style={{ fontWeight: 600 }}>
+              Total riders: {formatNumber(group.total)}
+            </div>
+          </div>
+          <div style={{ display: 'grid', gap: 12 }}>
+            {Array.from(group.attractions.values()).map(ride => (
+              <div key={`${group.key}-${ride.id}`} style={{ border: '1px solid #f1f5f9', borderRadius: 10, padding: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <div style={{ fontWeight: 600 }}>{ride.name || 'Attraction'}</div>
+                  <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', fontSize: 13, color: '#0f172a' }}>
+                    <span>Ride total: <strong>{formatNumber(ride.total)}</strong></span>
+                    <span style={{ color: '#475569' }}>
+                      Avg: <strong>{ride.count ? formatNumber(ride.total / ride.count) : '--'}</strong>
+                    </span>
+                  </div>
+                </div>
+                <div style={{ marginTop: 8 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, fontSize: 13, color: '#1f2937', fontWeight: 600, padding: '6px 4px' }}>
+                    <span>Date</span>
+                    <span>Riders</span>
+                    <span>Logged By</span>
+                  </div>
+                  <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 6 }}>
+                    {ride.entries
+                      .slice()
+                      .sort((a, b) => (a.date || '').localeCompare(b.date || ''))
+                      .map((entry, idx) => (
+                      <li key={`${group.key}-${ride.id}-${idx}`} style={{ fontSize: 13, color: '#475569', borderBottom: '1px solid #f8fafc', padding: '6px 4px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+                          <span>{entry.date ? formatDateOnly(entry.date) : '--'}</span>
+                          <span>{formatNumber(entry.riders)}</span>
+                          <span>{entry.employee || '--'}</span>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div style={{ marginTop: 12, fontSize: 13, color: '#475569' }}>
+            Monthly total: <strong>{formatNumber(group.total)}</strong>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function RevenueGroupedList({ rows, emptyMessage }) {
+  const data = Array.isArray(rows) ? rows : [];
+  if (!data.length) return <div className="report-empty">{emptyMessage}</div>;
+
+  const groups = Array.from(
+    data.reduce((map, row) => {
+      const itemName = row.item_name || row.name || 'Item';
+      if (!map.has(itemName)) {
+        map.set(itemName, {
+          item: itemName,
+          category: row.category || '',
+          total_amount: 0,
+          total_qty: 0,
+          rows: [],
+        });
+      }
+      const group = map.get(itemName);
+      const amt = Number(row.total_amount || 0);
+      const qty = Number(row.quantity || 0);
+      if (Number.isFinite(amt)) group.total_amount += amt;
+      if (Number.isFinite(qty)) group.total_qty += qty;
+      group.rows.push({
+        period: row.period_label || row.period_start || '',
+        qty,
+        amt,
+        customer: row.customer_email || '',
+      });
+      return map;
+    }, new Map()).values(),
+  ).sort((a, b) => Number(b.total_amount || 0) - Number(a.total_amount || 0));
+
+  const badgeStyle = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    padding: '2px 8px',
+    borderRadius: 999,
+    fontSize: 12,
+    fontWeight: 600,
+    background: '#e0f2fe',
+    color: '#0f172a',
+    textTransform: 'capitalize',
+  };
+
+  return (
+    <div style={{ display: 'grid', gap: 12 }}>
+      {groups.map(group => (
+        <div
+          key={group.item}
+          className="panel"
+          style={{
+            padding: 14,
+            border: '1px solid #dbeafe',
+            borderRadius: 12,
+            background: 'linear-gradient(135deg, #eff6ff 0%, #e0f2fe 50%, #fff 100%)',
+            boxShadow: '0 6px 18px rgba(15,23,42,0.05)',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+            <div style={{ fontWeight: 700, color: '#0f172a' }}>{group.item}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              {group.category && <span style={badgeStyle}>{formatLabel(group.category)}</span>}
+              <span style={{ fontSize: 13, color: '#0f172a' }}>
+                Total: <strong>{formatCurrency(group.total_amount)}</strong>
+              </span>
+              <span style={{ fontSize: 12, color: '#475569' }}>
+                {formatNumber(group.total_qty)} sold
+              </span>
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px 1fr', gap: 8, fontSize: 13, fontWeight: 700, color: '#0f172a', padding: '6px 4px' }}>
+            <span>Period</span>
+            <span style={{ textAlign: 'right' }}>Revenue</span>
+            <span>Customer</span>
+          </div>
+          <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 6 }}>
+            {group.rows.map((row, idx) => (
+              <li
+                key={`${group.item}-${idx}`}
+                style={{
+                  padding: '8px 6px',
+                  borderBottom: '1px solid #e2e8f0',
+                  fontSize: 13,
+                  color: '#0f172a',
+                }}
+              >
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px 1fr', gap: 8, alignItems: 'center' }}>
+                  <span>{row.period || '--'}</span>
+                  <span style={{ textAlign: 'right', fontWeight: 700 }}>{formatCurrency(row.amt)}</span>
+                  <span style={{ color: '#0f172a' }}>{row.customer || '—'}</span>
+                </div>
+                <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>
+                  Qty: {formatNumber(row.qty)}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function RidersDailyList({ rows, emptyMessage }) {
+  const data = Array.isArray(rows) ? rows : [];
+  if (!data.length) return <div className="report-empty">{emptyMessage}</div>;
+
+  const groups = Array.from(
+    data.reduce((map, row) => {
+      const date = row.log_date || row.period_start || row.period || row.period_label || '';
+      const key = date || 'unknown';
+      const label = date ? formatDateOnly(date) : 'Unknown Date';
+      if (!map.has(key)) {
+        map.set(key, {
+          key,
+          label,
+          total: 0,
+          entries: [],
+        });
+      }
+      const group = map.get(key);
+      const riders = Number(row.riders_count || row.riders || 0);
+      group.total += Number.isFinite(riders) ? riders : 0;
+      group.entries.push({
+        name: row.Name || row.name || row.attraction_name || `Attraction ${row.AttractionID || ''}`,
+        riders,
+        employee: row.employee_name || row.EmployeeName || row.employee || '',
+      });
+      return map;
+    }, new Map()).values(),
+  ).sort((a, b) => (a.key || '').localeCompare(b.key || ''));
+
+  return (
+    <div className="riders-daily-list" style={{ display: 'grid', gap: 12 }}>
+      {groups.map(group => (
+        <div key={group.key} className="panel" style={{ padding: 14, border: '1px solid #e5e7eb', borderRadius: 10 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+            <h4 style={{ margin: 0 }}>{group.label}</h4>
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', fontSize: 13, color: '#0f172a' }}>
+              <span>Daily total: <strong>{formatNumber(group.total)}</strong></span>
+              <span style={{ color: '#475569' }}>
+                Avg per entry: <strong>{group.entries.length ? formatNumber(group.total / group.entries.length) : '--'}</strong>
+              </span>
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px 1fr', gap: 8, fontSize: 13, color: '#1f2937', fontWeight: 600, padding: '6px 4px' }}>
+            <span>Attraction</span>
+            <span style={{ textAlign: 'right' }}>Riders</span>
+            <span>Logged By</span>
+          </div>
+          <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 6 }}>
+            {group.entries.map((entry, idx) => (
+              <li key={`${group.key}-${idx}`} style={{ padding: '6px 4px', borderBottom: '1px solid #f8fafc', fontSize: 13, color: '#475569' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px 1fr', gap: 8, alignItems: 'center' }}>
+                  <span>{entry.name}</span>
+                  <span style={{ textAlign: 'right', fontWeight: 600 }}>{formatNumber(entry.riders)}</span>
+                  <span>{entry.employee || '--'}</span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function CancellationsReportList({ rows, emptyMessage }) {
+  const data = Array.isArray(rows) ? rows : [];
+  if (!data.length) return <div className="report-empty">{emptyMessage}</div>;
+
+  const groups = Array.from(
+    data.reduce((map, row) => {
+      const key = row.cancel_date || row.date || 'unknown';
+      const label = key ? formatDateOnly(key) : 'Unknown Date';
+      if (!map.has(key)) {
+        map.set(key, { key, label, entries: [] });
+      }
+      map.get(key).entries.push(row);
+      return map;
+    }, new Map()).values(),
+  ).sort((a, b) => (b.key || '').localeCompare(a.key || ''));
+
+  const statusBadge = (cleared) => ({
+    display: 'inline-flex',
+    alignItems: 'center',
+    padding: '2px 8px',
+    borderRadius: 999,
+    fontSize: 12,
+    fontWeight: 600,
+    background: cleared ? '#ecfdf3' : '#fef3c7',
+    color: cleared ? '#166534' : '#92400e',
+  });
+
+  const reasonBadge = {
+    display: 'inline-flex',
+    padding: '2px 8px',
+    borderRadius: 999,
+    fontSize: 12,
+    fontWeight: 600,
+    background: '#e0f2fe',
+    color: '#0369a1',
+    textTransform: 'capitalize',
+  };
+
+  return (
+    <div style={{ display: 'grid', gap: 12 }}>
+      {groups.map(group => (
+        <div key={group.key} className="panel" style={{ padding: 14, border: '1px solid #e5e7eb', borderRadius: 10 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+            <h4 style={{ margin: 0 }}>{group.label}</h4>
+            <span className="muted" style={{ fontSize: 12 }}>{group.entries.length} cancellation(s)</span>
+          </div>
+          <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 10 }}>
+            {group.entries.map(entry => {
+              const cleared = Number(entry.cleared || 0) === 1;
+              const impacted = Array.isArray(entry.impacted_schedules) ? entry.impacted_schedules : [];
+              return (
+                <li key={entry.cancel_id || `${entry.attraction_id}-${entry.cancel_date}`} style={{ padding: 10, border: '1px solid #f1f5f9', borderRadius: 10, background: '#fff' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                    <div style={{ fontWeight: 600, color: '#0f172a' }}>
+                      {entry.attraction || `Attraction ${entry.attraction_id}`}
+                      {entry.attraction_id && (
+                        <span style={{ marginLeft: 6, fontSize: 12, color: '#94a3b8' }}>#{entry.attraction_id}</span>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                      <span style={reasonBadge}>{entry.reason_label || entry.reason || 'Unspecified'}</span>
+                      <span style={statusBadge(cleared)}>{cleared ? 'Cleared' : 'Active'}</span>
+                      <span style={{ fontSize: 12, color: '#94a3b8' }}>ID #{entry.cancel_id || '--'}</span>
+                    </div>
+                  </div>
+                  <div style={{ marginTop: 6, fontSize: 12, color: '#475569' }}>
+                    Logged: {formatDateOnly(entry.cancel_date)}
+                  </div>
+                  <div style={{ marginTop: 8 }}>
+                    <div style={{ fontWeight: 600, fontSize: 13, color: '#0f172a', marginBottom: 4 }}>
+                      Impacted shifts: {formatNumber(entry.impacted_count || impacted.length || 0)}
+                    </div>
+                    {impacted.length > 0 && (
+                      <div style={{ display: 'grid', gap: 4 }}>
+                        {impacted.slice(0, 4).map(imp => (
+                          <div key={`${entry.cancel_id}-${imp.schedule_id}`} style={{ fontSize: 12, color: '#475569', borderBottom: '1px solid #f8fafc', paddingBottom: 4 }}>
+                            <span style={{ marginRight: 8 }}>{formatDateOnly(imp.shift_date)}</span>
+                            <span style={{ marginRight: 8 }}>{(imp.start_time || '').slice(0, 5)} - {(imp.end_time || '').slice(0, 5)}</span>
+                            <span>{imp.employee_name || 'Unassigned'}</span>
+                          </div>
+                        ))}
+                        {impacted.length > 4 && (
+                          <div style={{ fontSize: 12, color: '#94a3b8' }}>+{impacted.length - 4} more</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function MaintenanceReportTable({ rows, emptyMessage }) {
   const data = Array.isArray(rows) ? rows : [];
   if (!data.length) return <div className="report-empty">{emptyMessage}</div>;
+
+  const groups = Array.from(
+    data.reduce((map, row) => {
+      const key = row.AttractionID || row.attraction_name || 'Unknown';
+      const name = row.attraction_name || `Attraction ${row.AttractionID || ''}` || 'Attraction';
+      if (!map.has(key)) {
+        map.set(key, { key, name, rows: [] });
+      }
+      map.get(key).rows.push(row);
+      return map;
+    }, new Map()).values(),
+  ).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+  const headerStyle = {
+    display: 'grid',
+    gridTemplateColumns: '1fr 130px 120px 120px 120px 140px',
+    gap: 10,
+    fontSize: 13,
+    fontWeight: 600,
+    color: '#1f2937',
+    padding: '6px 4px',
+  };
+  const rowStyle = {
+    display: 'grid',
+    gridTemplateColumns: '1fr 130px 120px 120px 120px 140px',
+    gap: 10,
+    fontSize: 13,
+    color: '#0f172a',
+    padding: '6px 4px',
+    borderBottom: '1px solid #f8fafc',
+  };
+
   return (
-    <div className="workspace-table">
-      <table>
-        <thead>
-          <tr>
-            <th>Attraction</th>
-            <th>Type</th>
-            <th>Severity</th>
-            <th>Reported</th>
-            <th>Resolved</th>
-            <th>Status</th>
-            <th>Approved By</th>
-            <th>Description</th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.map(row => (
-            <tr key={row.RecordID ?? `${row.attraction_name}-${row.Date_broken_down}`}>
-              <td>{row.attraction_name || row.AttractionID || '--'}</td>
-              <td>{row.type_of_maintenance || '--'}</td>
-              <td>{row.Severity_of_report || '--'}</td>
-              <td>{formatDateOnly(row.Date_broken_down)}</td>
-              <td>{formatDateOnly(row.Date_fixed)}</td>
-              <td>{row.status_label || row.Status || 'Unknown'}</td>
-              <td>{row.approved_by_supervisor_name || row.Approved_by_supervisor || 'Pending'}</td>
-              <td>{row.Description_of_work || '--'}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div style={{ display: 'grid', gap: 12 }}>
+      {groups.map(group => (
+        <div key={group.key} className="panel" style={{ padding: 14, border: '1px solid #cbd5e1', borderRadius: 12, background: '#f8fbff' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+            <h4 style={{ margin: 0, color: '#0f172a' }}>{group.name}</h4>
+            <span style={{ fontSize: 12, color: '#0369a1', fontWeight: 600 }}>{group.rows.length} incident(s)</span>
+          </div>
+          <div style={headerStyle}>
+            <span>Description</span>
+            <span>Type</span>
+            <span>Severity</span>
+            <span>Reported</span>
+            <span>Resolved</span>
+            <span>Status / Approved By</span>
+          </div>
+          <div style={{ display: 'grid', gap: 4 }}>
+            {group.rows.map(row => (
+              <div key={row.RecordID ?? `${group.key}-${row.Date_broken_down}-${row.type_of_maintenance || row.Type}`}>
+                <div style={{ ...rowStyle, background: '#fff', borderRadius: 8, border: '1px solid #e2e8f0', boxShadow: '0 3px 12px rgba(15,23,42,0.05)' }}>
+                  <span>{row.Description_of_work || '--'}</span>
+                  <span>{row.type_of_maintenance || row.Type || '--'}</span>
+                  <span>{row.Severity_of_report || '--'}</span>
+                  <span>{formatDateOnly(row.Date_broken_down)}</span>
+                  <span>{formatDateOnly(row.Date_fixed)}</span>
+                  <span>
+                    <div style={{ fontWeight: 700 }}>{row.status_label || row.Status || 'Unknown'}</div>
+                    <div style={{ fontSize: 12, color: '#0ea5e9' }}>{row.approved_by_supervisor_name || row.Approved_by_supervisor || 'Pending'}</div>
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -855,6 +1361,41 @@ function formatValue(value, column) {
   return String(value);
 }
 
+function formatNumber(value) {
+  const num = Number(value || 0);
+  if (!Number.isFinite(num)) return '--';
+  return num.toLocaleString();
+}
+
+function isWithinMonth(row, monthValue) {
+  if (!monthValue || !/^\d{4}-\d{2}$/.test(monthValue)) return true;
+  const range = monthToRange(monthValue);
+  if (!range) return true;
+  const dateStr = row.log_date || row.period_start || row.period || row.period_label || '';
+  if (!dateStr) return false;
+  const ts = Date.parse(dateStr.includes('T') ? dateStr : `${dateStr}T00:00:00`);
+  const startTs = Date.parse(`${range.start}T00:00:00`);
+  const endTs = Date.parse(`${range.end}T23:59:59`);
+  if (!Number.isFinite(ts) || !Number.isFinite(startTs) || !Number.isFinite(endTs)) return true;
+  return ts >= startTs && ts <= endTs;
+}
+
+function toMonthDate(value) {
+  if (!value) {
+    return { key: 'unknown', label: 'Unknown Period', sortValue: 0 };
+  }
+  const parsed = new Date(value.includes('T') ? value : `${value}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) {
+    return { key: String(value), label: String(value), sortValue: 0 };
+  }
+  const monthKey = `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}-01`;
+  return {
+    key: monthKey,
+    label: formatPeriodLabel('month', monthKey),
+    sortValue: parsed.getTime(),
+  };
+}
+
 function compareValues(a, b) {
   const valA = parseValue(a);
   const valB = parseValue(b);
@@ -903,9 +1444,13 @@ function formatRelative(value) {
 
 function formatDateOnly(value) {
   if (!value) return '--';
-  const date = new Date(`${value}T00:00:00`);
+  // Try native parse first (covers ISO strings with time)
+  let date = new Date(value);
+  if (Number.isNaN(date.getTime()) && typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    date = new Date(`${value}T00:00:00`);
+  }
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString();
+  return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
 

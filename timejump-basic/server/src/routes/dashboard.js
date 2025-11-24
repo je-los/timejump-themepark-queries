@@ -61,6 +61,7 @@ async function getAttractionStats() {
       COUNT(*) AS total,
       SUM(CASE WHEN IFNULL(TRIM(image_url), '') = '' THEN 1 ELSE 0 END) AS missing_media
     FROM attraction
+    WHERE isDeleted = 0
   `).catch(() => []);
   const total = toNumber(rows?.[0]?.total);
   const missingMedia = toNumber(rows?.[0]?.missing_media);

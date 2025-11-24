@@ -7,18 +7,6 @@ function todayISO() {
   return new Date().toISOString().slice(0, 10);
 }
 
-const WEATHER_CONDITIONS = [
-  'Light Rain',
-  'Heavy Rain',
-  'Snow',
-  'Hail',
-  'Lightning',
-  'Lightning Advisory',
-  'Thunderstorm',
-  'Tornado',
-  'Hurricane',
-];
-
 function createEmptyForm() {
   return {
     attractionId: '',
@@ -31,7 +19,10 @@ function formatDateOnly(value) {
   if (!value) return '--';
   const date = new Date(`${value}T00:00:00`);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString();
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  return `${day}-${month}-${year}`;
 }
 
 export default function WeatherPage() {
@@ -46,8 +37,10 @@ export default function WeatherPage() {
   const [editingRecord, setEditingRecord] = useState(null);
   const [clearingId, setClearingId] = useState(null);
   const [confirmingClearId, setConfirmingClearId] = useState(null);
+  const [applyAll, setApplyAll] = useState(false);
 
   const [attractions, setAttractions] = useState([]);
+  const [reasonOptions, setReasonOptions] = useState([]);
   const [missingFields, setMissingFields] = useState({
     attractionId: false,
     date: false,
@@ -59,6 +52,7 @@ export default function WeatherPage() {
   useEffect(() => {
     loadAttractions();
     loadRecords();
+    loadReasons();
   }, []);
 
   async function loadAttractions() {
@@ -68,6 +62,20 @@ export default function WeatherPage() {
       setAttractions(attrs);
     } catch (err) {
       console.warn('Failed to load attractions:', err?.message);
+    }
+  }
+
+  async function loadReasons() {
+    try {
+      const res = await api('/cancellation-reasons');
+      const rows = Array.isArray(res?.data) ? res.data : res?.reasons || [];
+      setReasonOptions(rows.map(row => ({
+        value: row.reason_id || row.ReasonID || row.code || row.Name || row.reason,
+        label: row.label || row.Name || row.reason || row.code,
+      })));
+    } catch (err) {
+      console.warn('Failed to load cancellation reasons:', err?.message);
+      setReasonOptions([]);
     }
   }
 
@@ -88,6 +96,7 @@ export default function WeatherPage() {
   function cancelEdit() {
     setEditingRecord(null);
     setForm(createEmptyForm());
+    setApplyAll(false);
     setMissingFields({
       attractionId: false,
       date: false,
@@ -101,7 +110,7 @@ export default function WeatherPage() {
     if (saving) return;
 
     const missing = {
-      attractionId: !form.attractionId,
+      attractionId: !applyAll && !form.attractionId,
       date: !form.date,
       reason: !form.reason,
     };
@@ -117,11 +126,12 @@ export default function WeatherPage() {
     setFormError('');
 
     try {
-      const attractionId = form.attractionId ? Number(form.attractionId) : null;
+      const attractionId = applyAll ? null : (form.attractionId ? Number(form.attractionId) : null);
       const payload = {
         attractionId,
         cancelDate: form.date,
-        reason: form.reason,
+        reasonId: Number(form.reason) || form.reason || null,
+        applyAll,
       };
 
       if (editingRecord?.cancel_id) {
@@ -135,10 +145,13 @@ export default function WeatherPage() {
           method: 'POST',
           body: JSON.stringify(payload),
         });
-        setStatus('Weather Log recorded. Attractions are closed until weather clears.');
+        setStatus(applyAll
+          ? 'Park-wide weather closure recorded. All attractions are closed until weather clears.'
+          : 'Weather Log recorded. Attraction is closed until weather clears.');
       }
 
       setForm(createEmptyForm());
+      setApplyAll(false);
       setEditingRecord(null);
       setMissingFields({
         attractionId: false,
@@ -208,22 +221,38 @@ export default function WeatherPage() {
           <form onSubmit={handleSubmit} className="admin-form">
             <label className="field">
               <span>Attraction{missingFields.attractionId && <span className="missing-asterisk">*</span>}</span>
-              <select
-                className="input"
-                value={form.attractionId}
-                onChange={e => {
-                  setForm(f => ({ ...f, attractionId: e.target.value }));
-                  if (e.target.value) setMissingFields(m => ({ ...m, attractionId: false }));
-                }}
-                disabled={saving}
-              >
-                <option value="">Select attraction...</option>
-                {attractionOptions.map(opt => (
-                  <option key={opt.id} value={opt.id}>
-                    {opt.name}
-                  </option>
-                ))}
-              </select>
+              <div style={{ display: 'grid', gap: 8 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+                  <input
+                    type="checkbox"
+                    checked={applyAll}
+                    onChange={e => {
+                      setApplyAll(e.target.checked);
+                      if (e.target.checked) setMissingFields(m => ({ ...m, attractionId: false }));
+                    }}
+                    disabled={saving}
+                  />
+                  Apply to all attractions
+                </label>
+                {!applyAll && (
+                  <select
+                    className="input"
+                    value={form.attractionId}
+                    onChange={e => {
+                      setForm(f => ({ ...f, attractionId: e.target.value }));
+                      if (e.target.value) setMissingFields(m => ({ ...m, attractionId: false }));
+                    }}
+                    disabled={saving}
+                  >
+                    <option value="">Select attraction...</option>
+                    {attractionOptions.map(opt => (
+                      <option key={opt.id} value={opt.id}>
+                        {opt.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
             </label>
             <label className="field">
               <span>Date Reported{missingFields.date && <span className="missing-asterisk">*</span>}</span>
@@ -250,9 +279,9 @@ export default function WeatherPage() {
                 disabled={saving}
               >
                 <option value="">Select weather condition...</option>
-                {WEATHER_CONDITIONS.map(condition => (
-                  <option key={condition} value={condition}>
-                    {condition}
+                {reasonOptions.map(opt => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
                   </option>
                 ))}
               </select>
