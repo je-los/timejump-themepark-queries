@@ -287,6 +287,7 @@ export function registerReportRoutes(router) {
     let erroredMonthly = false;
     try {
       rows = await query(sql, params);
+      console.log('First row from DB:', rows[0]);
     } catch (err) {
       erroredMonthly = true;
       console.warn('[reports] riders-per-day monthly query failed, using fallback:', err?.message);
