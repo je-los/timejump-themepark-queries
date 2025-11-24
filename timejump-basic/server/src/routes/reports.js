@@ -262,15 +262,14 @@ export function registerReportRoutes(router) {
                     SUM(rl.riders_count) AS riders_count,
                     AVG(rl.riders_count) AS avg_riders,
                     COUNT(*) AS entry_count,
-                    rl.EmployeeID,
-                    e.name AS employee_name
-             FROM ride_log rl
-             LEFT JOIN attraction a ON a.AttractionID = rl.AttractionID
-             LEFT JOIN employee e ON e.employeeID = rl.EmployeeID`,
+                    GROUP_CONCAT(DISTINCT e.name ORDER BY e.name SEPARATOR ', ') AS employee_names
+            FROM ride_log rl
+            LEFT JOIN attraction a ON a.AttractionID = rl.AttractionID
+            LEFT JOIN employee e ON e.employeeID = rl.EmployeeID`,
       where: [],
       suffix: `GROUP BY period_start, rl.AttractionID, a.Name
-               ORDER BY period_start DESC, riders_count DESC
-               LIMIT ${limit}`,
+              ORDER BY period_start DESC, riders_count DESC
+              LIMIT ${limit}`,
     };
     if (start) {
       sqlParts.where.push('rl.log_date >= ?');
@@ -306,7 +305,6 @@ export function registerReportRoutes(router) {
         riders_count: Number(row.riders_count || 0),
         avg_riders: Number(row.avg_riders || 0),
         entry_count: Number(row.entry_count || 0),
-        EmployeeID: row.EmployeeID,
         employee_name: row.employee_name || "Unknown",
       })),
     });

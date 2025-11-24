@@ -43,7 +43,7 @@ const REPORT_CONFIGS = [
     endpoint: '/reports/riders-per-day',
     emptyMessage: 'Choose filters to see rider counts.',
     badge: 'Guest Flow',
-    columns: ['Name', 'log_date', 'period_start', 'riders_count', 'avg_riders', 'entry_count'],
+    columns: ['Name', 'log_date', 'period_start', 'riders_count', 'avg_riders', 'entry_count', 'employee_name'],
     fields: [
       {
         key: 'group',
@@ -308,8 +308,8 @@ export default function Reports() {
   const currentColumns = useMemo(() => {
     if (activeReport !== 'riders') return activeConfig.columns;
     return riderGroup === 'day'
-      ? ['Name', 'log_date', 'riders_count']
-      : ['Name', 'period_label', 'riders_count', 'avg_riders', 'entry_count'];
+      ? ['Name', 'log_date', 'riders_count', 'employee_name']
+      : ['Name', 'period_label', 'riders_count', 'avg_riders', 'entry_count', 'employee_name'];
   }, [activeReport, activeConfig.columns, riderGroup]);
 
   const visibleRows = useMemo(() => {

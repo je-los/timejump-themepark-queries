@@ -710,12 +710,31 @@ export function registerOperationsRoutes(router) {
         return;
       }
     }
+    let employeeIdToLog = null;
+
+    if (ctx.authUser.role === 'employee' && ctx.authUser.employeeId) {
+      employeeIdToLog = ctx.authUser.employeeId;
+    } else if (targetScheduleId) {
+      // For managers/admins, get employee from schedule
+      const [scheduleInfo] = await query(
+        'SELECT EmployeeID FROM schedules WHERE ScheduleID = ? LIMIT 1',
+        [targetScheduleId]
+      ).catch(() => []);
+      employeeIdToLog = scheduleInfo?.EmployeeID || null;
+    }
+
+    // If no employee found, use a default or handle error
+    if (!employeeIdToLog) {
+      ctx.error(400, 'Unable to determine employee for this log entry.');
+      return;
+    }
 
     await query(
-      'INSERT INTO ride_log (AttractionID, log_date, riders_count) VALUES (?, ?, ?) ' +
-      'ON DUPLICATE KEY UPDATE riders_count = VALUES(riders_count)',
-      [attractionId, logDate, ridersCount],
+      'INSERT INTO ride_log (AttractionID, log_date, riders_count, EmployeeID) VALUES (?, ?, ?, ?) ' +
+      'ON DUPLICATE KEY UPDATE riders_count = VALUES(riders_count), EmployeeID = VALUES(EmployeeID)',
+      [attractionId, logDate, ridersCount, employeeIdToLog],
     );
+
 
     if (targetScheduleId) {
       await query(
