@@ -230,6 +230,7 @@ export function registerReportRoutes(router) {
       let errored = false;
       try {
         rows = await query(sql, params);
+        console.log('First row from DB:', rows[0]);
       } catch (err) {
         errored = true;
         console.warn('[reports] riders-per-day daily query failed, using fallback:', err?.message);
@@ -248,7 +249,7 @@ export function registerReportRoutes(router) {
           period_label: formatPeriodLabel('day', row.log_date),
           riders_count: Number(row.riders_count || 0),
           EmployeeID: row.EmployeeID,
-          employee_name: row.employee_name || "Unknown",
+          employee_name: row.employee_name || row.name || "Unknown",
         })),
       });
       return;
