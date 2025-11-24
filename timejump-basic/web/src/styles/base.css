@@ -857,6 +857,10 @@ nav button.font-semibold.underline { text-decoration: underline; }
   background:#fef3c7;
   color:#92400e;
 }
+.ride-status--weather{
+  background:#fee2e2;
+  color:#b91c1c;
+}
 .ride-status--closed{
   background:#fee2e2;
   color:#b91c1c;

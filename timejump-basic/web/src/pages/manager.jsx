@@ -56,14 +56,14 @@ function Planner() {
   });
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
-  const [cancelForm, setCancelForm] = useState({
+  const [weatherForm, setWeatherForm] = useState({
     attractionId: "",
-    cancelDate: todayISO(),
-    reason: "",
+    date: todayISO(),
+    weatherCondition: "",
   });
-  const [cancelSaving, setCancelSaving] = useState(false);
-  const [cancelMessage, setCancelMessage] = useState("");
-  const [cancelError, setCancelError] = useState("");
+  const [weatherSaving, setWeatherSaving] = useState(false);
+  const [weatherMessage, setWeatherMessage] = useState("");
+  const [weatherError, setWeatherError] = useState("");
   const [saveTone, setSaveTone] = useState("info");
   const [missingFields, setMissingFields] = useState({
     employee: false,
@@ -72,6 +72,13 @@ function Planner() {
     startTime: false,
     endTime: false,
   });
+  const [weatherMissingFields, setWeatherMissingFields] = useState({
+    attractionId: false,
+    date: false,
+    weatherCondition: false,
+  });
+  const [confirmingClearId, setConfirmingClearId] = useState(null);
+  const [clearingId, setClearingId] = useState(null);
 
   useEffect(() => {
     let active = true;
@@ -92,7 +99,7 @@ function Planner() {
             if (err?.status === 403) return { data: [] };
             throw err;
           }),
-          api("/ride-cancellations?limit=25").catch((err) => {
+          api("/ride-cancellations?weatherOnly=true&includeCleared=true").catch((err) => {
             if (err?.status === 403) return { data: [] };
             throw err;
           }),
@@ -454,40 +461,84 @@ function Planner() {
     }
   }
 
-  async function logCancellation(e) {
+  async function logWeather(e) {
     e.preventDefault();
-    if (cancelSaving) return;
-    if (!cancelForm.attractionId || !cancelForm.reason.trim()) {
-      setCancelError("Select an attraction and provide a reason.");
+    if (weatherSaving) return;
+    
+    const missing = {
+      attractionId: !weatherForm.attractionId,
+      date: !weatherForm.date,
+      weatherCondition: !weatherForm.weatherCondition,
+    };
+    
+    if (missing.attractionId || missing.date || missing.weatherCondition) {
+      setWeatherMissingFields(missing);
       return;
     }
-    setCancelSaving(true);
-    setCancelError("");
-    setCancelMessage("");
+
+    // Validate date is not in the past
+    const selectedDate = new Date(weatherForm.date + 'T00:00:00');
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    if (selectedDate < today) {
+      setWeatherMissingFields({ attractionId: false, date: true, weatherCondition: false });
+      return;
+    }
+    
+    setWeatherSaving(true);
+    setWeatherError("");
+    setWeatherMessage("");
     try {
       await api("/ride-cancellations", {
         method: "POST",
         body: JSON.stringify({
-          attractionId: Number(cancelForm.attractionId),
-          cancelDate: cancelForm.cancelDate || todayISO(),
-          reason: cancelForm.reason.trim(),
+          attractionId: Number(weatherForm.attractionId),
+          cancelDate: weatherForm.date || todayISO(),
+          reason: weatherForm.weatherCondition,
         }),
       });
-      setCancelMessage("Ride cancellation recorded.");
-      setCancelForm({
+      setWeatherMessage("Weather report recorded.");
+      setWeatherForm({
         attractionId: "",
-        cancelDate: todayISO(),
-        reason: "",
+        date: todayISO(),
+        weatherCondition: "",
       });
-      const res = await api("/ride-cancellations?limit=25").catch((err) => {
+      setWeatherMissingFields({
+        attractionId: false,
+        date: false,
+        weatherCondition: false,
+      });
+      const res = await api("/ride-cancellations?weatherOnly=true&includeCleared=true").catch((err) => {
         if (err?.status === 403) return { data: [] };
         throw err;
       });
       setCancellations(Array.isArray(res?.data) ? res.data : []);
     } catch (err) {
-      setCancelError(err?.message || "Unable to log cancellation.");
+      setWeatherError(err?.message || "Unable to log weather report.");
     } finally {
-      setCancelSaving(false);
+      setWeatherSaving(false);
+    }
+  }
+
+  async function clearWeather(cancelId) {
+    if (clearingId) return;
+    setClearingId(cancelId);
+    try {
+      await api(`/ride-cancellations/${cancelId}/clear-weather`, {
+        method: 'POST',
+      });
+      setWeatherMessage('Weather cleared successfully.');
+      setConfirmingClearId(null);
+      const res = await api("/ride-cancellations?weatherOnly=true&includeCleared=true").catch((err) => {
+        if (err?.status === 403) return { data: [] };
+        throw err;
+      });
+      setCancellations(Array.isArray(res?.data) ? res.data : []);
+    } catch (err) {
+      setWeatherError(err?.message || 'Unable to clear weather.');
+    } finally {
+      setClearingId(null);
     }
   }
 
@@ -797,29 +848,23 @@ function Planner() {
           )}
         </div>
 
-        <div
-          className="manager-panel manager-panel--wide"
-          id="ride-cancellations"
-        >
+        <div className="manager-panel manager-panel--wide" id="weather-report" style={{ marginTop: '0.5rem', gridColumn: '1 / -1' }}>
           <div className="manager-panel__header">
             <div>
-              <h3>Ride Cancellations</h3>
-              <p>Log weather or operational closures to keep teams informed.</p>
+              <h3>Weather Report</h3>
+              <p>Log weather reports to keep teams and operations informed.</p>
             </div>
           </div>
-          <form
-            className="manager-form"
-            onSubmit={logCancellation}
-            style={{ marginBottom: 16 }}
-          >
-            <div className="field">
-              <span>Attraction</span>
+          <form className="manager-form" onSubmit={logWeather} style={{ marginBottom: 16 }}>
+            <div className="field" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'flex-start' }}>
+              <span>Attraction{weatherMissingFields.attractionId && <span className="missing-asterisk">*</span>}</span>
               <select
                 className="border rounded-xl p-2"
-                value={cancelForm.attractionId}
-                onChange={(e) =>
-                  setCancelForm((f) => ({ ...f, attractionId: e.target.value }))
-                }
+                value={weatherForm.attractionId}
+                onChange={(e) => {
+                  setWeatherForm((f) => ({ ...f, attractionId: e.target.value }));
+                  if (e.target.value) setWeatherMissingFields(m => ({ ...m, attractionId: false }));
+                }}
               >
                 <option value="">Select attraction...</option>
                 {attractionOptions.map((opt) => (
@@ -829,72 +874,126 @@ function Planner() {
                 ))}
               </select>
             </div>
+
             <div className="manager-form__row">
-              <label className="field" style={{ flex: 1, minWidth: 160 }}>
+              <label className="field" style={{ flex: 1, minWidth: 160, display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'flex-start' }}>
                 <span>Date</span>
                 <input
                   className="input"
                   type="date"
-                  value={cancelForm.cancelDate}
-                  onChange={(e) =>
-                    setCancelForm((f) => ({ ...f, cancelDate: e.target.value }))
-                  }
+                  min={todayISO()}
+                  value={weatherForm.date}
+                  onChange={(e) => setWeatherForm((f) => ({ ...f, date: e.target.value }))}
+                  style={{ width: '100%' }}
                 />
               </label>
-              <label className="field" style={{ flex: 2 }}>
-                <span>Reason</span>
-                <input
+
+              <label className="field" style={{ flex: 2, display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'flex-start' }}>
+                <span>Incoming Weather{weatherMissingFields.weatherCondition && <span className="missing-asterisk">*</span>}</span>
+                <select
                   className="input"
-                  type="text"
-                  placeholder="e.g. Thunderstorm, lightning advisory..."
-                  value={cancelForm.reason}
-                  onChange={(e) =>
-                    setCancelForm((f) => ({ ...f, reason: e.target.value }))
-                  }
-                />
+                  value={weatherForm.weatherCondition}
+                  onChange={(e) => {
+                    setWeatherForm((f) => ({ ...f, weatherCondition: e.target.value }));
+                    if (e.target.value) setWeatherMissingFields(m => ({ ...m, weatherCondition: false }));
+                  }}
+                  style={{ width: '100%' }}
+                >
+                  <option value="">Select weather...</option>
+                  <option value="Light Rain">Light Rain</option>
+                  <option value="Heavy Rain">Heavy Rain</option>
+                  <option value="Snow">Snow</option>
+                  <option value="Hail">Hail</option>
+                  <option value="Lightning">Lightning</option>
+                  <option value="Lightning Advisory">Lightning Advisory</option>
+                  <option value="Thunderstorm">Thunderstorm</option>
+                  <option value="Tornado">Tornado</option>
+                  <option value="Hurricane">Hurricane</option>
+                </select>
               </label>
             </div>
-            <div className="manager-form__actions">
-              <button
-                className="btn primary"
-                type="submit"
-                disabled={cancelSaving}
-              >
-                {cancelSaving ? "Saving..." : "Log Cancellation"}
-              </button>
-              {cancelMessage && (
-                <div className="text-sm text-green-700">{cancelMessage}</div>
-              )}
-              {cancelError && (
-                <div className="text-sm text-red-700">{cancelError}</div>
-              )}
-            </div>
-          </form>
-          <div className="manager-cancel-list">
-            {!cancellations.length && (
-              <div className="text-sm text-gray-700">
-                No cancellations logged yet.
+
+              <div className="manager-form__actions" style={{ marginTop: '0.5rem' }}>
+                <button className="btn primary" type="submit" disabled={weatherSaving}>
+                  {weatherSaving ? "Saving..." : "Log Weather Report"}
+                </button>
+                {weatherMessage && <div className="text-sm text-green-700">{weatherMessage}</div>}
+                {(weatherMissingFields.attractionId || weatherMissingFields.date || weatherMissingFields.weatherCondition) && (
+                  <div style={{ padding: '8px 12px', backgroundColor: '#fee', border: '1px solid #fcc', borderRadius: '4px', color: '#c00', fontSize: '0.875rem', marginTop: '0.5rem' }}>
+                    Please select: {[weatherMissingFields.attractionId && 'an attraction', weatherMissingFields.date && 'a date', weatherMissingFields.weatherCondition && 'incoming weather'].filter(Boolean).join(', ')}
+                  </div>
+                )}
               </div>
-            )}
+          </form>
+
+          <div className="manager-cancel-list" style={{ maxHeight: '500px', overflowY: 'auto', overflowX: 'auto', border: '1px solid #e5e7eb', borderRadius: '0.5rem', padding: '1rem', backgroundColor: '#fafafa' }}>
+            {!cancellations.length && <div className="text-sm text-gray-700" style={{ padding: '1rem' }}>No weather reports logged yet.</div>}
             {!!cancellations.length && (
-              <table className="manager-table">
-                <thead>
-                  <tr>
-                    <th>Attraction</th>
-                    <th>Date</th>
-                    <th>Reason</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {cancellations.map((row) => (
-                    <tr key={row.cancel_id}>
-                      <td>{row.attraction_name || `#${row.attraction_id}`}</td>
-                      <td>{formatDate(row.cancel_date)}</td>
-                      <td>{row.reason || "--"}</td>
+              <div style={{ minWidth: '100%' }}>
+                <table className="manager-table" style={{ fontSize: '0.9rem', width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '2px solid #d1d5db' }}>
+                      <th style={{ width: '20%', textAlign: 'left', padding: '12px 8px', fontWeight: 600, color: '#374151' }}>Attraction</th>
+                      <th style={{ width: '15%', textAlign: 'left', padding: '12px 8px', fontWeight: 600, color: '#374151' }}>Date</th>
+                      <th style={{ width: '20%', textAlign: 'left', padding: '12px 8px', fontWeight: 600, color: '#374151' }}>Incoming Weather</th>
+                      <th style={{ width: '15%', textAlign: 'left', padding: '12px 8px', fontWeight: 600, color: '#374151' }}>Status</th>
+                      <th style={{ width: '30%', textAlign: 'left', padding: '12px 8px', fontWeight: 600, color: '#374151' }}>Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {cancellations.map((row) => (
+                      <tr key={row.cancel_id || row.WeatherCancellationID || row.WeatherCancellationId || JSON.stringify(row)} style={{ borderBottom: '1px solid #e5e7eb', backgroundColor: 'white' }}>
+                        <td style={{ padding: '12px 8px' }}>{row.attraction_name || `#${row.AttractionID || row.attraction_id || row.attraction}`}</td>
+                        <td style={{ padding: '12px 8px', whiteSpace: 'nowrap' }}>{formatDate(row.cancel_date || row.Date || row.date)}</td>
+                        <td style={{ padding: '12px 8px' }}>{row.reason || row.WeatherCondition || row.weatherCondition || '--'}</td>
+                        <td style={{ padding: '12px 8px' }}>
+                          <span style={{ 
+                            color: row.cleared ? '#059669' : '#dc2626',
+                            fontWeight: 600,
+                            fontSize: '0.875rem'
+                          }}>
+                            {row.cleared ? 'Resolved' : 'Active'}
+                          </span>
+                        </td>
+                        <td style={{ padding: '12px 8px' }}>
+                          {!row.cleared && confirmingClearId !== row.cancel_id && (
+                            <button
+                              type="button"
+                              className="btn"
+                              style={{ padding: '2px 8px', fontSize: 12 }}
+                              onClick={() => setConfirmingClearId(row.cancel_id)}
+                              disabled={clearingId === row.cancel_id}
+                            >
+                              Weather Cleared
+                            </button>
+                          )}
+                          {!row.cleared && confirmingClearId === row.cancel_id && (
+                            <>
+                              <button
+                                type="button"
+                                className="btn"
+                                style={{ padding: '2px 8px', fontSize: 12 }}
+                                onClick={() => setConfirmingClearId(null)}
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                className="btn"
+                                style={{ padding: '2px 8px', fontSize: 12, backgroundColor: '#dc2626', color: 'white', marginLeft: '4px' }}
+                                onClick={() => clearWeather(row.cancel_id)}
+                                disabled={clearingId === row.cancel_id}
+                              >
+                                Confirm
+                              </button>
+                            </>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
         </div>

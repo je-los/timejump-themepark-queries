@@ -43,14 +43,17 @@ export default function RideView() {
   const statusName = (ride?.status_name || '').toLowerCase();
   const derivedClosed = statusName ? statusName !== 'active' : false;
   const rideIsMaintenance = statusName === 'closed_for_maintenance';
+  const rideIsWeatherClosed = statusName === 'closed_due_to_weather';
   const rideIsClosed = ride?.is_closed ?? derivedClosed;
   const rideStatusClass = rideIsMaintenance
     ? 'ride-status--maintenance'
-    : rideIsClosed
-      ? 'ride-status--closed'
-      : 'ride-status--open';
+    : rideIsWeatherClosed
+      ? 'ride-status--weather'
+      : rideIsClosed
+        ? 'ride-status--closed'
+        : 'ride-status--open';
   const rideStatusLabel = ride?.status_label
-    || (rideIsMaintenance ? 'Closed for Maintenance' : rideIsClosed ? 'Closed' : 'Open');
+    || (rideIsMaintenance ? 'Closed for Maintenance' : rideIsWeatherClosed ? 'Closed due to Weather' : rideIsClosed ? 'Closed' : 'Open');
   const rideStatusNote = ride?.status_note || ride?.maintenance_note || ride?.closure_note || null;
 
   return (

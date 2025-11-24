@@ -9,6 +9,7 @@ import ThemesPage from './catalog/themes.jsx';
 import AttractionsPage from './catalog/attractions.jsx';
 import EmployeesPage from './operations/employees.jsx';
 import MaintenancePage from './operations/maintenance.jsx';
+import WeatherPage from './operations/weather.jsx';
 
 export default function Admin() {
   return (
@@ -23,6 +24,7 @@ export default function Admin() {
         <Route path="attractions" element={<AttractionsPage />} />
         <Route path="employees" element={<EmployeesPage />} />
         <Route path="maintenance" element={<MaintenancePage />} />
+        <Route path="weather" element={<WeatherPage />} />
         <Route path="*" element={<Navigate to="tickets" replace />} />
       </Routes>
     </AdminShell>

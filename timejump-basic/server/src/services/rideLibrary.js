@@ -18,6 +18,7 @@ function normalizeRide(row) {
     : 0;
   const closureStatusName = (row.closure_status_name || '').toLowerCase();
   const hasActiveMaintenance = Boolean(row.maintenance_record_id);
+  const isWeatherClosed = closureStatusId === 2 || closureStatusName === 'temporarily_closed_weather';
   let normalizedStatus = closureStatusName || (closureStatusId === 0 ? 'active' : 'temporarily_closed');
   let statusLabel;
   let statusNote = row.closure_note || row.closure_status_description || null;
@@ -26,6 +27,9 @@ function normalizeRide(row) {
     normalizedStatus = 'closed_for_maintenance';
     statusLabel = 'Closed for Maintenance';
     statusNote = row.maintenance_description || statusNote;
+  } else if (isWeatherClosed) {
+    normalizedStatus = 'closed_due_to_weather';
+    statusLabel = 'Closed due to Weather';
   } else if (normalizedStatus === 'active') {
     statusLabel = 'Open';
   } else if (normalizedStatus === 'permanently_closed') {
