@@ -59,7 +59,7 @@ export function registerCatalogRoutes(router) {
 
   async function ensureThemeExists(themeId) {
     if (!themeId) return null;
-    const rows = await query('SELECT themeID FROM theme WHERE themeID = ? LIMIT 1', [themeId]);
+    const rows = await query('SELECT themeID FROM theme WHERE themeID = ? AND is_deleted = 0 LIMIT 1', [themeId]);
     return rows.length ? Number(rows[0].themeID ?? rows[0].ThemeID ?? themeId) : null;
   }
 
@@ -71,7 +71,7 @@ export function registerCatalogRoutes(router) {
     }
 
     let catalogRows = await query(
-      'SELECT ticket_type AS ticket_type, price FROM ticket_catalog ORDER BY ticket_type ASC',
+      'SELECT ticket_type AS ticket_type, price FROM ticket_catalog WHERE is_deleted = 0 ORDER BY ticket_type ASC',
     ).catch(err => {
       if (err?.code && err.code !== 'ER_NO_SUCH_TABLE') {
         console.error('ticket catalog query failed', err);
@@ -170,7 +170,7 @@ export function registerCatalogRoutes(router) {
     values.push(currentName);
 
     const result = await query(
-      `UPDATE ticket_catalog SET ${updates.join(', ')} WHERE ticket_type = ?`,
+      `UPDATE ticket_catalog SET ${updates.join(', ')} WHERE ticket_type = ? AND is_deleted = 0`,
       values,
     );
     if (!result.affectedRows) {
@@ -192,7 +192,7 @@ export function registerCatalogRoutes(router) {
       // continue even if table creation fails
     }
     const result = await query(
-      'DELETE FROM ticket_catalog WHERE ticket_type = ?',
+      'UPDATE ticket_catalog SET is_deleted = 1 WHERE ticket_type = ? AND is_deleted = 0',
       [name],
     );
     if (!result.affectedRows) {
@@ -213,8 +213,9 @@ export function registerCatalogRoutes(router) {
              gs.ShopName AS shop_name,
              t.themeName AS theme_name
       FROM gift_item gi
-      JOIN gift_shops gs ON gs.ShopID = gi.shop_id
-      LEFT JOIN theme t ON t.themeID = gs.ThemeID
+      JOIN gift_shops gs ON gs.ShopID = gi.shop_id AND gs.is_deleted = 0
+      LEFT JOIN theme t ON t.themeID = gs.ThemeID AND t.is_deleted = 0
+      WHERE gi.is_deleted = 0
       ORDER BY gs.ShopName, gi.name
     `).catch(() => []);
     ctx.ok({
@@ -234,7 +235,8 @@ export function registerCatalogRoutes(router) {
     const rows = await query(`
       SELECT gs.ShopID, gs.ShopName, gs.ThemeID, t.themeName
       FROM gift_shops gs
-      LEFT JOIN theme t ON t.themeID = gs.ThemeID
+      LEFT JOIN theme t ON t.themeID = gs.ThemeID AND t.is_deleted = 0
+      WHERE gs.is_deleted = 0
       ORDER BY gs.ShopName ASC
     `).catch(() => []);
     ctx.ok({
@@ -266,7 +268,7 @@ export function registerCatalogRoutes(router) {
       return;
     }
     const exists = await query(
-      'SELECT ShopID FROM gift_shops WHERE ShopID = ? LIMIT 1',
+      'SELECT ShopID FROM gift_shops WHERE ShopID = ? AND is_deleted = 0 LIMIT 1',
       [shopId],
     );
     if (!exists.length) {
@@ -302,7 +304,7 @@ export function registerCatalogRoutes(router) {
       return;
     }
     const exists = await query(
-      'SELECT ShopID FROM gift_shops WHERE ShopName = ? LIMIT 1',
+      'SELECT ShopID FROM gift_shops WHERE ShopName = ? AND is_deleted = 0 LIMIT 1',
       [name],
     );
     if (exists.length) {
@@ -338,7 +340,7 @@ export function registerCatalogRoutes(router) {
     }
     if (themeId) {
       const themeExists = await query(
-        'SELECT themeID FROM theme WHERE themeID = ? LIMIT 1',
+        'SELECT themeID FROM theme WHERE themeID = ? AND is_deleted = 0 LIMIT 1',
         [themeId],
       );
       if (!themeExists.length) {
@@ -354,7 +356,7 @@ export function registerCatalogRoutes(router) {
     }
     values.push(shopId);
     const result = await query(
-      `UPDATE gift_shops SET ${fields.join(', ')} WHERE ShopID = ?`,
+      `UPDATE gift_shops SET ${fields.join(', ')} WHERE ShopID = ? AND is_deleted = 0`,
       values,
     );
     if (!result.affectedRows) {
@@ -371,7 +373,7 @@ export function registerCatalogRoutes(router) {
       return;
     }
     const attached = await query(
-      'SELECT item_id FROM gift_item WHERE shop_id = ? LIMIT 1',
+      'SELECT item_id FROM gift_item WHERE shop_id = ? AND is_deleted = 0 LIMIT 1',
       [shopId],
     );
     if (attached.length) {
@@ -379,7 +381,7 @@ export function registerCatalogRoutes(router) {
       return;
     }
     const result = await query(
-      'DELETE FROM gift_shops WHERE ShopID = ?',
+      'UPDATE gift_shops SET is_deleted = 1 WHERE ShopID = ? AND is_deleted = 0',
       [shopId],
     );
     if (!result.affectedRows) {
@@ -422,7 +424,7 @@ export function registerCatalogRoutes(router) {
     }
     if (shopId) {
       const exists = await query(
-        'SELECT ShopID FROM gift_shops WHERE ShopID = ? LIMIT 1',
+        'SELECT ShopID FROM gift_shops WHERE ShopID = ? AND is_deleted = 0 LIMIT 1',
         [shopId],
       );
       if (!exists.length) {
@@ -438,7 +440,7 @@ export function registerCatalogRoutes(router) {
     }
     values.push(id);
     const result = await query(
-      `UPDATE gift_item SET ${fields.join(', ')} WHERE item_id = ?`,
+      `UPDATE gift_item SET ${fields.join(', ')} WHERE item_id = ? AND is_deleted = 0`,
       values,
     );
     if (!result.affectedRows) {
@@ -455,7 +457,7 @@ export function registerCatalogRoutes(router) {
       return;
     }
     const result = await query(
-      'DELETE FROM gift_item WHERE item_id = ?',
+      'UPDATE gift_item SET is_deleted = 1 WHERE item_id = ? AND is_deleted = 0',
       [id],
     );
     if (!result.affectedRows) {
@@ -478,8 +480,9 @@ export function registerCatalogRoutes(router) {
              fv.ThemeID AS vendor_theme_id,
              t.themeName AS theme_name
       FROM menu_item mi
-      JOIN food_vendor fv ON fv.VendorID = mi.vendor_id
-      LEFT JOIN theme t ON t.themeID = fv.ThemeID
+      JOIN food_vendor fv ON fv.VendorID = mi.vendor_id AND fv.is_deleted = 0
+      LEFT JOIN theme t ON t.themeID = fv.ThemeID AND t.is_deleted = 0
+      WHERE mi.is_deleted = 0
       ORDER BY fv.VendorName, mi.name
     `).catch(() => []);
     ctx.ok({
@@ -504,7 +507,8 @@ export function registerCatalogRoutes(router) {
              fv.ThemeID,
              t.themeName
       FROM food_vendor fv
-      LEFT JOIN theme t ON t.themeID = fv.ThemeID
+      LEFT JOIN theme t ON t.themeID = fv.ThemeID AND t.is_deleted = 0
+      WHERE fv.is_deleted = 0
       ORDER BY fv.VendorName ASC
     `).catch(() => []);
     ctx.ok({
@@ -535,7 +539,7 @@ export function registerCatalogRoutes(router) {
       return;
     }
     const existing = await query(
-      'SELECT VendorID, ThemeID FROM food_vendor WHERE VendorName = ? LIMIT 1',
+      'SELECT VendorID, ThemeID FROM food_vendor WHERE VendorName = ? AND is_deleted = 0 LIMIT 1',
       [name],
     );
     if (existing.length) {
@@ -589,7 +593,7 @@ export function registerCatalogRoutes(router) {
       return;
     }
     const vendorRows = await query(
-      'SELECT VendorID FROM food_vendor WHERE VendorID = ? LIMIT 1',
+      'SELECT VendorID FROM food_vendor WHERE VendorID = ? AND is_deleted = 0 LIMIT 1',
       [vendorId],
     );
     if (!vendorRows.length) {
@@ -640,7 +644,7 @@ export function registerCatalogRoutes(router) {
     if (vendorIdInput) {
       let vendorId = vendorIdInput;
       const vendorRows = await query(
-        'SELECT VendorID FROM food_vendor WHERE VendorID = ? LIMIT 1',
+        'SELECT VendorID FROM food_vendor WHERE VendorID = ? AND is_deleted = 0 LIMIT 1',
         [vendorId],
       );
       if (!vendorRows.length) {
@@ -656,7 +660,7 @@ export function registerCatalogRoutes(router) {
     }
     values.push(id);
     const result = await query(
-      `UPDATE menu_item SET ${fields.join(', ')} WHERE item_id = ?`,
+      `UPDATE menu_item SET ${fields.join(', ')} WHERE item_id = ? AND is_deleted = 0`,
       values,
     );
     if (!result.affectedRows) {
@@ -673,7 +677,7 @@ export function registerCatalogRoutes(router) {
       return;
     }
     const result = await query(
-      'DELETE FROM menu_item WHERE item_id = ?',
+      'UPDATE menu_item SET is_deleted = 1 WHERE item_id = ? AND is_deleted = 0',
       [id],
     );
     if (!result.affectedRows) {
@@ -706,7 +710,7 @@ export function registerCatalogRoutes(router) {
 
     if (name) {
       const duplicate = await query(
-        'SELECT VendorID FROM food_vendor WHERE VendorName = ? AND VendorID <> ? LIMIT 1',
+        'SELECT VendorID FROM food_vendor WHERE VendorName = ? AND VendorID <> ? AND is_deleted = 0 LIMIT 1',
         [name, vendorId],
       );
       if (duplicate.length) {
@@ -729,7 +733,7 @@ export function registerCatalogRoutes(router) {
 
     values.push(vendorId);
     const result = await query(
-      `UPDATE food_vendor SET ${fields.join(', ')} WHERE VendorID = ?`,
+      `UPDATE food_vendor SET ${fields.join(', ')} WHERE VendorID = ? AND is_deleted = 0`,
       values,
     );
     if (!result.affectedRows) {
@@ -746,7 +750,7 @@ export function registerCatalogRoutes(router) {
       return;
     }
     const attached = await query(
-      'SELECT item_id FROM menu_item WHERE vendor_id = ? LIMIT 1',
+      'SELECT item_id FROM menu_item WHERE vendor_id = ? AND is_deleted = 0 LIMIT 1',
       [vendorId],
     );
     if (attached.length) {
@@ -754,7 +758,7 @@ export function registerCatalogRoutes(router) {
       return;
     }
     const result = await query(
-      'DELETE FROM food_vendor WHERE VendorID = ?',
+      'UPDATE food_vendor SET is_deleted = 1 WHERE VendorID = ? AND is_deleted = 0',
       [vendorId],
     );
     if (!result.affectedRows) {
@@ -774,9 +778,9 @@ export function registerCatalogRoutes(router) {
              gs.ShopName AS shop_name,
              t.themeName AS theme_name
       FROM gift_item gi
-      JOIN gift_shops gs ON gs.ShopID = gi.shop_id
-      LEFT JOIN theme t ON t.themeID = gs.ThemeID
-      WHERE gi.is_active = 1
+      JOIN gift_shops gs ON gs.ShopID = gi.shop_id AND gs.is_deleted = 0
+      LEFT JOIN theme t ON t.themeID = gs.ThemeID AND t.is_deleted = 0
+      WHERE gi.is_active = 1 AND gi.is_deleted = 0
       ORDER BY gs.ShopName, gi.name
     `).catch(() => []);
     const items = rows.map(row => ({
@@ -804,9 +808,9 @@ export function registerCatalogRoutes(router) {
                fv.VendorName AS vendor_name,
                t.themeName AS theme_name
         FROM menu_item mi
-        JOIN food_vendor fv ON fv.VendorID = mi.vendor_id
-        LEFT JOIN theme t ON t.themeID = fv.ThemeID
-        WHERE mi.is_active = 1
+        JOIN food_vendor fv ON fv.VendorID = mi.vendor_id AND fv.is_deleted = 0
+        LEFT JOIN theme t ON t.themeID = fv.ThemeID AND t.is_deleted = 0
+        WHERE mi.is_active = 1 AND mi.is_deleted = 0
         ORDER BY fv.VendorName, mi.name
       `);
     } catch (err) {
@@ -833,9 +837,11 @@ export function registerCatalogRoutes(router) {
     let viewRows = [];
     try {
       viewRows = await query(`
-        SELECT parking_lot_id, lot_name, base_price, passes_today
-        FROM v_parking_lots_prices
-        ORDER BY lot_name
+        SELECT v.parking_lot_id, v.lot_name, v.base_price, v.passes_today
+        FROM v_parking_lots_prices v
+        JOIN parking_lot pl ON pl.parking_lot_id = v.parking_lot_id
+        WHERE pl.is_deleted = 0
+        ORDER BY v.lot_name
       `);
     } catch (err) {
       if (!['ER_NO_SUCH_TABLE', 'ER_VIEW_INVALID'].includes(err?.code)) {
@@ -846,8 +852,9 @@ export function registerCatalogRoutes(router) {
     let tableRows = [];
     try {
       tableRows = await query(`
-        SELECT parking_lot_id, lot_name, base_price
+        SELECT parking_lot_id, lot_name, base_price, is_deleted
         FROM parking_lot
+        WHERE is_deleted = 0
         ORDER BY lot_name
       `);
     } catch {
@@ -857,6 +864,7 @@ export function registerCatalogRoutes(router) {
     const merged = new Map();
     const addRow = raw => {
       if (!raw) return;
+      if (raw.is_deleted !== undefined && raw.is_deleted !== null && Number(raw.is_deleted) !== 0) return;
       const idValue = raw.parking_lot_id ?? raw.lotId ?? raw.id;
       if (idValue === undefined || idValue === null) return;
       const lotId = Number(idValue);
@@ -909,7 +917,7 @@ export function registerCatalogRoutes(router) {
     }
 
     const exists = await query(
-      'SELECT parking_lot_id FROM parking_lot WHERE lot_name = ? LIMIT 1',
+      'SELECT parking_lot_id FROM parking_lot WHERE lot_name = ? AND is_deleted = 0 LIMIT 1',
       [lotName],
     );
     if (exists.length) {
@@ -958,7 +966,7 @@ export function registerCatalogRoutes(router) {
         return;
       }
       const exists = await query(
-        'SELECT parking_lot_id FROM parking_lot WHERE lot_name = ? AND parking_lot_id <> ? LIMIT 1',
+        'SELECT parking_lot_id FROM parking_lot WHERE lot_name = ? AND parking_lot_id <> ? AND is_deleted = 0 LIMIT 1',
         [lotName, lotId],
       );
       if (exists.length) {
@@ -986,7 +994,7 @@ export function registerCatalogRoutes(router) {
 
     values.push(lotId);
     const result = await query(
-      `UPDATE parking_lot SET ${fields.join(', ')} WHERE parking_lot_id = ?`,
+      `UPDATE parking_lot SET ${fields.join(', ')} WHERE parking_lot_id = ? AND is_deleted = 0`,
       values,
     );
     if (!result.affectedRows) {
@@ -1003,7 +1011,7 @@ export function registerCatalogRoutes(router) {
       return;
     }
     const result = await query(
-      'DELETE FROM parking_lot WHERE parking_lot_id = ?',
+      'UPDATE parking_lot SET is_deleted = 1 WHERE parking_lot_id = ? AND is_deleted = 0',
       [lotId],
     );
     if (!result.affectedRows) {

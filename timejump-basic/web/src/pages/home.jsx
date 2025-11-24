@@ -36,7 +36,11 @@ const THEME_CARDS = [
   },
 ];
 
-export default function Home() {
+export default function Home({
+  featuredRides = [],
+  featuredLoading = false,
+  featuredError = '',
+}) {
   const navigate = useNavigate();
 
   function go(path) {
@@ -111,6 +115,72 @@ export default function Home() {
           <div className="home-gift-shop__placeholder" aria-hidden="true" />
         </div>
       </section>
+
+      <FeaturedRides
+        rides={featuredRides}
+        loading={featuredLoading}
+        error={featuredError}
+        onNavigate={go}
+      />
     </div>
+  );
+}
+
+function FeaturedRides({ rides, loading, error, onNavigate }) {
+  if (loading && !rides.length) {
+    return (
+      <section className="home-featured">
+        <header className="section-header">
+          <h2>Featured Rides</h2>
+        </header>
+        <p className="text-sm text-gray-600">Highlighting top-performing attractions...</p>
+      </section>
+    );
+  }
+  if (error && !rides.length) {
+    return (
+      <section className="home-featured">
+        <header className="section-header">
+          <h2>Featured Rides</h2>
+        </header>
+        <p className="text-sm text-gray-600">{error}</p>
+      </section>
+    );
+  }
+  if (!rides.length) return null;
+  return (
+    <section className="home-featured">
+      <header className="section-header">
+        <h2>Featured Rides</h2>
+        <p>Two-day streaks hitting 90% capacity—plan for longer waits!</p>
+      </header>
+      <div className="featured-rides-grid">
+        {rides.map(ride => (
+          <button
+            key={ride.id}
+            className="featured-ride-card"
+            onClick={() => onNavigate(`/things-to-do/rides-attractions#${ride.slug}`)}
+          >
+            {ride.image_url && (
+              <div
+                className="featured-ride-card__image"
+                style={{ backgroundImage: `url(${ride.image_url})` }}
+                aria-hidden="true"
+              />
+            )}
+            <div className="featured-ride-card__body">
+              <p className="featured-ride-card__eyebrow">{ride.theme_name || 'Featured'}</p>
+              <h3>{ride.name}</h3>
+              <p className="featured-ride-card__meta">
+                {ride.experience_level || ride.type || 'Attraction'}
+              </p>
+              <span className={`ride-status ride-status--${ride.is_closed ? 'closed' : 'open'}`}>
+                {ride.status_label || (ride.is_closed ? 'Closed' : 'Open')}
+              </span>
+            </div>
+          </button>
+        ))}
+      </div>
+    </section>
   );
 }

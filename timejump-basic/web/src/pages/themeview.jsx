@@ -91,7 +91,6 @@ export default function ThemeView() {
                     : 'ride-status--open';
                 const statusLabel = ride.status_label
                   || (isMaintenance ? 'Closed for Maintenance' : isClosed ? 'Closed' : 'Open');
-                const statusNote = ride.status_note || ride.maintenance_note || ride.closure_note || null;
                 const description =
                   ride.description && ride.description.trim().toLowerCase() === 'seated or street performance with scheduled times.'
                     ? ''
@@ -104,11 +103,6 @@ export default function ThemeView() {
                         {statusLabel}
                       </span>
                     </header>
-                    {isClosed && statusNote && (
-                      <p className={`ride-status__note ${isMaintenance ? 'ride-status__note--maintenance' : ''}`}>
-                        {statusNote}
-                      </p>
-                    )}
                     <div className="ride-card__meta">
                       {typeLabel && <span className="ride-card__chip">{typeLabel}</span>}
                       {thrill && <span className="ride-card__chip ride-card__chip--accent">{thrill}</span>}

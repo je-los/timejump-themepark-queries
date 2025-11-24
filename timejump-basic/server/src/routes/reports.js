@@ -464,7 +464,7 @@ export function registerReportRoutes(router) {
     const start = String(ctx.query.start || '').trim();
     const end = String(ctx.query.end || '').trim();
 
-    const rideRows = await query('SELECT AttractionID, Name FROM attraction').catch(() => []);
+    const rideRows = await query('SELECT AttractionID, Name FROM attraction WHERE is_deleted = 0').catch(() => []);
     const rideNames = new Map([['all', 'All Rides']]);
     rideRows.forEach(row => {
       const idKey = String(row.AttractionID);

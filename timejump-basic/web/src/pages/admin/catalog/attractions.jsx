@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { api } from '../../../auth';
 import { Panel, ResourceTable } from '../shared.jsx';
+import { notifyDeleteError, notifyDeleteSuccess } from '../../../utils/deleteAlert.js';
+import { showToast } from '../../../utils/toast.js';
 
 export default function AttractionsPage() {
   const [rows, setRows] = useState([]);
@@ -220,8 +222,11 @@ export default function AttractionsPage() {
       setTypeStatus('Attraction type updated.');
       closeTypeEditModal();
       loadMetadata();
+      showToast(`Updated attraction type: ${name}`, 'success');
     } catch (err) {
-      setTypeEditError(err?.message || 'Unable to update type.');
+      const message = err?.message || 'Unable to update type.';
+      setTypeEditError(message);
+      showToast(message, 'error');
     } finally {
       setTypeEditBusy(false);
     }
@@ -244,11 +249,12 @@ export default function AttractionsPage() {
     setTypeStatus('');
     try {
       await api(`/attraction-types/${typeDeleteItem.id}`, { method: 'DELETE' });
-      setTypeStatus('Attraction type deleted.');
+      const label = typeDeleteItem.name || `Type #${typeDeleteItem.id}`;
+      const message = notifyDeleteSuccess(`Deleted attraction type: ${label}`);
       closeTypeDeleteModal();
       loadMetadata();
     } catch (err) {
-      setTypeDeleteError(err?.message || 'Unable to delete type.');
+      setTypeDeleteError(notifyDeleteError(err, 'Unable to delete type.'));
     } finally {
       setTypeDeleteBusy(false);
     }
@@ -325,8 +331,11 @@ export default function AttractionsPage() {
       });
       setEditItem(null);
       loadAttractions();
+      showToast(`Updated attraction: ${editForm.name.trim() || editItem.name}`, 'success');
     } catch (err) {
-      setFormError(err?.message || 'Unable to update attraction.');
+      const message = err?.message || 'Unable to update attraction.';
+      setFormError(message);
+      showToast(message, 'error');
     } finally {
       setEditBusy(false);
     }
@@ -338,10 +347,12 @@ export default function AttractionsPage() {
     setFormError('');
     try {
       await api(`/attractions/${deleteItem.id}`, { method: 'DELETE' });
+      const label = deleteItem.name || `Attraction #${deleteItem.id}`;
+      const message = notifyDeleteSuccess(`Deleted attraction: ${label}`);
       setDeleteItem(null);
       loadAttractions();
     } catch (err) {
-      setFormError(err?.message || 'Unable to delete attraction.');
+      setFormError(notifyDeleteError(err, 'Unable to delete attraction.'));
     } finally {
       setDeleteBusy(false);
     }

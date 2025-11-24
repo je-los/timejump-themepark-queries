@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import RequireRole from "../components/requirerole.jsx";
 import { api } from "../auth";
 import AuthToast from "../components/authtoast.jsx";
+import { notifyDeleteError, notifyDeleteSuccess } from "../utils/deleteAlert.js";
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -194,9 +195,10 @@ function Planner() {
     try {
       await api(`/schedules/${deleteConfirm.ScheduleID}`, { method: 'DELETE' });
 
+      const message = notifyDeleteSuccess(`Shift #${deleteConfirm.ScheduleID} was removed successfully.`);
       AuthToast({
         title: "Shift Deleted",
-        message: `Shift #${deleteConfirm.ScheduleID} was removed successfully.`,
+        message,
       });
     
       const res = await api(`/schedules`);
@@ -204,10 +206,10 @@ function Planner() {
       setSchedules(rows.filter(e => !(e.is_completed ?? e.isCompleted ?? false)));
 
     } catch (err) {
-      console.log(err);
+      const message = notifyDeleteError(err, "Could not delete the shift. Try again.");
       AuthToast({
         title: "Delete Failed",
-        message: "Could not delete the shift. Try again.",
+        message,
         dismissible: true,
       });
     } finally {

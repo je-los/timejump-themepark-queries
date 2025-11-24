@@ -98,6 +98,7 @@ export function registerOperationsRoutes(router) {
       SELECT e.employeeID, e.name, e.salary, e.role, e.start_date, e.email, p.RoleName AS role_name
       FROM employee e
       LEFT JOIN positions p ON p.PositionID = e.role
+      WHERE e.is_deleted = 0
       ORDER BY e.name ASC
     `).catch(() => []);
     ctx.ok({
@@ -157,7 +158,7 @@ export function registerOperationsRoutes(router) {
     }
 
     const [employeeRows, userRows] = await Promise.all([
-      query('SELECT employeeID FROM employee WHERE email = ? LIMIT 1', [email]),
+      query('SELECT employeeID FROM employee WHERE email = ? AND is_deleted = 0 LIMIT 1', [email]),
       query('SELECT user_id FROM users WHERE email = ? LIMIT 1', [email]),
     ]);
     if (employeeRows.length) {
@@ -297,7 +298,7 @@ export function registerOperationsRoutes(router) {
     values.push(employeeId);
 
     const result = await query(
-      `UPDATE employee SET ${fields.join(', ')} WHERE employeeID = ?`,
+      `UPDATE employee SET ${fields.join(', ')} WHERE employeeID = ? AND is_deleted = 0`,
       values,
     );
     if (!result.affectedRows) {
@@ -310,7 +311,7 @@ export function registerOperationsRoutes(router) {
         SELECT e.employeeID, e.name, e.salary, e.start_date, e.email, e.role, p.RoleName AS role_name
         FROM employee e
         LEFT JOIN positions p ON p.PositionID = e.role
-        WHERE e.employeeID = ?
+        WHERE e.employeeID = ? AND e.is_deleted = 0
         LIMIT 1
       `,
       [employeeId],
@@ -340,7 +341,7 @@ export function registerOperationsRoutes(router) {
     }
 
     const rows = await query(
-      'SELECT employeeID, email FROM employee WHERE employeeID = ? LIMIT 1',
+      'SELECT employeeID, email FROM employee WHERE employeeID = ? AND is_deleted = 0 LIMIT 1',
       [employeeId],
     );
     if (!rows.length) {
@@ -356,7 +357,7 @@ export function registerOperationsRoutes(router) {
       deleteParams.push(employeeEmail);
     }
     await query(deleteSql, deleteParams).catch(() => {});
-    await query('DELETE FROM employee WHERE employeeID = ?', [employeeId]);
+    await query('UPDATE employee SET is_deleted = 1 WHERE employeeID = ? AND is_deleted = 0', [employeeId]);
 
     ctx.noContent();
   }));
@@ -376,8 +377,9 @@ export function registerOperationsRoutes(router) {
              a.experience_level,
              a.target_audience
       FROM attraction a
-      LEFT JOIN theme t ON t.themeID = a.ThemeID
-      LEFT JOIN attraction_type atype ON atype.AttractionTypeID = a.AttractionTypeID
+      LEFT JOIN theme t ON t.themeID = a.ThemeID AND t.is_deleted = 0
+      LEFT JOIN attraction_type atype ON atype.AttractionTypeID = a.AttractionTypeID AND atype.is_deleted = 0
+      WHERE a.is_deleted = 0
       ORDER BY t.themeName ASC, a.Name ASC
     `).catch(() => []);
     ctx.ok({
@@ -453,8 +455,8 @@ export function registerOperationsRoutes(router) {
                LIMIT 1
              ) AS maintenance_description
       FROM schedules s
-      LEFT JOIN employee e ON e.employeeID = s.EmployeeID
-      LEFT JOIN attraction a ON a.AttractionID = s.AttractionID
+      LEFT JOIN employee e ON e.employeeID = s.EmployeeID AND e.is_deleted = 0
+      LEFT JOIN attraction a ON a.AttractionID = s.AttractionID AND a.is_deleted = 0
       LEFT JOIN shift_status_type sst ON sst.StatusCode = s.ShiftStatus
       ${whereClause}
       ORDER BY s.Shift_date DESC, s.Start_time ASC
@@ -650,6 +652,23 @@ export function registerOperationsRoutes(router) {
       ctx.error(400, 'Rider count must be a non-negative number.');
       return;
     }
+    const [rideRow] = await query(
+      'SELECT Capacity FROM attraction WHERE AttractionID = ? AND is_deleted = 0 LIMIT 1',
+      [attractionId],
+    ).catch(() => []);
+    if (!rideRow) {
+      ctx.error(400, 'Attraction not found.');
+      return;
+    }
+    const capacity = Number(rideRow.Capacity ?? rideRow.capacity ?? 0);
+    if (!Number.isFinite(capacity) || capacity <= 0) {
+      ctx.error(400, 'Attraction capacity is not configured.');
+      return;
+    }
+    if (ridersCount > capacity) {
+      ctx.error(400, `Rider count cannot exceed the attraction capacity (${capacity}).`);
+      return;
+    }
 
     if (ctx.authUser.role === 'employee') {
       if (!ctx.authUser.employeeId) {
@@ -710,7 +729,7 @@ export function registerOperationsRoutes(router) {
              rc.reason,
              a.Name AS attraction_name
       FROM ride_cancellation rc
-      LEFT JOIN attraction a ON a.AttractionID = rc.AttractionID
+      LEFT JOIN attraction a ON a.AttractionID = rc.AttractionID AND a.is_deleted = 0
       ORDER BY rc.cancel_date DESC, rc.cancel_id DESC
       LIMIT ${limit}
     `).catch(() => []);
@@ -740,7 +759,7 @@ export function registerOperationsRoutes(router) {
       return;
     }
     const [exists] = await query(
-      'SELECT AttractionID FROM attraction WHERE AttractionID = ? LIMIT 1',
+      'SELECT AttractionID FROM attraction WHERE AttractionID = ? AND is_deleted = 0 LIMIT 1',
       [attractionId],
     ).catch(() => []);
     if (!exists) {

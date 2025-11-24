@@ -74,8 +74,9 @@ export async function listThemes() {
            t.image_url,
            COUNT(a.AttractionID) AS attraction_count
     FROM theme t
-    LEFT JOIN attraction a ON a.ThemeID = t.themeID
-    GROUP BY t.themeID, t.themeName, t.Description
+    LEFT JOIN attraction a ON a.ThemeID = t.themeID AND a.is_deleted = 0
+    WHERE t.is_deleted = 0
+    GROUP BY t.themeID, t.themeName, t.Description, t.image_url
     ORDER BY t.themeName ASC
   `).catch(() => []);
 
@@ -113,8 +114,8 @@ export async function listRides() {
       mr.RecordID AS maintenance_record_id,
       mr.Description_of_work AS maintenance_description
     FROM attraction a
-    LEFT JOIN theme t ON t.themeID = a.ThemeID
-    LEFT JOIN attraction_type at ON at.AttractionTypeID = a.AttractionTypeID
+    LEFT JOIN theme t ON t.themeID = a.ThemeID AND t.is_deleted = 0
+    LEFT JOIN attraction_type at ON at.AttractionTypeID = a.AttractionTypeID AND at.is_deleted = 0
     LEFT JOIN attraction_closure ac
       ON ac.ClosureID = (
         SELECT ac2.ClosureID
@@ -136,6 +137,7 @@ export async function listRides() {
         ORDER BY (mr2.Date_fixed IS NULL) DESC, mr2.Date_broken_down DESC
         LIMIT 1
       )
+    WHERE a.is_deleted = 0
     ORDER BY t.themeName ASC, a.Name ASC
   `).catch(() => []);
 
@@ -152,6 +154,15 @@ export async function findThemeBySlug(slug) {
   if (!slug) return null;
   const themes = await listThemes();
   return themes.find(theme => theme.slug === slug) || null;
+}
+
+export async function listFeaturedRideRefs(limit = 6) {
+  const safeLimit = Number.isFinite(Number(limit)) && Number(limit) > 0 ? Number(limit) : 6;
+  const rows = await query(
+    'SELECT AttractionID, flagged_at FROM featured_rides ORDER BY flagged_at DESC LIMIT ?',
+    [safeLimit],
+  ).catch(() => []);
+  return Array.isArray(rows) ? rows : [];
 }
 
 export function rideForecast(ride) {

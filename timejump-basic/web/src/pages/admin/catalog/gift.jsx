@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { api } from '../../../auth';
 import { Panel, ResourceTable } from '../shared.jsx';
+import { notifyDeleteError, notifyDeleteSuccess } from '../../../utils/deleteAlert.js';
+import { showToast } from '../../../utils/toast.js';
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
 
@@ -166,8 +168,11 @@ export default function GiftPage() {
       });
       setEditItem(null);
       loadGift();
+      showToast(`Updated gift item: ${editForm.name.trim() || editItem.name}`, 'success');
     } catch (err) {
-      setFormError(err?.message || 'Unable to update item.');
+      const message = err?.message || 'Unable to update item.';
+      setFormError(message);
+      showToast(message, 'error');
     } finally {
       setEditBusy(false);
     }
@@ -179,10 +184,12 @@ export default function GiftPage() {
     setFormError('');
     try {
       await api(`/gift-items/${deleteItem.item_id}`, { method: 'DELETE' });
+      const label = deleteItem.name || `Item #${deleteItem.item_id}`;
+      const message = notifyDeleteSuccess(`Deleted gift item: ${label}`);
       setDeleteItem(null);
       loadGift();
     } catch (err) {
-      setFormError(err?.message || 'Unable to delete item.');
+      setFormError(notifyDeleteError(err, 'Unable to delete item.'));
     } finally {
       setDeleteBusy(false);
     }
@@ -260,8 +267,11 @@ export default function GiftPage() {
       });
       setEditShop(null);
       loadShops();
+      showToast(`Updated gift shop: ${editShopForm.name.trim() || editShop.name}`, 'success');
     } catch (err) {
-      setShopError(err?.message || 'Unable to update gift shop.');
+      const message = err?.message || 'Unable to update gift shop.';
+      setShopError(message);
+      showToast(message, 'error');
     } finally {
       setEditShopBusy(false);
     }
@@ -273,10 +283,12 @@ export default function GiftPage() {
     setShopError('');
     try {
       await api(`/gift-shops/${deleteShop.shop_id}`, { method: 'DELETE' });
+      const label = deleteShop.name || `Shop #${deleteShop.shop_id}`;
+      const message = notifyDeleteSuccess(`Deleted gift shop: ${label}`);
       setDeleteShop(null);
       loadShops();
     } catch (err) {
-      setShopError(err?.message || 'Unable to delete gift shop.');
+      setShopError(notifyDeleteError(err, 'Unable to delete gift shop.'));
     } finally {
       setDeleteShopBusy(false);
     }
@@ -426,7 +438,6 @@ export default function GiftPage() {
         searchPlaceholder="Search gift items..."
         sortableKeys={['name', 'price']}
       />
-
   <ResourceTable
     title="Gift Shops"
     description="Shops available across each theme."
@@ -453,8 +464,8 @@ export default function GiftPage() {
     error=""
     emptyMessage="No gift shops created."
     searchPlaceholder="Search gift shops..."
-    sortableKeys={['name', 'theme_name']}
-  />
+        sortableKeys={['name', 'theme_name']}
+      />
 
       {editItem && (
         <div className="table-modal">
