@@ -64,7 +64,6 @@ export async function signup(details = {}){
   return j;
 }
 
-// Simple API helper with auth header
 export async function api(path, opts={}){
   const t = getToken();
   const base = import.meta.env.VITE_API_URL || '';
