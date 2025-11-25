@@ -1,7 +1,6 @@
 import { query } from '../db.js';
 import { requireRole } from '../middleware/auth.js';
 import {
-  ensureDefaultGiftShop,
   ensureFoodVendorThemeColumn,
   ensureGiftItemImageColumn,
   ensureMenuItemImageColumn,
@@ -150,7 +149,6 @@ export function registerCatalogRoutes(router) {
     try {
       await ensureTicketCatalogTable();
     } catch {
-      // continue even if table creation fails
     }
 
     const updates = ['price = ?'];
@@ -189,7 +187,6 @@ export function registerCatalogRoutes(router) {
     try {
       await ensureTicketCatalogTable();
     } catch {
-      // continue even if table creation fails
     }
     const result = await query(
       'UPDATE ticket_catalog SET isDeleted = 1 WHERE ticket_type = ? AND isDeleted = 0',
