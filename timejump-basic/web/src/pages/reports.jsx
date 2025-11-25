@@ -100,7 +100,10 @@ const REPORT_CONFIGS = [
           params.set('end', range.end);
         }
       }
-      if (state.ride) params.set('ride', state.ride);
+      if (state.ride) {
+        params.set('ride', state.ride);
+        params.set('attraction', state.ride); // support either query key on backend
+      }
       if (state.top) params.set('top', state.top);
       return params;
     },

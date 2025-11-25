@@ -3,6 +3,7 @@ import { toSlug } from '../utils/strings.js';
 import {
   ensureAttractionExperienceColumns,
   ensureAttractionImageColumn,
+  ensureAttractionClosureNoteColumn,
   ensureThemeImageColumn,
 } from './ensure.js';
 
@@ -98,6 +99,7 @@ export async function listThemes() {
 export async function listRides() {
   await ensureAttractionImageColumn();
   await ensureAttractionExperienceColumns();
+  await ensureAttractionClosureNoteColumn();
   const rows = await query(`
     SELECT
       a.AttractionID,

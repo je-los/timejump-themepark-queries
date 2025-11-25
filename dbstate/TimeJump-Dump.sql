@@ -63,6 +63,7 @@ CREATE TABLE `attraction_closure` (
   `ClosureID` bigint unsigned NOT NULL AUTO_INCREMENT,
   `AttractionID` int unsigned NOT NULL,
   `StatusID` tinyint unsigned NOT NULL,
+  `Note` text,
   `ReasonID` tinyint unsigned DEFAULT NULL,
   `StartsAt` datetime NOT NULL,
   `EndsAt` datetime DEFAULT NULL,
@@ -444,12 +445,13 @@ DELIMITER ;
 /*!50003 SET sql_mode              = 'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION' */ ;
 DELIMITER ;;
 /*!50003 CREATE*/ /*!50017 DEFINER=`testuser`@`%`*/ /*!50003 TRIGGER `trg_maintenance_reopen_shifts` AFTER UPDATE ON `maintenance_records` FOR EACH ROW BEGIN
-  -- Only act when maintenance goes from open → fixed
-  IF OLD.Date_fixed IS NULL AND NEW.Date_fixed IS NOT NULL THEN
+  -- Reopen shifts either when the record is marked fixed or when it gets supervisor approval
+  IF (OLD.Date_fixed IS NULL AND NEW.Date_fixed IS NOT NULL)
+     OR (OLD.Approved_by_supervisor IS NULL AND NEW.Approved_by_supervisor IS NOT NULL AND NEW.Date_fixed IS NULL) THEN
     UPDATE schedules s
     SET s.ShiftStatus = 0  -- back to "scheduled"
     WHERE s.AttractionID = NEW.AttractionID
-      AND s.Shift_date > NEW.Date_fixed
+      AND s.Shift_date > COALESCE(NEW.Date_fixed, CURRENT_DATE())
       AND s.ShiftStatus = 2;  -- only reopen maintenance cancellations
   END IF;
 END */;;
