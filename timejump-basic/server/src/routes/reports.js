@@ -287,7 +287,7 @@ export function registerReportRoutes(router) {
       }
       applyRideFilter(sqlParts);
       const whereClause = sqlParts.where.length
-        ? ` ${sqlParts.where.map(clause => `AND ${clause}`).join(' ')}`
+        ? ` WHERE ${sqlParts.where.join(' AND ')}`
         : '';
       const sql = `${sqlParts.base}${whereClause} ${sqlParts.suffix}`;
       let rows = [];
@@ -841,9 +841,10 @@ function buildGiftRevenueQuery(groupMode, start, end) {
 function buildParkingRevenueQuery(groupMode, start, end) {
   const periodExpr = selectPeriodExpression('ps.sale_date', groupMode);
   const groupClause = selectGroupClause('ps.sale_date', groupMode);
+  const nameExpr = `REPLACE(COALESCE(pl.lot_name, ps.lot_name, 'Parking'), 'Parking - ', '')`;
   let sql = `
     SELECT ${periodExpr} AS period_start,
-           COALESCE(pl.lot_name, ps.lot_name, 'Parking') AS item_name,
+           ${nameExpr} AS item_name,
            COALESCE(SUM(ps.quantity), 0) AS quantity,
            COALESCE(SUM(ps.quantity * ps.price_each), 0) AS total_amount,
            MIN(COALESCE(ps.CustomerEmail, u.email)) AS customer_email
@@ -861,7 +862,7 @@ function buildParkingRevenueQuery(groupMode, start, end) {
     sql += ' AND ps.sale_date <= ?';
     params.push(end);
   }
-  sql += ` GROUP BY ${groupClause}, COALESCE(pl.lot_name, ps.lot_name, 'Parking')
+  sql += ` GROUP BY ${groupClause}, ${nameExpr}
            ORDER BY period_start DESC, total_amount DESC`;
   return { sql, params };
 }
