@@ -34,6 +34,7 @@ export default function MaintenancePage() {
   const [actionStatus, setActionStatus] = useState('');
   const [actionError, setActionError] = useState('');
   const [resolveError, setResolveError] = useState('');
+  const [resolveModal, setResolveModal] = useState({ record: null, date: '' });
   const [confirmingId, setConfirmingId] = useState(null);
   const [resolvingId, setResolvingId] = useState(null);
   const [form, setForm] = useState(() => createEmptyForm());
@@ -114,19 +115,26 @@ export default function MaintenancePage() {
     }
   }, [canApprove, loadRecords]);
 
-  const handleResolve = useCallback(async (record) => {
+  const openResolveModal = useCallback((record) => {
     if (!record?.RecordID) return;
-    setResolveError('');
     const defaultDate = record?.Date_fixed || new Date().toISOString().slice(0, 10);
-    const input = typeof window !== 'undefined'
-      ? window.prompt('Enter resolved date (YYYY-MM-DD)', defaultDate)
-      : defaultDate;
-    if (!input) return;
-    const date = input.trim();
+    setResolveError('');
+    setResolveModal({ record, date: defaultDate });
+  }, []);
+
+  const closeResolveModal = useCallback(() => {
+    setResolveModal({ record: null, date: '' });
+  }, []);
+
+  const handleResolveSubmit = useCallback(async () => {
+    const record = resolveModal.record;
+    if (!record?.RecordID) return;
+    const date = (resolveModal.date || '').trim();
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
       setResolveError('Resolved date must be in YYYY-MM-DD format.');
       return;
     }
+    setResolveError('');
     setResolvingId(record.RecordID);
     try {
       await api(`/maintenance/${record.RecordID}`, {
@@ -135,12 +143,13 @@ export default function MaintenancePage() {
       });
       setActionStatus('Maintenance marked resolved.');
       await loadRecords();
+      closeResolveModal();
     } catch (err) {
       setResolveError(err?.message || 'Unable to mark maintenance resolved.');
     } finally {
       setResolvingId(null);
     }
-  }, [loadRecords]);
+  }, [closeResolveModal, loadRecords, resolveModal]);
 
   useEffect(() => {
     loadRecords();
@@ -381,86 +390,88 @@ export default function MaintenancePage() {
           {!loading && error && <div className="alert error">{error}</div>}
           {!loading && resolveError && <div className="alert error">{resolveError}</div>}
           {!loading && !error && (
-            <TableList
-              rows={records}
-              columns={[
-                { key: 'attraction_name', label: 'Attraction' },
-                { key: 'type_of_maintenance', label: 'Type' },
-                { key: 'Severity_of_report', label: 'Severity' },
-                {
-                  key: 'Date_broken_down',
-                  label: 'Reported',
-                  render: value => formatDateOnly(value),
-                },
-                {
-                  key: 'Date_fixed',
-                  label: 'Resolved',
-                  render: value => formatDateOnly(value),
-                },
-                {
-                  key: 'status_label',
-                  label: 'Status',
-                  render: (value, row) => (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
-                      <span
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          padding: '2px 8px',
-                          borderRadius: 999,
-                          background: '#eef2ff',
-                          fontSize: 12,
-                          fontWeight: 500,
-                          textTransform: 'capitalize',
-                          width: 'fit-content',
-                        }}
-                      >
-                        {value || 'Unknown'}
-                      </span>
-                      {row.status_code === 'reported' && (
-                        <button
-                          type="button"
-                          className="btn"
-                          style={{ padding: '2px 8px', fontSize: 12 }}
-                          onClick={() => handleResolve(row)}
-                          disabled={resolvingId === row.RecordID}
+            <div className="admin-maintenance__records-table">
+              <TableList
+                rows={records}
+                columns={[
+                  { key: 'attraction_name', label: 'Attraction' },
+                  { key: 'type_of_maintenance', label: 'Type' },
+                  { key: 'Severity_of_report', label: 'Severity' },
+                  {
+                    key: 'Date_broken_down',
+                    label: 'Reported',
+                    render: value => formatDateOnly(value),
+                  },
+                  {
+                    key: 'Date_fixed',
+                    label: 'Resolved',
+                    render: value => formatDateOnly(value),
+                  },
+                  {
+                    key: 'status_label',
+                    label: 'Status',
+                    render: (value, row) => (
+                      <div className="maintenance-status-cell">
+                        <span
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            padding: '2px 8px',
+                            borderRadius: 999,
+                            background: '#eef2ff',
+                            fontSize: 12,
+                            fontWeight: 500,
+                            textTransform: 'capitalize',
+                            width: 'fit-content',
+                          }}
                         >
-                          {resolvingId === row.RecordID ? 'Saving...' : 'Mark Resolved'}
-                        </button>
-                      )}
-                      {canApprove && row.can_confirm && (
-                        <button
-                          type="button"
-                          className="btn"
-                          style={{ padding: '2px 8px', fontSize: 12 }}
-                          onClick={() => handleApprove(row.RecordID)}
-                          disabled={confirmingId === row.RecordID}
-                        >
-                          {confirmingId === row.RecordID ? 'Confirming...' : 'Confirm'}
-                        </button>
-                      )}
-                      {canEdit && (
-                        <button
-                          type="button"
-                          className="btn"
-                          style={{ padding: '2px 8px', fontSize: 12 }}
-                          onClick={() => beginEdit(row)}
-                          disabled={editingRecord?.RecordID === row.RecordID}
-                        >
-                          {editingRecord?.RecordID === row.RecordID ? 'Editing...' : 'Edit'}
-                        </button>
-                      )}
-                    </div>
-                  ),
-                },
-                {
-                  key: 'approved_by_supervisor_name',
-                  label: 'Approved By',
-                  render: (val, row) => val || row.Approved_by_supervisor || 'Pending',
-                },
-              ]}
-              emptyMessage="No maintenance records yet."
-            />
+                          {value || 'Unknown'}
+                        </span>
+                        {row.status_code === 'reported' && (
+                          <button
+                            type="button"
+                            className="btn"
+                            style={{ padding: '2px 8px', fontSize: 12 }}
+                            onClick={() => openResolveModal(row)}
+                            disabled={resolvingId === row.RecordID}
+                          >
+                            {resolvingId === row.RecordID ? 'Saving...' : 'Mark Resolved'}
+                          </button>
+                        )}
+                        {canApprove && row.can_confirm && (
+                          <button
+                            type="button"
+                            className="btn"
+                            style={{ padding: '2px 8px', fontSize: 12 }}
+                            onClick={() => handleApprove(row.RecordID)}
+                            disabled={confirmingId === row.RecordID}
+                          >
+                            {confirmingId === row.RecordID ? 'Confirming...' : 'Confirm'}
+                          </button>
+                        )}
+                        {canEdit && (
+                          <button
+                            type="button"
+                            className="btn"
+                            style={{ padding: '2px 8px', fontSize: 12 }}
+                            onClick={() => beginEdit(row)}
+                            disabled={editingRecord?.RecordID === row.RecordID}
+                          >
+                            {editingRecord?.RecordID === row.RecordID ? 'Editing...' : 'Edit'}
+                          </button>
+                        )}
+                      </div>
+                    ),
+                  },
+                  {
+                    key: 'approved_by_supervisor_name',
+                    label: 'Approved By',
+                    render: (val, row) => val || row.Approved_by_supervisor || 'Pending',
+                  },
+                ]}
+                emptyMessage="No maintenance records yet."
+              />
+            </div>
           )}
           {(actionStatus || actionError) && (
             <div style={{ marginTop: 12 }}>
@@ -470,6 +481,64 @@ export default function MaintenancePage() {
           )}
         </Panel>
       </div>
+      {resolveModal.record && (
+        <div className="modal-overlay" onClick={closeResolveModal}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <div className="text-sm text-gray-600">Mark maintenance resolved</div>
+                <div className="font-semibold">
+                  {resolveModal.record.attraction_name || 'Maintenance record'}
+                </div>
+              </div>
+              <button
+                type="button"
+                className="btn"
+                onClick={closeResolveModal}
+                disabled={resolvingId === resolveModal.record.RecordID}
+              >
+                Close
+              </button>
+            </div>
+            <div className="modal-body" style={{ display: 'grid', gap: 12 }}>
+              <label className="field" style={{ display: 'grid', gap: 6 }}>
+                <span>Resolved date</span>
+                <input
+                  className="input"
+                  type="date"
+                  value={resolveModal.date}
+                  onChange={e => setResolveModal(modal => ({ ...modal, date: e.target.value }))}
+                  disabled={resolvingId === resolveModal.record.RecordID}
+                />
+              </label>
+              <div className="text-sm text-gray-600">
+                Defaults to today or the previously saved resolved date.
+              </div>
+              {resolveError && <div className="alert error">{resolveError}</div>}
+            </div>
+            <div className="modal-footer">
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={closeResolveModal}
+                  disabled={resolvingId === resolveModal.record.RecordID}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn primary"
+                  onClick={handleResolveSubmit}
+                  disabled={resolvingId === resolveModal.record.RecordID}
+                >
+                  {resolvingId === resolveModal.record.RecordID ? 'Saving...' : 'Mark Resolved'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

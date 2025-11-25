@@ -55,6 +55,13 @@ export async function ensureAttractionExperienceColumns() {
   `);
 }
 
+export async function ensureAttractionClosureNoteColumn() {
+  await addColumnOnce('attractionClosureNote', `
+    ALTER TABLE attraction_closure
+    ADD COLUMN Note TEXT NULL AFTER StatusID
+  `);
+}
+
 export async function ensureGiftItemImageColumn() {
   await addColumnOnce('giftItemImageColumn', `
     ALTER TABLE gift_item
