@@ -3,7 +3,6 @@ import { requireRole } from '../middleware/auth.js';
 import {
   ensureGiftSalesTable,
   ensureMenuSalesTable,
-  ensureTicketPurchaseTables,
 } from '../services/ensure.js';
 import { sendTicketPurchaseEmail } from '../services/mailer.js';
 
@@ -41,40 +40,50 @@ export function registerOrderRoutes(router) {
       return;
     }
     await Promise.all([
-      ensureTicketPurchaseTables(),
       ensureMenuSalesTable(),
       ensureGiftSalesTable(),
     ]);
     const userId = ctx.authUser.id;
+    const userEmail = ctx.authUser.email || null;
     const now = new Date();
     const saleDate = now.toISOString().slice(0, 19).replace('T', ' ');
     const total = items.reduce((sum, item) => sum + item.price * item.qty, 0);
     for (const item of items) {
       const visitDate = normalizeVisitDate(item.meta);
-      await query(
-        'INSERT INTO ticket_purchase (user_id, item_name, item_type, quantity, price, visit_date, details, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        [
-          userId,
-          item.name,
-          item.kind,
-          item.qty,
-          item.price,
-          visitDate,
-          item.meta ? JSON.stringify(item.meta) : null,
-          now,
-        ],
-      );
       const numericId = Number(item.id);
       if (item.kind === 'food' && Number.isInteger(numericId) && numericId > 0) {
         await query(
-          'INSERT INTO menu_sales (menu_item_id, quantity, sale_date, price_each) VALUES (?, ?, ?, ?)',
-          [numericId, item.qty, saleDate, item.price],
+          'INSERT INTO menu_sales (menu_item_id, quantity, sale_date, price_each, UserID, CustomerEmail) VALUES (?, ?, ?, ?, ?, ?)',
+          [numericId, item.qty, saleDate, item.price, userId, userEmail],
         ).catch(() => {});
       }
       if (item.kind === 'gift' && Number.isInteger(numericId) && numericId > 0) {
         await query(
-          'INSERT INTO gift_sales (gift_item_id, quantity, sale_date, price_each) VALUES (?, ?, ?, ?)',
-          [numericId, item.qty, saleDate, item.price],
+          'INSERT INTO gift_sales (gift_item_id, quantity, sale_date, price_each, UserID, CustomerEmail) VALUES (?, ?, ?, ?, ?, ?)',
+          [numericId, item.qty, saleDate, item.price, userId, userEmail],
+        ).catch(() => {});
+      }
+      if (item.kind === 'ticket') {
+        for (let i = 0; i < item.qty; i += 1) {
+          await query(
+            'INSERT INTO ticket (TicketType, UserID, CustomerEmail, sale_date, Price, PurchaseDate, VisitDate) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [
+              item.name,
+              userId,
+              userEmail,
+              saleDate,
+              item.price,
+              saleDate.slice(0, 10),
+              visitDate,
+            ],
+          ).catch(() => {});
+        }
+      }
+      if (item.kind === 'parking') {
+        const lotId = Number.isInteger(numericId) && numericId > 0 ? numericId : null;
+        await query(
+          'INSERT INTO parking_sale (parking_lot_id, lot_name, quantity, sale_date, visit_date, UserID, CustomerEmail, price_each) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+          [lotId, item.name, item.qty, saleDate, visitDate, userId, userEmail, item.price],
         ).catch(() => {});
       }
     }
@@ -100,27 +109,62 @@ export function registerOrderRoutes(router) {
   }));
 
   router.get('/orders/me', requireRole(['customer'])(async ctx => {
-    await ensureTicketPurchaseTables();
-    const rows = await query(
-      `SELECT purchase_id, item_name, item_type, quantity, price, visit_date, details, created_at
-       FROM ticket_purchase
-       WHERE user_id = ?
-       ORDER BY created_at DESC
+    const userId = ctx.authUser.id;
+    const ticketRows = await query(
+      `SELECT TicketID AS id, 'ticket' AS kind, TicketType AS item_name, 1 AS quantity, Price AS price,
+              sale_date, VisitDate AS visit_date, NULL AS details
+       FROM ticket
+       WHERE UserID = ?
+       ORDER BY sale_date DESC
        LIMIT 200`,
-      [ctx.authUser.id],
+      [userId],
     ).catch(() => []);
-    ctx.ok({
-      data: rows.map(row => ({
-        purchase_id: row.purchase_id,
+    const foodRows = await query(
+      `SELECT SaleID AS id, 'food' AS kind, mi.name AS item_name, ms.quantity, ms.price_each AS price,
+              ms.sale_date, NULL AS visit_date, NULL AS details
+       FROM menu_sales ms
+       JOIN menu_item mi ON mi.item_id = ms.menu_item_id
+       WHERE ms.UserID = ?
+       ORDER BY ms.sale_date DESC
+       LIMIT 200`,
+      [userId],
+    ).catch(() => []);
+    const giftRows = await query(
+      `SELECT SaleID AS id, 'gift' AS kind, gi.name AS item_name, gs.quantity, gs.price_each AS price,
+              gs.sale_date, NULL AS visit_date, NULL AS details
+       FROM gift_sales gs
+       JOIN gift_item gi ON gi.item_id = gs.gift_item_id
+       WHERE gs.UserID = ?
+       ORDER BY gs.sale_date DESC
+       LIMIT 200`,
+      [userId],
+    ).catch(() => []);
+    const parkingRows = await query(
+      `SELECT SaleID AS id, 'parking' AS kind, COALESCE(pl.lot_name, ps.lot_name, 'Parking') AS item_name,
+              ps.quantity, ps.price_each AS price, ps.sale_date, ps.visit_date, NULL AS details
+       FROM parking_sale ps
+       LEFT JOIN parking_lot pl ON pl.parking_lot_id = ps.parking_lot_id
+       WHERE ps.UserID = ?
+       ORDER BY ps.sale_date DESC
+       LIMIT 200`,
+      [userId],
+    ).catch(() => []);
+
+    const combined = [...ticketRows, ...foodRows, ...giftRows, ...parkingRows]
+      .map(row => ({
+        purchase_id: row.id,
         item_name: row.item_name,
-        item_type: row.item_type,
-        quantity: row.quantity,
-        price: Number(row.price ?? 0),
+        item_type: row.kind,
+        quantity: Number(row.quantity || 0),
+        price: Number(row.price || 0),
         visit_date: row.visit_date,
-        details: typeof row.details === 'string' ? safeParse(row.details) : row.details,
-        created_at: row.created_at,
-      })),
-    });
+        details: row.details,
+        created_at: row.sale_date,
+      }))
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+      .slice(0, 200);
+
+    ctx.ok({ data: combined });
   }));
 }
 
