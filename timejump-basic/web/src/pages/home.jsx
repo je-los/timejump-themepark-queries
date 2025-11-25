@@ -30,7 +30,7 @@ const THEME_CARDS = [
     key: 'nova-crest',
     title: 'Nova-Crest',
     subtitle: 'Futuristic spectacles, zero-G simulators, and neon nights.',
-    href: '/things-to-do/theme/nova-crest-futuristic-zone',
+    href: '/things-to-do/theme/nova-crest-zone',
     gradient: 'from-cyan-500 via-blue-500 to-fuchsia-500',
     extraClass: 'home-theme-card--novacrest',
   },
