@@ -1,7 +1,12 @@
 import { query } from '../db.js';
 import { requireRole } from '../middleware/auth.js';
 import { CANCELLATION_REASON_FALLBACK } from '../services/constants.js';
-import { ensureGiftSalesTable, ensureMenuSalesTable, ensureTicketCatalogTable } from '../services/ensure.js';
+import {
+  ensureAttractionClosureNoteColumn,
+  ensureGiftSalesTable,
+  ensureMenuSalesTable,
+  ensureTicketCatalogTable,
+} from '../services/ensure.js';
 import { getISOWeek } from '../utils/calendar.js';
 import { toSlug, toTitle } from '../utils/strings.js';
 
@@ -114,6 +119,7 @@ export function registerReportRoutes(router) {
   }));
 
   router.get('/reports/cancellations', requireRole(['admin', 'owner'])(async ctx => {
+    await ensureAttractionClosureNoteColumn();
     const start = String(ctx.query.start || '').trim();
     const end = String(ctx.query.end || '').trim();
     const reasonsParam = String(ctx.query.reasons || '').trim();

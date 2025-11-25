@@ -81,6 +81,17 @@ function Planner() {
   const [confirmingClearId, setConfirmingClearId] = useState(null);
   const [clearingId, setClearingId] = useState(null);
 
+  const [editSchedule, setEditSchedule] = useState(null);
+  const [editForm, setEditForm] = useState({
+    employeeId: "",
+    attractionId: "",
+    shiftDate: "",
+    startTime: "",
+    endTime: "",
+  });
+  const [editBusy, setEditBusy] = useState(false);
+  const [editError, setEditError] = useState("");
+
   useEffect(() => {
     let active = true;
     async function load() {
@@ -176,19 +187,102 @@ function Planner() {
     });
   }, [schedules, filter]);
   function handleMods(schedule) {
-
-  
-    setForm({
+    setEditSchedule(schedule);
+    setEditForm({
       employeeId: schedule.employeeId ?? schedule.EmployeeID,
       attractionId: schedule.attractionId ?? schedule.AttractionID,
       shiftDate: schedule.shiftDate ?? schedule.date,
       startTime: schedule.startTime ?? schedule.StartTime,
       endTime: schedule.endTime ?? schedule.EndTime
     });
-
+    setEditBusy(false);
+    setEditError("");
     setOpenMenu(null);
+  }
+  async function handleEditSubmit(e) {
+    e.preventDefault();
+    if (!editSchedule || editBusy) return;
 
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    if (!editForm.employeeId || !editForm.attractionId || !editForm.shiftDate || 
+        !editForm.startTime || !editForm.endTime) {
+      setEditError("All fields are required.");
+      return;
+    }
+
+    const [yStr, mStr, dStr] = editForm.shiftDate.split("-");
+    const y = Number(yStr);
+    const m = Number(mStr) - 1;
+    const d = Number(dStr);
+  
+    const startParts = editForm.startTime.split(":");
+    const startHour = Number(startParts[0]);
+    const startMin = Number(startParts[1]);
+  
+    const endParts = editForm.endTime.split(":");
+    const endHour = Number(endParts[0]);
+    const endMin = Number(endParts[1]);
+  
+    const startTimeDate = new Date(y, m, d, startHour, startMin);
+    const endTimeDate = new Date(y, m, d, endHour, endMin);
+  
+    if (endTimeDate <= startTimeDate) {
+      setEditError("End time must be after start time.");
+      return;
+    }
+
+    const PARK_OPENING_HOUR = 10;
+    const PARK_CLOSING_HOUR = 20;
+
+    if (startHour < PARK_OPENING_HOUR || startHour >= PARK_CLOSING_HOUR) {
+      setEditError("Start time must be within park hours (10 AM - 8 PM).");
+      return;
+    }
+
+    if (endHour > PARK_CLOSING_HOUR) {
+      setEditError("End time must be within park hours (10 AM - 8 PM).");
+      return;
+    }
+
+    setEditBusy(true);
+    setEditError("");
+
+    try {
+      await api(`/schedules/${editSchedule.ScheduleID}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          employeeId: editForm.employeeId,
+          attractionId: editForm.attractionId,
+          shiftDate: editForm.shiftDate,
+          startTime: editForm.startTime,
+          endTime: editForm.endTime,
+        }),
+      });
+
+      AuthToast({
+        title: "Shift Updated",
+        message: `Shift #${editSchedule.ScheduleID} was updated successfully.`,
+      });
+
+      setEditSchedule(null);
+
+      const schedRes = await api("/schedules").catch((err) => {
+        if (err?.status === 403) return { data: [] };
+        throw err;
+      });
+      const scheduleRows = Array.isArray(schedRes?.data)
+        ? schedRes.data
+        : schedRes?.schedules || [];
+      setSchedules(
+        scheduleRows.filter(
+          (entry) => !(entry.is_completed ?? entry.isCompleted ?? false)
+        )
+      );
+    } catch (err) {
+      setEditError(err?.message || "Unable to update schedule.");
+    } finally {
+      setEditBusy(false);
+    }
   }
 
   async function handleDelete(schedule) {
@@ -1036,7 +1130,114 @@ function Planner() {
     </div>
   </div>
   )}
+
+  {editSchedule && (
+    <div className="modal-overlay" onClick={() => setEditSchedule(null)}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h3 style={{ margin: 0 }}>Edit Shift</h3>
+        </div>
+        <div className="modal-body">
+          <form onSubmit={handleEditSubmit} className="manager-form">
+            <div className="field">
+              <span>Employee</span>
+              <select
+                className="border rounded-xl p-2"
+                value={editForm.employeeId}
+                onChange={(e) => setEditForm((f) => ({ ...f, employeeId: e.target.value }))}
+                disabled={editBusy}
+              >
+                <option value="">Select employee...</option>
+                {employeeOptions.map((opt) => (
+                  <option key={opt.id} value={opt.id}>
+                    {opt.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="field">
+              <span>Attraction</span>
+              <select
+                className="border rounded-xl p-2"
+                value={editForm.attractionId}
+                onChange={(e) => setEditForm((f) => ({ ...f, attractionId: e.target.value }))}
+                disabled={editBusy}
+              >
+                <option value="">Select attraction...</option>
+                {attractionOptions.map((opt) => (
+                  <option key={opt.id} value={opt.id}>
+                    {opt.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="manager-form__row">
+              <label className="field" style={{ flex: 1, minWidth: 140 }}>
+                <span>Shift Date</span>
+                <input
+                  className="input"
+                  type="date"
+                  value={editForm.shiftDate}
+                  onChange={(e) => setEditForm((f) => ({ ...f, shiftDate: e.target.value }))}
+                  disabled={editBusy}
+                />
+              </label>
+
+              <label className="field" style={{ flex: 1, minWidth: 140 }}>
+                <span>Start Time</span>
+                <input
+                  className="input"
+                  type="time"
+                  value={editForm.startTime}
+                  onChange={(e) => setEditForm((f) => ({ ...f, startTime: e.target.value }))}
+                  disabled={editBusy}
+                />
+              </label>
+
+              <label className="field" style={{ flex: 1, minWidth: 140 }}>
+                <span>End Time</span>
+                <input
+                  className="input"
+                  type="time"
+                  value={editForm.endTime}
+                  onChange={(e) => setEditForm((f) => ({ ...f, endTime: e.target.value }))}
+                  disabled={editBusy}
+                />
+              </label>
+            </div>
+
+            {editError && (
+              <div className="alert error" style={{ marginTop: 12 }}>
+                {editError}
+              </div>
+            )}
+          </form>
+        </div>
+        <div className="modal-footer">
+          <div className="modal-actions">
+            <button
+              className="btn"
+              onClick={() => setEditSchedule(null)}
+              disabled={editBusy}
+            >
+              Cancel
+            </button>
+            <button
+              className="btn primary"
+              onClick={handleEditSubmit}
+              disabled={editBusy}
+            >
+              {editBusy ? "Saving..." : "Save Changes"}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
+  )}
+    </div>
+    
   );
 }
 

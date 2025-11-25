@@ -608,6 +608,54 @@ export function registerOperationsRoutes(router) {
     }
   }));
 
+  router.put('/schedules/:id', requireRole(['manager', 'admin', 'owner'])(async ctx => {
+    const scheduleId = Number(ctx.params?.id);
+    const employeeId = Number(pick(ctx.body, 'employeeId', 'EmployeeID'));
+    const attractionId = Number(pick(ctx.body, 'attractionId', 'AttractionID'));
+    const shiftDate = String(pick(ctx.body, 'shiftDate', 'Shift_date') || '').trim();
+    const startTime = String(pick(ctx.body, 'startTime', 'Start_time') || '').trim();
+    const endTime = String(pick(ctx.body, 'endTime', 'End_time') || '').trim();
+
+    if (!scheduleId) {
+      ctx.error(400, 'Valid schedule ID is required.');
+      return;
+    }
+
+    if (!employeeId || !attractionId || !shiftDate || !startTime || !endTime) {
+      ctx.error(400, 'All fields are required.');
+      return;
+    }
+
+    try {
+      const result = await query(
+        'UPDATE schedules SET EmployeeID = ?, AttractionID = ?, Shift_date = ?, Start_time = ?, End_time = ? WHERE ScheduleID = ?',
+        [employeeId, attractionId, shiftDate, startTime, endTime, scheduleId]
+      );
+
+      if (result.affectedRows === 0) {
+        ctx.error(404, 'Schedule not found.');
+        return;
+      }
+
+      ctx.ok({
+        data: {
+          ScheduleID: scheduleId,
+          EmployeeID: employeeId,
+          AttractionID: attractionId,
+          Shift_date: shiftDate,
+          Start_time: startTime,
+          End_time: endTime,
+        },
+      });
+    } catch (err) {
+      if (err?.code === 'ER_SIGNAL_EXCEPTION' || (err?.message && err.message.includes('overlap'))) {
+        ctx.error(409, 'Employee already has a shift during this timeframe.');
+        return;
+      }
+      throw err;
+    }
+  }));
+
   router.delete('/schedules/:id', requireRole(['manager'])(async ctx => {
     const scheduleId = Number(ctx.params.id);
 
@@ -759,7 +807,6 @@ export function registerOperationsRoutes(router) {
       employeeIdToLog = scheduleInfo?.EmployeeID || null;
     }
 
-    // If no employee found, use a default or handle error
     if (!employeeIdToLog) {
       ctx.error(400, 'Unable to determine employee for this log entry.');
       return;
