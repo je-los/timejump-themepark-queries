@@ -14,6 +14,8 @@ async function addColumnOnce(key, sql) {
       'ER_TABLE_EXISTS_ERROR',
       'ER_TABLEACCESS_DENIED_ERROR',
       'ER_DBACCESS_DENIED_ERROR',
+      'ER_LOCK_DEADLOCK',
+      'ER_LOCK_WAIT_TIMEOUT',
     ];
     if (!err?.code || !toleratedCodes.includes(err.code)) {
       throw err;
