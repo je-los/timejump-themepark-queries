@@ -585,17 +585,24 @@
 }
 .rides-highlight__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 18px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 320px));
+  justify-content: flex-start;
+  justify-items: stretch;
+  gap: 14px;
 }
 .ride-feature-card {
   background: #fff;
   border: 1px solid #e2e8f0;
-  border-radius: 24px;
-  padding: 20px;
+  border-radius: 16px;
+  padding: 16px;
   display: grid;
-  gap: 12px;
-  box-shadow: 0 20px 40px -32px rgba(15, 23, 42, 0.35);
+  gap: 10px;
+  box-shadow: 0 16px 32px -28px rgba(15, 23, 42, 0.3);
+  max-width: 340px;
+}
+.ride-feature-card--featured {
+  border-color: #1d4ed8;
+  box-shadow: 0 24px 48px -28px rgba(37, 99, 235, 0.45);
 }
 .ride-feature-card__stat-label{
   display:block;
@@ -607,10 +614,10 @@
 }
 .ride-feature-card__image{
   width:100%;
-  border-radius:18px;
+  border-radius:12px;
   background-size:cover;
   background-position:center;
-  aspect-ratio:16/9;
+  aspect-ratio:4/3;
 }
 .table-image-cell{display:flex;align-items:center;gap:8px;max-width:320px;}
 .table-image-cell__thumb{width:42px;height:42px;border-radius:10px;overflow:hidden;flex-shrink:0;background:#e2e8f0;}
@@ -640,16 +647,42 @@
   padding:4px 10px;
   font-weight:600;
 }
+.ride-feature-card__badge {
+  background: #1d4ed8;
+  color: #fff;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-weight: 700;
+  font-size: .75rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 10px 20px -12px rgba(37, 99, 235, .55);
+}
+.ride-feature-card__badge-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #e0f2fe;
+  color: #0f172a;
+  font-size: .7rem;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  vertical-align: middle;
+}
 .ride-feature-card h3 {
   margin: 0;
-  font-size: 1.3rem;
+  font-size: 1.1rem;
   color: #0f172a;
 }
 .ride-feature-card p {
   margin: 0;
   color: #475569;
-  font-size: .95rem;
-  min-height: 48px;
+  font-size: .9rem;
+  min-height: 36px;
 }
 .ride-feature-card__cta{
   font-size:.85rem;
@@ -683,14 +716,14 @@
 }
 .ride-feature-card__stats {
   display: flex;
-  gap: 16px;
+  gap: 12px;
   flex-wrap: wrap;
-  font-size: .85rem;
+  font-size: .8rem;
   color: #475569;
 }
 .ride-feature-card__stats strong {
   display: block;
-  font-size: 1.1rem;
+  font-size: 1rem;
   color: #0f172a;
 }
 

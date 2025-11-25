@@ -163,12 +163,137 @@ export async function findThemeBySlug(slug) {
 }
 
 export async function listFeaturedRideRefs(limit = 6) {
+  try {
+    await ensureAttractionImageColumn();
+    await ensureAttractionExperienceColumns();
+    await ensureAttractionClosureNoteColumn();
+  } catch (err) {
+    console.warn('[featured] ensure columns skipped:', err?.message || err);
+  }
+
   const safeLimit = Number.isFinite(Number(limit)) && Number(limit) > 0 ? Number(limit) : 6;
-  const rows = await query(
-    'SELECT AttractionID, flagged_at FROM featured_rides ORDER BY flagged_at DESC LIMIT ?',
+  let rows = await query(
+    `
+      SELECT fr.AttractionID,
+             fr.flagged_at,
+             a.Name,
+             a.AttractionTypeID,
+             at.TypeName,
+             at.Description AS typeDescription,
+             a.ThemeID,
+             t.themeName,
+             a.Capacity,
+             a.image_url,
+             a.experience_level,
+             a.target_audience,
+             ac.StatusID AS closure_status_id,
+             cs.StatusName AS closure_status_name,
+             cs.Description AS closure_status_description,
+             NULL AS closure_note,
+             mr.RecordID AS maintenance_record_id,
+             mr.Description_of_work AS maintenance_description
+      FROM featured_rides fr
+      JOIN attraction a ON a.AttractionID = fr.AttractionID AND a.isDeleted = 0
+      LEFT JOIN theme t ON t.themeID = a.ThemeID AND t.isDeleted = 0
+      LEFT JOIN attraction_type at ON at.AttractionTypeID = a.AttractionTypeID AND at.isDeleted = 0
+      LEFT JOIN attraction_closure ac
+        ON ac.ClosureID = (
+          SELECT ac2.ClosureID
+          FROM attraction_closure ac2
+          WHERE ac2.AttractionID = a.AttractionID
+            AND ac2.StartsAt <= NOW()
+            AND (ac2.EndsAt IS NULL OR ac2.EndsAt >= NOW())
+          ORDER BY ac2.StartsAt DESC
+          LIMIT 1
+        )
+      LEFT JOIN cancellation_status cs ON cs.StatusID = ac.StatusID
+      LEFT JOIN maintenance_records mr
+        ON mr.RecordID = (
+          SELECT mr2.RecordID
+          FROM maintenance_records mr2
+          WHERE mr2.AttractionID = a.AttractionID
+            AND mr2.Date_broken_down <= CURRENT_DATE()
+            AND (mr2.Date_fixed IS NULL OR mr2.Date_fixed > CURRENT_DATE())
+          ORDER BY (mr2.Date_fixed IS NULL) DESC, mr2.Date_broken_down DESC
+          LIMIT 1
+        )
+      ORDER BY fr.flagged_at DESC
+      LIMIT ?
+    `,
     [safeLimit],
   ).catch(() => []);
-  return Array.isArray(rows) ? rows : [];
+
+  // Fallback to a simpler query if the detailed join fails
+  if (!Array.isArray(rows) || !rows.length) {
+    rows = await query(
+      `
+        SELECT fr.AttractionID,
+               fr.flagged_at,
+               a.Name,
+               a.AttractionTypeID,
+               at.TypeName,
+               at.Description AS typeDescription,
+               a.ThemeID,
+               t.themeName,
+               a.Capacity,
+               a.image_url,
+               a.experience_level,
+               a.target_audience,
+               NULL AS closure_status_id,
+               NULL AS closure_status_name,
+               NULL AS closure_status_description,
+               NULL AS closure_note,
+               NULL AS maintenance_record_id,
+               NULL AS maintenance_description
+        FROM featured_rides fr
+        JOIN attraction a ON a.AttractionID = fr.AttractionID AND a.isDeleted = 0
+        LEFT JOIN attraction_type at ON at.AttractionTypeID = a.AttractionTypeID AND at.isDeleted = 0
+        LEFT JOIN theme t ON t.themeID = a.ThemeID AND t.isDeleted = 0
+        ORDER BY fr.flagged_at DESC
+        LIMIT ?
+      `,
+      [safeLimit],
+    ).catch(() => []);
+  }
+
+  // Last-resort fallback: just return IDs/timestamps if even the simple query failed
+  if (!Array.isArray(rows) || !rows.length) {
+    rows = await query(
+      `
+        SELECT fr.AttractionID,
+               fr.flagged_at,
+               a.Name,
+               a.AttractionTypeID,
+               at.TypeName,
+               at.Description AS typeDescription,
+               a.ThemeID,
+               t.themeName,
+               a.Capacity,
+               a.image_url,
+               a.experience_level,
+               a.target_audience,
+               NULL AS closure_status_id,
+               NULL AS closure_status_name,
+               NULL AS closure_status_description,
+               NULL AS closure_note,
+               NULL AS maintenance_record_id,
+               NULL AS maintenance_description
+        FROM featured_rides fr
+        JOIN attraction a ON a.AttractionID = fr.AttractionID
+        LEFT JOIN attraction_type at ON at.AttractionTypeID = a.AttractionTypeID
+        LEFT JOIN theme t ON t.themeID = a.ThemeID
+        ORDER BY fr.flagged_at DESC
+        LIMIT ?
+      `,
+      [safeLimit],
+    ).catch(() => []);
+  }
+
+  if (!Array.isArray(rows) || !rows.length) return [];
+  return rows.map(row => ({
+    ...normalizeRide(row),
+    flagged_at: row.flagged_at,
+  }));
 }
 
 export function rideForecast(ride) {
