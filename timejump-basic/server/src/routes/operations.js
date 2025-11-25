@@ -807,7 +807,6 @@ export function registerOperationsRoutes(router) {
       employeeIdToLog = scheduleInfo?.EmployeeID || null;
     }
 
-    // If no employee found, use a default or handle error
     if (!employeeIdToLog) {
       ctx.error(400, 'Unable to determine employee for this log entry.');
       return;
